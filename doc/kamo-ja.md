@@ -1,7 +1,7 @@
 #KAMO
 ## 概要
 *KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system*は，（高分子）単結晶X線回折データの自動処理＆マージのために開発中のプログラムです．
-基本的に[XDS package](xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能（になる予定）です．
+基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能（になる予定）です．
 現在のところ，small wedgeデータ(5-10°/結晶)の自動処理・マージを主眼に開発しています．
 
 SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
@@ -9,19 +9,14 @@ SPring-8でのオンラインデータ解析のために設計されています
 本マニュアルは2015-11-26現在のものです．
 
 ### 依存プログラム・ライブラリ
-以下のプログラム・ライブラリがインストール済みである必要があります．
+以下のプログラム・ライブラリを使用しています．
 
-* [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib]() (動作上必須)
+* [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (動作上必須)
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/) (動作上必須)
-* [XDS](xds.mpimf-heidelberg.mpg.de)
+* [XDS](http://xds.mpimf-heidelberg.mpg.de)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless)
 * [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要)
 * [DIALS](https://dials.github.io/) (完全には未対応)
-
-### 導入方法
-上記の依存プログラム・ライブラリをすべて揃えたうえで，cctbxの1モジュールとしてyamtbx/を配置し，libtbx/configure.pyを実行する際に引数にyamtbxを加えてビルドすれば動きます．
-
-KAMOに関しては今のところすべてPythonコードしか無いので，たとえばPHENIXの環境に無理やり組み込んでも動くと思います．
 
 
 ### 注意
@@ -74,7 +69,7 @@ KAMOはまだ発展途上のプログラムです．インタフェース面や�
 ```
 
 ### GUIの説明
-テーブルのカラムについて
+テーブルのカラムの説明は以下のとおりです．カラムをクリックすることでソートできます．
 
 カラム名 | 説明
 ------------ | -------------
@@ -98,7 +93,6 @@ Resn. | 分解能リミットの推定値 (small_wedges=trueの時はピーク�
 5. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(**indexing ambiguityの自動解消が未実装なので，Reindex operatorが存在する場合はご相談ください**)
 6. ターミナルで指示された場所に移動し，スクリプトを修正・実行する．
 スクリプト(merge_blend.sh)は以下のようになっている
-
 ```
 # settings
 dmin=2.8 # resolution
@@ -162,3 +156,9 @@ XSCALE.LPの統計値からbad datasetを検出する(`reject_method=lpstats`)�
 
 #### scaling referenceの選定
 主に，最終的なOverall B-factorに影響を及ぼします．XSCALEでは最初に書いたINPUT_FILE=がリファレンスになる仕様ですが，KAMOのデフォルトでは`xscale.reference=bmin`になっており，*B*が最も小さい，つまり（XSCALEでは）最も分解能に対するfall-offが小さい（高分解能まで強度が出ている）ものをリファレンスにします．
+
+
+## FAQ
+### kamo.multi_merge
+#### 精密化に使うためのデータはどこ？
+ccp4/xscale.mtzを使って下さい．ccp4/は最終のマージサイクルのディレクトリ(通常はrun_03/)以下にあります．
