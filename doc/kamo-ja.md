@@ -6,7 +6,7 @@
 
 SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
 
-本マニュアルは2015-11-26現在のものです．
+本マニュアルは2015-12-4現在のものです．
 
 ### 依存プログラム・ライブラリ
 以下のプログラム・ライブラリを使用しています．
@@ -28,13 +28,15 @@ KAMOはまだ発展途上のプログラムです．インタフェース面や�
 ### GUIの起動
 起動した場所の下（サブディレクトリを含む）にあるデータを処理します．
 
+特定のサブディレクトリのみを対象にしたいときは，`include_dir=hoge-1111-\*`という感じでディレクトリ名を指定する(複数指定可)か，あるいは対象ディレクトリ名が書かれたリストファイルを与えます．
+
 * 例1: BL32XUでsmall wedge
 
 	kamo bl=32xu
 * 例2: BL41XUで通常(1 or 数結晶でコンプリート)データ測定
 
-	kamo bl=41xu small_wedges=false (注: small_wedges=trueの場合，スケーリングが行われない)
-* 例3: BL32XUでZoo (自動データ収集)
+	kamo bl=41xu small_wedges=false
+* 例3: BL32XUでZoo (自動データ収集)を使ったとき
 
 	kamo bl=32xu mode=zoo
 * 例4: ローカルにあるデータを処理（ディレクトリを直接探索．上記の場合はBSSのログからデータセットの場所を探索）
@@ -90,7 +92,7 @@ Resn. | 分解能リミットの推定値 (small_wedges=trueの時はピーク�
 2. 同じ格子（reindexも考慮して同じ格子になるもの）がグループ化され，データセットの数でソートされる
 3. マージするグループと対称性を選ぶ．対称性は，一番頻度の高いものがデフォルトで入力されているが，既知の場合はそれを入れる．
 4. Runボタンを押し，ターミナル画面を見る．指定した対称性と異なる対称で処理されたデータを，指定した対称で処理しなおしている
-5. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(**indexing ambiguityの自動解消が未実装なので，Reindex operatorが存在する場合はご相談ください**)
+5. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(`kamo.resolve_indexing_ambiguity`を使って解決できます)
 6. ターミナルで指示された場所に移動し，スクリプトを修正・実行する．
 スクリプト(merge_blend.sh)は以下のようになっている
 ```
@@ -104,9 +106,9 @@ kamo.multi_merge \
     lstin=formerge.lst d_min=${dmin} anomalous=${anomalous} \
     program=xscale xscale.reference=bmin \
     reject_method=framecc+lpstats rejection.lpstats.stats=em.b \
-    clustering=blend blend.min_cmpl=90 blend.max_LCV=None blend.max_aLCV=None
+    clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None
 ```
-7. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．最終結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
+7. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．最終結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
 8. 処理完了後，作業ディレクトリ(blend_*/)以下のcluster_summary.datを見ると全最終結果の統計値を一望できる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
 
 
@@ -129,10 +131,13 @@ XDSを使って処理を行う．基本的にgenerate_XDS.INPと同じ内容のX
 
 対称性の判断は，まずINTEGRATE.HKLに対してpointlessを実行し，次にXDS_ASCII.HKLに対しても実行する．両者で判断が一致しない場合，ISaが大きい方を採用する．
 
-`small_wedges=true`のときは，CORRECTで経験的補正を行わないので注意（つまりスケーリングを行いません；対称反射の数が少なすぎるため）．この場合ISaも常に50になるが，error modelがrefineされてないためで，意味は無い．
+高分解能カットオフはユーザが決めるべきとの立場を取るが，あまりにノイズの多い高角をスケーリングに含めると結果が適切にならないため，細かく切ったシェルでCC1/2が0.5を下回るところで分解能を切り，そのスケール結果をXDS_ASCII.HKL/CORRECT.LPとしている(GUIにはその結果が表示される)．分解能を切ってないXDS_ASCII_fullres.HKL/CORRECT_fullres.LPは別に保存される．
+
+`small_wedges=true`のときは，CORRECTで経験的補正を行わない（つまりスケーリングを行わない；対称反射の数が少なすぎるため）バージョンの出力も作成(XDS_ASCII.HKL_noscale)し，マージの際にはそれが使われる．XDS_ASCII.HKL/XDS_ASCII_fullres.HKLの方は通常どおりスケーリング済みのものになっている．
+
 
 ### 複数結晶に由来するデータのマージ (kamo.multi_merge)
-種々のオプションがありますが，基本的な流れは以下のとおり．
+種々のオプションがありますが，基本的な流れは以下のとおりです．
 
 1. 格子定数またはデータ間相関係数を用いて階層的クラスタリングを行い，見つかった各クラスタに対してマージを試みる．
 2. 対象ファイルをXSCALEを使ってスケール＆マージ (run_01)
