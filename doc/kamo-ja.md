@@ -90,7 +90,7 @@ Resn. | 分解能リミットの推定値 (small_wedges=trueの時はピーク�
 ### Small wedgeデータのマージ
 1. マージ対象のデータにチェックを入れ（失敗してるものを含んでもエラーにはなりません），`Multi merge strategy`のボタンを押し，少し待つ
 2. 同じ格子（reindexも考慮して同じ格子になるもの）がグループ化され，データセットの数でソートされる
-3. マージするグループと対称性を選ぶ．対称性は，一番頻度の高いものがデフォルトで入力されているが，既知の場合はそれを入れる．
+3. マージするグループと対称性を選ぶ．対称性は，一番頻度の高いものがデフォルトで選択されているが，既知の場合はそれを選ぶ．
 4. Runボタンを押し，ターミナル画面を見る．指定した対称性と異なる対称で処理されたデータを，指定した対称で処理しなおしている
 5. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(`kamo.resolve_indexing_ambiguity`を使って解決できます)
 6. ターミナルで指示された場所に移動し，スクリプトを修正・実行する．
@@ -110,6 +110,22 @@ kamo.multi_merge \
 ```
 7. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．最終結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
 8. 処理完了後，作業ディレクトリ(blend_*/)以下のcluster_summary.datを見ると全最終結果の統計値を一望できる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
+
+### index ambiguityの解消 (kamo.resolve_indexing_ambiguity)
+*P*6や*P*4など，あるいは*P*2でも&beta;~90&deg;の場合など，格子の対称性が空間群の対称性よりも高い場合，index ambiguityが生じます．複数の結晶を用いる場合，これを揃えておかなければなりません．
+
+この作業は，上記のマージの前に行う必要があります．ただし，上記の作業中でReindex operatorが表示されなかったときは必要ありません．
+
+```
+kamo.resolve_indexing_ambiguity formerge.lst
+```
+とすると，必要に応じてreindexを行い，formerge_reindexed.lstを出力します．
+kamo.multi_mergeの際には`lstin=formerge_reindexed.lst`を指定して下さい．
+
+デフォルトは`method=selective_breeding`で，Kabschによる["Selective Breeding"アルゴリズム](http://dx.doi.org/10.1107/S1399004714013534)を使用します．これはReferenceデータを必要としません．同じくRefererenceデータを必要としない`method=brehm_diederichs` ([Algorithm 2 in Brehm and Diederichs paper](http://dx.doi.org/10.1107/S1399004713025431))も選択可能です．
+
+Referenceデータに合わせたい場合は，`method=reference`を選択し，`reference_file=`にReferenceのMTZファイルを与えてください．
+
 
 
 ## KAMOは内部で何をやるのか
@@ -135,6 +151,15 @@ XDSを使って処理を行う．基本的にgenerate_XDS.INPと同じ内容のX
 
 `small_wedges=true`のときは，CORRECTで経験的補正を行わない（つまりスケーリングを行わない；対称反射の数が少なすぎるため）バージョンの出力も作成(XDS_ASCII.HKL_noscale)し，マージの際にはそれが使われる．XDS_ASCII.HKL/XDS_ASCII_fullres.HKLの方は通常どおりスケーリング済みのものになっている．
 
+### マージの準備 (kamoの"Multi-merge strategy"ボタン)
+以下の処理が行われます．
+
+1. 選択されたデータを，*P*1の格子でお互いに比較し，等価なものであるかどうかを調べる
+2. 等価なもの同士を繋いでいき，グループ分けを行う
+3. 各グループごとに，格子対称(格子定数から許される最大の対称性)を調べ，そのサブグループを選択可能な対称性として列挙する
+4. 各wedgeごとに推定された対称性の頻度も表示する
+5. ユーザがグループ番号と対称性を選択すると，各ファイル(XDS_ASCII.HKL_noscale)をその対称性の格子に変換する(reindexおよび格子定数の変換を行う)．
+6. Index ambiguityが存在するかどうかを調べ，存在する場合はユーザに通知する．
 
 ### 複数結晶に由来するデータのマージ (kamo.multi_merge)
 種々のオプションがありますが，基本的な流れは以下のとおりです．
