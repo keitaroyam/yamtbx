@@ -6,7 +6,7 @@
 
 SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
 
-本マニュアルは2015-12-4現在のものです．
+本マニュアルは2015-12-10現在のものです．
 
 ### 依存プログラム・ライブラリ
 以下のプログラム・ライブラリを使用しています．
@@ -15,7 +15,7 @@ SPring-8でのオンラインデータ解析のために設計されています
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/) (動作上必須)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless)
-* [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要)
+* [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
 * [DIALS](https://dials.github.io/) (完全には未対応)
 
 
@@ -109,7 +109,7 @@ kamo.multi_merge \
     clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None
 ```
 7. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．最終結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
-8. 処理完了後，作業ディレクトリ(blend_*/)以下のcluster_summary.datを見ると全最終結果の統計値を一望できる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
+8. 処理完了後，作業ディレクトリ(blend_*/)以下のcluster_summary.datを見ると全最終結果の統計値を一望できる．あるいは，report.htmlをブラウザで表示すれば更に詳しい結果を見ることができる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
 
 ### index ambiguityの解消 (kamo.resolve_indexing_ambiguity)
 *P*6や*P*4など，あるいは*P*2でも&beta;~90&deg;の場合など，格子の対称性が空間群の対称性よりも高い場合，index ambiguityが生じます．複数の結晶を用いる場合，これを揃えておかなければなりません．
@@ -172,7 +172,7 @@ XDSを使って処理を行う．基本的にgenerate_XDS.INPと同じ内容のX
 #### データのクラスタリング
 BLENDまたはデータセット間CCを用いたクラスタリングが可能です．BLENDについては本家のマニュアル・論文を参照のこと．
 
-`clustering=cc`とすると，CCを用いたクラスタリングを利用できます．
+`clustering=cc`とすると，CCを用いたクラスタリングを利用できます．さらに，`cc_clustering.b_scale=`でWilson-Bによるスケーリングを行うかどうか，`cc_clustering.use_normalized=`で規格化構造因子を用いるかどうかを選択できます(true/false)．
 `cc_clustering.d_min=`でCCの計算に使用する分解能リミットを制限できます．今のところ単純にRのhclust()関数を使っており，他のすべてのデータと共通反射を持つデータしかクラスタリングに用いることができないため，対称性の低い結晶の場合での使用は現実的ではありません．
 
 #### bad frameの検出
@@ -189,6 +189,20 @@ XSCALE.LPの統計値からbad datasetを検出する(`reject_method=lpstats`)�
 
 
 ## FAQ
+### KAMO
+#### ヘッダが間違っているので正しい値を与えたい
+該当イメージが存在するディレクトリに，`kamo_override.config`というファイルを用意すると，処理開始時にそこから情報を読んで使用します．以下の例のように書いて下さい．上書きする必要の無い情報は書かないで下さい．
+
+```
+wavelength= 1
+distance= 100
+orgx= 2500
+orgy= 2500
+osc_range= 0.1
+rotation_axis= -1 0 0
+```
+
 ### kamo.multi_merge
 #### 精密化に使うためのデータはどこ？
 ccp4/xscale.mtzを使って下さい．ccp4/は最終のマージサイクルのディレクトリ(通常はrun_03/)以下にあります．
+
