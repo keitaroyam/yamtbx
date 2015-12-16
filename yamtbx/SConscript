@@ -1,0 +1,54 @@
+import libtbx.load_env
+import os
+Import("env_base", "env_etc")
+
+env_etc.yamtbx_dist = libtbx.env.dist_path("yamtbx")
+
+parent_src = env_etc.norm_join(env_etc.yamtbx_dist,"..")
+env_etc.yamtbx_common_includes = [
+  env_etc.libtbx_include,
+  env_etc.scitbx_include,
+  env_etc.iotbx_include,
+  os.path.dirname(env_etc.yamtbx_dist),
+  env_etc.boost_adaptbx_include,
+  env_etc.boost_include,
+]
+
+env = env_base.Clone(
+  SHLINKFLAGS=env_etc.shlinkflags)
+if (libtbx.manual_date_stamp < 20090819):
+  # XXX backward compatibility 2009-08-19
+  env.Replace(CXXFLAGS=env_etc.cxxflags_base)
+  env.Replace(SHCXXFLAGS=env_etc.cxxflags_base)
+env_etc.include_registry.append(
+  env=env,
+  paths=env_etc.yamtbx_common_includes)
+
+boost_libs = "#"+os.path.join(os.path.basename(env_etc.boost_dist), "libs")
+lib_yamtbx_sources = [
+  "boost_python/utils_ext.cpp",
+]
+
+if (not env_etc.no_boost_python):
+  Import("env_no_includes_boost_python_ext")
+
+  env_yamtbx_boost_python_ext = env_no_includes_boost_python_ext.Clone()
+  env_yamtbx_boost_python_ext.Prepend(LIBS=[ "scitbx_boost_python"])
+  env_etc.include_registry.append(
+    env=env_yamtbx_boost_python_ext,
+    paths=env_etc.yamtbx_common_includes + [env_etc.python_include])
+  Export("env_yamtbx_boost_python_ext")
+  env_yamtbx_boost_python_ext.SharedLibrary(
+    target="#lib/yamtbx_utils_ext",
+    source=lib_yamtbx_sources)
+
+
+
+#Note regarding the libtbx_config file:
+# rule of thumb for classifying dependencies.  If the package has
+# .py files needed at run time, put it in for_use.  If package is
+# built entirely at compile time, put it in for_build
+
+SConscript("dataproc/SConscript")
+SConscript("dataproc/crystfel/boost_python/SConscript")
+

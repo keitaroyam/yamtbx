@@ -1,0 +1,4 @@
+{
+  "modules_required_for_use": ["iotbx","cctbx", "mmtbx"],
+  "modules_required_for_build": [],
+}
