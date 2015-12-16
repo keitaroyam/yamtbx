@@ -14,7 +14,8 @@ SPring-8でのオンラインデータ解析のために設計されています
 * [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (動作上必須)
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/) (動作上必須)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de)
-* [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless)
+* [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
+* [PHENIX](http://www.phenix-online.org) (phenix.xtriage)
 * [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
 * [DIALS](https://dials.github.io/) (完全には未対応)
 
@@ -206,3 +207,23 @@ rotation_axis= -1 0 0
 #### 精密化に使うためのデータはどこ？
 ccp4/xscale.mtzを使って下さい．ccp4/は最終のマージサイクルのディレクトリ(通常はrun_03/)以下にあります．
 
+## ローカル環境での使用方法
+### インストール
+1. [INSTALL.md](../INSTALL.md)に従って環境構築を行って下さい
+2. [依存関係](#依存プログラムライブラリ)をすべて導入します (R, CCP4, Phenix, XDS)
+
+
+### 起動
+基本的には上記と一緒ですが，
+
+```
+kamo bl=other log_root=~/kamo-log/ [batch.sge_pe_name=par]
+```
+
+のように，`log_root=`に書き込み権限のあるディレクトリを指定して下さい．
+また，SGEのparallel environment (qsub -pe の後に書く文字列)を上記のように指定して下さい(デフォルト: par)．SGEの環境が無く，ローカルコンピュータのみで動かすときは，
+
+```
+kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
+```
+として，同時に動かす最大ジョブ数を指定して下さい．
