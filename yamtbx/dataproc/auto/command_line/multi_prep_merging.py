@@ -111,10 +111,11 @@ def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_
                                           ("INCLUDE_RESOLUTION_RANGE", "50 0"),
                                           ("CORRECTIONS", ""),
                                           ("NBATCH", "1"),
-                                          ("MINIMUM_I/SIGMA", "50"),
-                                          ("REFINE(CORRECT)", "")])
+                                          ("MINIMUM_I/SIGMA", None), # use default
+                                          ("REFINE(CORRECT)", None), # use default
+                                          ])
         run_xds(wd)
-        for f in ("CORRECT.LP", "XDS_ASCII.HKL", "GXPARM.XDS"):
+        for f in ("XDS.INP", "CORRECT.LP", "XDS_ASCII.HKL", "GXPARM.XDS"):
             if os.path.exists(os.path.join(wd, f)):
                 shutil.copyfile(os.path.join(wd, f), os.path.join(wd, f+"_rescale"))
 

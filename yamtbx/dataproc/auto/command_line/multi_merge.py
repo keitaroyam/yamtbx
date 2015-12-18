@@ -223,25 +223,33 @@ def merge_datasets(params, workdir, xds_files, cells, batchjobs):
                 #print >>out, "ISa=%5.1f" % correctlp.get_ISa(os.path.join(os.path.dirname(f), "CORRECT.LP")),
                 print >>out, "Cmpl=%3.0f%%, Resn= %.1f" % (cmpl, resn)
 
+        ret = []
+        tkvals = lambda x: (x[-1], x[0], x[-2]) # overall, inner, outer
+
+        for i in xrange(1, cycles.get_last_cycle_number()+1):
+            wd = os.path.join(workdir, "run_%.2d"%i)
+            xscale_lp = os.path.join(wd, "XSCALE.LP")
+            table = xscalelp.read_stats_table(xscale_lp)
+            num_files = len(xscalelp.get_read_data(xscale_lp))
+            xtriage_logfile = os.path.join(wd, "ccp4", "logfile.log")
+            ret.append([i, wd, num_files,
+                        dict(cmpl=tkvals(table["cmpl"]),
+                             redundancy=tkvals(table["redundancy"]),
+                             i_over_sigma=tkvals(table["i_over_sigma"]),
+                             r_meas=tkvals(table["r_meas"]),
+                             cc_half=tkvals(table["cc_half"]),
+                             sig_ano=tkvals(table["sig_ano"]),
+                             cc_ano=tkvals(table["cc_ano"]),
+                             drange=tkvals(table["d_range"]),
+                             lp=xscale_lp,
+                             xtriage_log=xtriage.XtriageLogfile(xtriage_logfile))
+                        ])
+
         xscale_lp = os.path.join(cycles.current_working_dir(), "XSCALE.LP")
         print >>out, "\nFinal statistics:\n"
         print >>out, xscalelp.snip_stats_table(xscale_lp)
 
-        xtriage_logfile = os.path.join(cycles.current_working_dir(), "ccp4", "logfile.log")
-
-        # Write summary
-        table = xscalelp.read_stats_table(xscale_lp)
-        tkvals = lambda x: (x[-1], x[0], x[-2]) # overall, inner, outer
-        return used_files, dict(cmpl=tkvals(table["cmpl"]),
-                                redundancy=tkvals(table["redundancy"]),
-                                i_over_sigma=tkvals(table["i_over_sigma"]),
-                                r_meas=tkvals(table["r_meas"]),
-                                cc_half=tkvals(table["cc_half"]),
-                                sig_ano=tkvals(table["sig_ano"]),
-                                cc_ano=tkvals(table["cc_ano"]),
-                                drange=tkvals(table["d_range"]),
-                                lp=xscale_lp,
-                                xtriage_log=xtriage.XtriageLogfile(xtriage_logfile))
+        return ret
 
     elif params.program == "aimless":
         worker = Pointless()
@@ -304,13 +312,14 @@ def merge_datasets(params, workdir, xds_files, cells, batchjobs):
         table = aimless.read_summary(aimless_log)
 
         tkvals = lambda x: (x[0], x[1], x[2]) # overall, inner, outer
-        return used_files, dict(cmpl=tkvals(table["cmpl"]),
-                                redundancy=tkvals(table["redundancy"]),
-                                i_over_sigma=tkvals(table["i_over_sigma"]),
-                                r_meas=tkvals(table["r_meas"]),
-                                cc_half=tkvals(table["cc_half"]),
-                                sig_ano=(float("nan"),)*3,
-                                cc_ano=tkvals(table["cc_ano"]))
+        return [[cycles.get_last_cycle_number(), cycles.current_working_dir(), len(used_files),
+                dict(cmpl=tkvals(table["cmpl"]),
+                     redundancy=tkvals(table["redundancy"]),
+                     i_over_sigma=tkvals(table["i_over_sigma"]),
+                     r_meas=tkvals(table["r_meas"]),
+                     cc_half=tkvals(table["cc_half"]),
+                     sig_ano=(float("nan"),)*3,
+                     cc_ano=tkvals(table["cc_ano"]))], ]
 
         #print >>out, "\nRunning aimless"
         #aimless.run_aimless(mtzin="pointless.mtz",
@@ -319,7 +328,7 @@ def merge_datasets(params, workdir, xds_files, cells, batchjobs):
 
     else:
         print >>out, "Unknown program:", params.program
-        return None, None
+        return []
 # merge_datasets()
 
 def run(params):
@@ -465,14 +474,14 @@ def run(params):
     ofs_summary = open(os.path.join(params.workdir, "cluster_summary.dat"), "w")
     ofs_summary.write("# d_min= %.3f A\n" % (params.d_min if params.d_min is not None else float("nan")))
     ofs_summary.write("# LCV and aLCV are values of all data\n")
-    ofs_summary.write("     cluster  ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in\n")
+    ofs_summary.write("     cluster  ClH   LCV aLCV run ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso  \n")
 
     out.flush()
 
-    def write_ofs_summary(workdir, clh, LCV, aLCV, xds_files, used_files, stats):
-        tmps = "%12s %5.2f %4.1f %4.1f %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f\n"
-        ofs_summary.write(tmps % (os.path.relpath(workdir, params.workdir), clh, LCV, aLCV,
-                                  len(xds_files), len(used_files),
+    def write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats):
+        tmps = "%12s %5.2f %4.1f %4.1f %3d %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %7.1e\n"
+        ofs_summary.write(tmps % (os.path.relpath(workdir, params.workdir), clh, LCV, aLCV, cycle,
+                                  len(xds_files), num_files,
                                   stats["cmpl"][0],
                                   stats["redundancy"][0],
                                   stats["i_over_sigma"][0],
@@ -489,7 +498,9 @@ def run(params):
                                   stats["r_meas"][1],
                                   stats["cc_half"][1],
                                   stats["sig_ano"][1],
-                                  stats["cc_ano"][1]
+                                  stats["cc_ano"][1],
+                                  stats["xtriage_log"].wilson_b,
+                                  stats["xtriage_log"].anisotropy,
                                   ))
         ofs_summary.flush()
     # write_ofs_summary()
@@ -517,30 +528,33 @@ pickle.dump(ret, open("result.pkl","w")); \
         batchjobs.wait_all(jobs)
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             try:
-                used_files, stats = pickle.load(open(os.path.join(workdir, "result.pkl")))
+                results = pickle.load(open(os.path.join(workdir, "result.pkl")))
             except:
                 print >>out, "Error in unpickling result in %s" % workdir
                 print >>out, traceback.format_exc()
-                used_files, stats = None, None
+                results = []
 
-            if None in (used_files, stats):
+            if len(results) == 0:
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))
-            else:
-                write_ofs_summary(workdir, clh, LCV, aLCV, xds_files, used_files, stats)
-                try: html_report.add_merge_result(workdir, clh, LCV, aLCV, xds_files, used_files, stats)
-                except: print >>out, traceback.format_exc()
+            for cycle, wd, num_files, stats in results:
+                write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats)
+
+            try: html_report.add_merge_result(workdir, clh, LCV, aLCV, xds_files, results[-1][2], results[-1][3])
+            except: print >>out, traceback.format_exc()
     else:
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             print >>out, "Merging %s..." % os.path.relpath(workdir, params.workdir)
             out.flush()
-            used_files, stats = merge_datasets(params, workdir, xds_files, cells, batchjobs)
-
-            if None in (used_files, stats):
+            results = merge_datasets(params, workdir, xds_files, cells, batchjobs)
+            
+            if len(results) == 0:
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))
-            else:
-                write_ofs_summary(workdir, clh, LCV, aLCV, xds_files, used_files, stats)
-                try: html_report.add_merge_result(workdir, clh, LCV, aLCV, xds_files, used_files, stats)
-                except: print >>out, traceback.format_exc()
+
+            for cycle, wd, num_files, stats in results:
+                write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats)
+
+            try: html_report.add_merge_result(workdir, clh, LCV, aLCV, xds_files, results[-1][2], results[-1][3])
+            except: print >>out, traceback.format_exc()
 
     try: html_report.write_html()
     except: print >>out, traceback.format_exc()

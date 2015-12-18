@@ -85,6 +85,8 @@ OUTPUT_FILE= xscale.hkl
         return new_wd
     # request_next_workdir()
 
+    def get_last_cycle_number(self): return self._counter
+
     def request_file_modify(self, filename):
         relp = os.path.relpath(filename, self.all_data_root)
         newpath = os.path.join(self.workdir_org, "files", relp)
@@ -132,9 +134,11 @@ OUTPUT_FILE= xscale.hkl
         else:
             self.run_cycle(xds_ascii_files)
 
-        xds2mtz.xds2mtz(xds_file=os.path.abspath(os.path.join(self.workdir, "xscale.hkl")),
-                        dir_name=os.path.join(self.workdir, "ccp4"),
-                        run_xtriage=True, run_ctruncate=True)
+        for i in xrange(1, self.get_last_cycle_number()+1):
+            wd = os.path.join(self.workdir_org, "run_%.2d"%i)
+            xds2mtz.xds2mtz(xds_file=os.path.abspath(os.path.join(wd, "xscale.hkl")),
+                            dir_name=os.path.join(wd, "ccp4"),
+                            run_xtriage=True, run_ctruncate=True)
 
         return self.removed_files, self.removed_reason
     # run_cycles()

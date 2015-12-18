@@ -51,6 +51,8 @@ class AimlessCycles:
         return new_wd
     # request_next_workdir()
 
+    def get_last_cycle_number(self): return self._counter
+
     def average_cells(self, files):
         cells = []
         sg = None

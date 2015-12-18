@@ -532,13 +532,13 @@ function mouseouted(d) {
 """ % dict(axis_opts_x="\n".join(axis_opts_x), axis_opts_y="\n".join(axis_opts_y), data="%s")
     # _make_merge_plot_framework()
 
-    def add_merge_result(self, workdir, clh, LCV, aLCV, xds_files, used_files, stats):
+    def add_merge_result(self, workdir, clh, LCV, aLCV, xds_files, num_files, stats):
         axis_opts = "cls ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso".split()
 
         cls = os.path.relpath(workdir, self.params.workdir)
         tmps = "%12s %5.2f %4.1f %4.1f %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %.1e"
         tmps = tmps % (cls, clh, LCV, aLCV,
-                       len(xds_files), len(used_files),
+                       len(xds_files), num_files,
                        stats["cmpl"][0],
                        stats["redundancy"][0],
                        stats["i_over_sigma"][0],

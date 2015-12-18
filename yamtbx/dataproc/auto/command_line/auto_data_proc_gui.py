@@ -143,10 +143,6 @@ xds {
 }
 
 merging {
- change_symm = *reindex rescale
-  .type = choice(multi=False)
-  .help = When changing symmetry, just reindex or rescale (run CORRECT)?
-
  cell_grouping {
   tol_length = None
    .type = float
@@ -852,7 +848,17 @@ class MultiPrepDialog(wx.Dialog):
         hbox1.Add(self.btnCancel)
         vbox.Add(hbox1)
 
-        self.selected = (None, None, None)
+        hbox2 = wx.BoxSizer(wx.HORIZONTAL)
+        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, "Determine cell-dimensions in specified symmetry by "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+
+        self.rbReindex = wx.RadioButton(mpanel, wx.ID_ANY, "reindexing only", style=wx.RB_GROUP)
+        self.rbReindex.SetValue(True)
+        self.rbPostref = wx.RadioButton(mpanel, wx.ID_ANY, "post-refinement")
+        hbox2.Add(self.rbReindex)
+        hbox2.Add(self.rbPostref)
+        vbox.Add(hbox2)
+
+        self.selected = (None, None, None, None)
         self.cm = cm
         self._set_default_input()
     # __init__()
@@ -902,7 +908,7 @@ class MultiPrepDialog(wx.Dialog):
                              "Error", style=wx.OK).ShowModal()
             return
 
-        self.selected = group, symmidx, workdir
+        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine"
         self.Hide()
     # btnProceed_click()
 
@@ -1099,7 +1105,7 @@ class ControlPanel(wx.Panel):
             return
         
         mpd = MultiPrepDialog(cm=cm)
-        group, symmidx, workdir = mpd.ask(sio.getvalue())
+        group, symmidx, workdir, cell_method = mpd.ask(sio.getvalue())
 
         if None in (group,symmidx):
             mylog.info("Canceled")
@@ -1125,12 +1131,12 @@ class ControlPanel(wx.Panel):
         mylog.info("group choice: %d, symmetry choice: %s (%s)" % (group, reference_symm.space_group_info(),
                                                                    format_unit_cell(reference_symm.unit_cell())))
 
-        if config.params.merging.change_symm == "reindex":
+        if cell_method == "reindex":
             cell_and_files = reindex_with_specified_symm(topdir, reference_symm, dirs, out=prep_log_out)
-        elif config.params.merging.change_symm == "rescale":
+        elif cell_method == "postrefine":
             cell_and_files, reference_symm = rescale_with_specified_symm(topdir, dirs, symms, reference_symm=reference_symm, out=prep_log_out)
         else:
-            raise "Don't know this choice in merging.change_symm: %s" % config.params.merging.change_symm
+            raise "Don't know this choice: %s" % cell_method
 
         prep_log_out.flush()
 

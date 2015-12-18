@@ -6,7 +6,7 @@
 
 SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
 
-本マニュアルは2015-12-10現在のものです．
+本マニュアルは2015-12-18現在のものです．
 
 ### 依存プログラム・ライブラリ
 以下のプログラム・ライブラリを使用しています．
@@ -15,7 +15,6 @@ SPring-8でのオンラインデータ解析のために設計されています
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/) (動作上必須)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
-* [PHENIX](http://www.phenix-online.org) (phenix.xtriage)
 * [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
 * [DIALS](https://dials.github.io/) (完全には未対応)
 
@@ -92,9 +91,9 @@ Resn. | 分解能リミットの推定値 (small_wedges=trueの時はピーク�
 1. マージ対象のデータにチェックを入れ（失敗してるものを含んでもエラーにはなりません），`Multi merge strategy`のボタンを押し，少し待つ
 2. 同じ格子（reindexも考慮して同じ格子になるもの）がグループ化され，データセットの数でソートされる
 3. マージするグループと対称性を選ぶ．対称性は，一番頻度の高いものがデフォルトで選択されているが，既知の場合はそれを選ぶ．
-4. Runボタンを押し，ターミナル画面を見る．指定した対称性と異なる対称で処理されたデータを，指定した対称で処理しなおしている
-5. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(`kamo.resolve_indexing_ambiguity`を使って解決できます)
-6. ターミナルで指示された場所に移動し，スクリプトを修正・実行する．
+5. Proceedボタンを押し，ターミナル画面を見る．指定した対称性と異なる対称で処理されたデータを，指定した対称で処理しなおしている
+6. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(`kamo.resolve_indexing_ambiguity`を使って解決できます)
+7. ターミナルで指示された場所に移動し，スクリプトを修正・実行する．
 スクリプト(merge_blend.sh)は以下のようになっている
 ```
 # settings
@@ -109,8 +108,8 @@ kamo.multi_merge \
     reject_method=framecc+lpstats rejection.lpstats.stats=em.b \
     clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None
 ```
-7. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．最終結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
-8. 処理完了後，作業ディレクトリ(blend_*/)以下のcluster_summary.datを見ると全最終結果の統計値を一望できる．あるいは，report.htmlをブラウザで表示すれば更に詳しい結果を見ることができる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
+8. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．最終結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
+9. 処理完了後，作業ディレクトリ(blend_*/)以下のreport.htmlをブラウザで表示すれば全最終結果の統計値を一望できる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
 
 ### index ambiguityの解消 (kamo.resolve_indexing_ambiguity)
 *P*6や*P*4など，あるいは*P*2でも&beta;~90&deg;の場合など，格子の対称性が空間群の対称性よりも高い場合，index ambiguityが生じます．複数の結晶を用いる場合，これを揃えておかなければなりません．
@@ -191,6 +190,20 @@ XSCALE.LPの統計値からbad datasetを検出する(`reject_method=lpstats`)�
 
 ## FAQ
 ### KAMO
+##### チェックボックスを1つ1つチェックしていくのが面倒
+全部にチェックを入れたいときは"Check all"ボタンを押すと，全部にチェックが入ります．
+また，1つチェックを入れて，Shiftキーを押しながらもう1つにチェックを入れると，間にあるもの全てにチェックが入ります．
+
+#### 格子定数が既知なのでそれを使って欲しい
+KAMOを起動するときに，たとえば
+
+```
+kamo known.unit_cell=10,20,30,90,90,90 known.space_group=p222
+```
+という形で格子定数を与えることができます（必ずspace_groupとセットで与えてください）．
+格子定数は指数付けの時の事前情報として使われ，また，一致しない場合はデータ処理が行われません．
+この方法だと全処理対象に対して同じ格子定数を用いますので，複数種類のデータがあるときは気をつけて下さい．
+
 #### ヘッダが間違っているので正しい値を与えたい
 該当イメージが存在するディレクトリに，`kamo_override.config`というファイルを用意すると，処理開始時にそこから情報を読んで使用します．以下の例のように書いて下さい．上書きする必要の無い情報は書かないで下さい．
 
@@ -227,3 +240,5 @@ kamo bl=other log_root=~/kamo-log/ [batch.sge_pe_name=par]
 kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ```
 として，同時に動かす最大ジョブ数を指定して下さい．
+
+また，reverse-phiでは無いビームライン(SPring-8以外のビームラインは大体該当)では，`reverse_phi=false`を必ず指定して下さい．縦置きゴニオなどには未対応です．

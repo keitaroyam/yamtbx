@@ -140,6 +140,13 @@ class CheckMulti:
                     cbop = obj.allowed_xtal_syms[0][1]
                     trans_cell = avg_cell.change_basis(cbop)
 
+                    # Transform to best cell
+                    fbc = crystal.find_best_cell(crystal.symmetry(trans_cell, space_group_info=pg,
+                                                                  assert_is_compatible_unit_cell=False))
+                    cbop = fbc.cb_op() * cbop
+                    trans_cell = trans_cell.change_basis(fbc.cb_op())
+                    #print "debug:: op-to-best-cell=", fbc.cb_op()
+
                     # If beta<90 in monoclinic system, force it to have beta>90
                     if pg.group().crystal_system() == "Monoclinic" and trans_cell.parameters()[4] < 90:
                         op = sgtbx.change_of_basis_op("-h,-k,l")

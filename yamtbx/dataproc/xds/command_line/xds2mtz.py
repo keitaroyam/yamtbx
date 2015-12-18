@@ -20,9 +20,26 @@ With -t option, ctruncate is used for converting I to F.
 """
 
 import sys, os, optparse, subprocess, re
+import traceback
 from yamtbx.util import mtzutil
 from yamtbx.util import call
 from yamtbx.dataproc.xds import re_xds_kwd
+
+def run_xtriage_in_module_if_possible(args,  wdir):
+    try:
+        from mmtbx.scaling import xtriage
+        cwd_org = os.getcwd()
+        try:
+            os.chdir(wdir)
+            xtriage.run(args, command_name="mmtbx.xtriage")
+        except:
+            print traceback.format_exc()
+        finally:
+            os.chdir(cwd_org)
+    except ImportError:
+        call("phenix.xtriage", arg=" ".join(args),
+             stdin=None, stdout=sys.stdout, wdir=wdir)
+# run_xtriage()
 
 def unique(mtzin, mtzout, wdir, logout):
     ##
@@ -447,8 +464,7 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
                        dmin=dmin, dmax=dmax)
         if run_xtriage:
             print "Running xtriage.."
-            call("phenix.xtriage", arg=hklout,
-                 stdin=None, stdout=sys.stdout, wdir=dir_name)
+            run_xtriage_in_module_if_possible(args=[hklout], wdir=dir_name)
 
     else:
         print xds_file, "is anomalous dataset."
@@ -462,8 +478,8 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
                      dmin=dmin, dmax=dmax)
         if run_xtriage:
             print "Running xtriage.."
-            call("phenix.xtriage", arg=hklout + ' input.xray_data.obs_labels="I(+),SIGI(+),I(-),SIGI(-)"',
-                 stdin=None, stdout=sys.stdout, wdir=dir_name)
+            run_xtriage_in_module_if_possible(args=[hklout, 'input.xray_data.obs_labels="I(+),SIGI(+),I(-),SIGI(-)"'],
+                        wdir=dir_name)
 
 # xds2mtz()
 
