@@ -9,6 +9,7 @@ import numpy
 import os
 from libtbx import easy_mp
 from yamtbx.dataproc.XIO import XIO
+from yamtbx.util import read_path_list
 
 def make_geom(f, geom_out):
     h, junk = read_image(f, read_data=False)
@@ -87,6 +88,9 @@ def run_each(f):
 # run_each()
 
 def run(opts, files):
+    if len(files) == 1 and files[0].endswith(".lst"):
+        files = read_path_list(files[0])
+
     make_geom(files[0], os.path.basename(files[0])+".geom")
     
     easy_mp.pool_map(fixed_func=run_each,
