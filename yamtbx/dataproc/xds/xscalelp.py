@@ -153,6 +153,19 @@ def get_rfactors_for_each(lpin):
     return ret
 # get_rfactors_for_each()
 
+def snip_symm_and_cell(lpin):
+    s = ""
+    read_flag = False
+    for l in open(lpin):
+        if "THE DATA COLLECTION STATISTICS REPORTED BELOW ASSUMES:" in l:
+            read_flag = True
+        elif read_flag:
+            s += l
+            if "UNIT_CELL_CONSTANTS=" in l: break
+
+    return s
+# snip_symm_and_cell()
+
 def snip_stats_table(lpin):
     s = ""
     read_flag = False

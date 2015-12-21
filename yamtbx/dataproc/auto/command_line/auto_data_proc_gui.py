@@ -1076,6 +1076,11 @@ class ControlPanel(wx.Panel):
         keys = filter(lambda k: bssjobs.get_process_status(k)[0]=="finished", keys)
         mylog.info("%d finished jobs selected for merging" % len(keys))
 
+        if len(keys) == 0:
+            wx.MessageDialog(None, "No successfully finished job in the selection",
+                             "Error", style=wx.OK).ShowModal()
+            return
+
         xdsdirs = map(lambda k: bssjobs.get_xds_workdir(k), keys)
 
         # Check cell consistency
@@ -1172,37 +1177,43 @@ class ControlPanel(wx.Panel):
         ofs_lst.close()
 
         open(os.path.join(workdir, "merge_blend.sh"), "w").write("""\
+#!/bin/sh
 # settings
 dmin=2.8 # resolution
 anomalous=false # true or false
+lstin=formerge.lst # list of XDS_ASCII.HKL files
 # _______/setting
 
 export PATH=/oys/xtal/xds/old_versions/ver_Jun17_2015/XDS-INTEL64_Linux_x86_64:$PATH
 kamo.multi_merge \\
         workdir=blend_${dmin}A_framecc_b \\
-        lstin=formerge.lst d_min=${dmin} anomalous=${anomalous} \\
+        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
         program=xscale xscale.reference=bmin \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
 #        batch.par_run=merging batch.nproc_each=8 nproc=8
 """)
+        os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
         open(os.path.join(workdir, "merge_ccc.sh"), "w").write("""\
+#!/bin/sh
 # settings
 dmin=2.8 # resolution
 clustering_dmin=3.5  # resolution for CC calculation
 anomalous=false # true or false
+lstin=formerge.lst # list of XDS_ASCII.HKL files
 # _______/setting
 
 export PATH=/oys/xtal/xds/old_versions/ver_Jun17_2015/XDS-INTEL64_Linux_x86_64:$PATH
 kamo.multi_merge \\
         workdir=ccc_${dmin}A_framecc_b \\
-        lstin=formerge.lst d_min=${dmin} anomalous=${anomalous} \\
+        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
         program=xscale xscale.reference=bmin \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
         cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
 #        batch.par_run=merging batch.nproc_each=8 nproc=8
 """)
+        os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
 
         open(os.path.join(workdir, "filter_cell.R"), "w").write("""\
 cells <- read.table("cells.dat", h=T)

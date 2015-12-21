@@ -567,7 +567,8 @@ function mouseouted(d) {
         tmps = "".join(map(lambda x: "<td>%s</td>"%x, tmps.split()))
         idno = len(self.html_merge_results)
         if self.params.program == "xscale":
-            table_snip = xscalelp.snip_stats_table(stats["lp"])
+            table_snip = xscalelp.snip_symm_and_cell(stats["lp"]) + "\n"
+            table_snip += xscalelp.snip_stats_table(stats["lp"])
         else:
             table_snip = ""
         tmps2 = """ <tr><td onClick="toggle_show2(this, 'merge-td-%d');" id="merge-td-mark-%d"">&#x25bc;</td>%s</tr>\n""" %(idno,idno,tmps)
