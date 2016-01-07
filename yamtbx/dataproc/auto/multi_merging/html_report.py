@@ -32,6 +32,8 @@ class HtmlReportMulti:
 <script src="%(amcharts_root)s/amcharts.js" charset="utf-8"></script>
 <script src="%(amcharts_root)s/serial.js" charset="utf-8"></script>
 <script src="%(amcharts_root)s/xy.js" charset="utf-8"></script>
+<script src="js/d3.min.js"></script>
+<script src="js/index.js"></script>
 
 <script>
   var toggle_show = function(obj_id) {
@@ -92,10 +94,12 @@ class HtmlReportMulti:
     color: #ffffff;
 }
 
-#.cells tr.alt td {
-#    color: #000000;
-#    background-color: #EAF2D3;
-#}
+/*
+.cells tr.alt td {
+    color: #000000;
+    background-color: #EAF2D3;
+}
+*/
 
 .merge tr:nth-child(4n+3),
 .merge tr:nth-child(4n),
@@ -157,6 +161,23 @@ class HtmlReportMulti:
   stroke: #2ca02c;
 }
 
+/* Histogram */
+.bar rect {
+  fill: steelblue; 
+  shape-rendering: crispEdges;
+}
+
+.bar text {
+  font: 10px sans-serif;
+  fill: #fff;
+}
+
+.axis path, .axis line {
+  fill: none;
+  stroke: #000;
+  shape-rendering: crispEdges;
+}
+
 </style>
 </head>
 <body>
@@ -171,6 +192,7 @@ created on %(cdate)s
         self.html_params = ""
         self.html_inputfiles = ""
         self.html_clustering = ""
+        self._html_clustering_details = ""
         self.html_merge_results = []
         self.html_merge_plot_data = []
         self.params = None
@@ -337,11 +359,11 @@ created on %(cdate)s
         else:
             self.html_clustering = "<h2>Cell-based clustering by BLEND</h2>"
 
+        self.html_clustering += self._html_clustering_details
+
         self.html_clustering += """
 <a href="%(method)s/tree.png">See original cluster dendrogram</a>
 <div id="tree-svg-div">
-<script src="js/d3.min.js"></script>
-<script src="js/index.js"></script>
 <script type="application/json" id="treedata">%(treedata)s</script>
 <script>
   
@@ -440,6 +462,176 @@ function mouseouted(d) {
            header=header, data=data, method=method)
         self.write_html()
     # add_clutering_result()
+
+    def add_cc_clustering_details(self, cc_data):
+        """
+        cc_data = [(i,j,cc,nref),...]
+        """
+
+        ccvalues = ",".join(map(lambda x: "%.4f"%x[2], filter(lambda y: y[2]==y[2], cc_data)))
+        ccdata = ",".join(map(lambda x: "{i:%d,j:%d,cc:%.4f,n:%d}"%(x[0]+1,x[1]+1,x[2],x[3]),
+                              cc_data))
+        ccdata = ccdata.replace("nan", "NaN")
+        ncols = max(map(lambda x: max(x[0],x[1]), cc_data)) + 1
+
+        # Histogram
+        self._html_clustering_details = """
+<div id="cchist"></div>
+<script>
+// Reference: http://bl.ocks.org/mbostock/3048450
+var ccvalues = [%(ccvalues)s];
+var margin = {top: 10, right: 30, bottom: 30, left: 30},
+    width = 800 - margin.left - margin.right,
+    height = 400 - margin.top - margin.bottom;
+
+var x = d3.scale.linear()
+    .domain([-1., 1.])
+    .range([0, width]);
+
+// Generate a histogram using twenty uniformly-spaced bins.
+var data = d3.layout.histogram()
+    .bins(x.ticks(30)).range([-1.,1.])
+    (ccvalues);
+
+var y = d3.scale.linear()
+    .domain([0, d3.max(data, function(d) { return d.y; })])
+    .range([height, 0]);
+var xAxis = d3.svg.axis()
+    .scale(x)
+    .orient("bottom");
+
+var svg = d3.select("#cchist").append("svg")
+    .attr("width", width + margin.left + margin.right)
+    .attr("height", height + margin.top + margin.bottom)
+  .append("g")
+    .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+var bar = svg.selectAll(".bar")
+    .data(data)
+  .enter().append("g")
+    .attr("class", "bar")
+    .attr("transform", function(d) { return "translate(" + x(d.x) + "," + y(d.y) + ")"; });
+
+bar.append("rect")
+    .attr("x", 1)
+    .attr("width", x(-1+data[0].dx) - 1)
+    .attr("height", function(d) { return height - y(d.y); });
+
+bar.append("text")
+    .attr("dy", ".75em")
+    .attr("y", 6)
+    .attr("x", x(-1+data[0].dx) / 2)
+    .attr("text-anchor", "middle")
+    .text(function(d) { return d3.format(",.0f")(d.y); });
+svg.append("g")
+    .attr("class", "x axis")
+    .attr("transform", "translate(0," + height + ")")
+    .call(xAxis)
+    .append('text')
+     .text("CC")
+     .attr('transform','translate('+(width+10)+',0)');
+</script>
+""" % dict(ccvalues=ccvalues)
+
+    # Matrix heatmap
+        self._html_clustering_details += """
+<div id="ccheatmap"></div>
+<script>
+  // Reference: Day / Hour Heatmap http://bl.ocks.org/tjdecke/5558084
+  //            Days-Hours Heatmap http://bl.ocks.org/oyyd/859fafc8122977a3afd6
+  //            Method: Hierarchical clustering with SciPy and visualization in D3.js http://blog.nextgenetics.net/?e=44
+  var ccdata = [%(ccdata)s];
+  var ncols = %(ncols)d;
+  var margin = { top: 50, right: 0, bottom: 100, left: 30 },
+      width = 800 - margin.left - margin.right,
+      height = 800 - margin.top - margin.bottom,
+      gridSize = Math.floor(width / ncols);
+
+  var svg = d3.select("#ccheatmap").append("svg")
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform", "translate(" + margin.left + "," + margin.top + ")");
+
+  //define a color scale using the min and max expression values
+  var colorScale = d3.scale.linear()
+        .domain([-1, 0, 1])
+        .range(["blue", "white", "red"]); // ['#f6faaa','#FEE08B','#FDAE61','#F46D43','#D53E4F','#9E0142']
+
+  var cards = svg.selectAll(".i")
+        .data(ccdata);
+
+  // http://stackoverflow.com/questions/17776641/fill-rect-with-pattern
+  svg
+    .append('defs')
+    .append('pattern')
+      .attr('id', 'diagonalHatch')
+      .attr('patternUnits', 'userSpaceOnUse')
+      //.attr('width', gridSize)
+      .attr('width', 4)
+      //.attr('height', gridSize)
+      .attr('height', 4)
+    .append('path')
+      //.attr('d', 'M0,'+gridSize+' l'+gridSize+',-'+gridSize)
+      .attr('d', 'M0,4 l4,-4')
+      .attr('stroke', '#000000')
+      .attr('stroke-width', 1);
+
+  cards.enter().append("rect")
+      .attr('width',gridSize)
+      .attr('height',gridSize)
+      .attr('x', function(d) {
+            return (d.i * gridSize);// + 25;
+           })
+      .attr('y', function(d) {
+            return (d.j * gridSize);// + 50;
+           })
+      .style('fill',function(d) {
+            return d.cc==d.cc ? colorScale(d.cc) : 'url(#diagonalHatch)';
+           });
+
+  var xAxis = d3.svg.axis()
+        .orient('top')
+        .ticks(10),
+      yAxis = d3.svg.axis()
+        .orient('left')
+        .ticks(10);
+
+  //render axises
+  xAxis.scale(d3.scale.linear().range([0,width]).domain([0, ncols-1]));
+  yAxis.scale(d3.scale.linear().range([0,width]).domain([0, ncols-1]));
+  svg.append('g')
+    .attr('class','x axis')
+    .call(xAxis);
+
+  svg.append('g')
+    .attr('class','y axis')
+    .call(yAxis);
+
+  var tipmat = d3.tip()
+       .attr('class', 'd3-tip')
+       .offset([-10, 100]);
+  svg.call(tipmat);
+
+   cards
+       .on('mouseover', function(d) {
+            d3.select(this)
+               .attr('stroke-width',1)
+               .attr('stroke','black')
+
+            tipmat.html(d.i + ' vs ' + d.j +' (nref: ' + d.n + ')<br />' + 'CC= ' + d.cc + '<br />');
+            tipmat.show();
+      })
+      .on('mouseout', function(d,i,j) {
+         d3.select(this)
+            .attr('stroke-width',0)
+            .attr('stroke','none')
+         tipmat.hide();
+      });
+</script>
+
+""" % dict(ccdata=ccdata, ncols=ncols)
+    # add_cc_clustering_details()
 
     def _make_merge_table_framework(self):
         return """

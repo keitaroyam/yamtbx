@@ -49,7 +49,7 @@ class CCClustering:
         open(os.path.join(self.wdir, "filenames.lst"), "w").write("\n".join(xac_files))
     # __init__()
 
-    def do_clustering(self, nproc=1, b_scale=False, use_normalized=False):
+    def do_clustering(self, nproc=1, b_scale=False, use_normalized=False, html_maker=None):
         self.clusters = {}
         prefix = os.path.join(self.wdir, "cctable")
         assert (b_scale, use_normalized).count(True) <= 1
@@ -101,11 +101,16 @@ class CCClustering:
         # Check NaN and decide which data to remove
         idx_bad = {}
         nans = []
+        cc_data_for_html = []
         for (i,j), (cc,nref) in zip(args, results):
+            cc_data_for_html.append((i,j,cc,nref))
             if cc==cc: continue
             idx_bad[i] = idx_bad.get(i, 0) + 1
             idx_bad[j] = idx_bad.get(j, 0) + 1
             nans.append([i,j])
+
+        if html_maker is not None:
+            html_maker.add_cc_clustering_details(cc_data_for_html)
 
         idx_bad = idx_bad.items()
         idx_bad.sort(key=lambda x:x[1])

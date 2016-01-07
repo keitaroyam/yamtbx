@@ -379,6 +379,39 @@ OUTPUT_FILE= xscale.hkl
 
                 print >>self.out, " %4d error model b outliers (<%.2f, >%.2f) removed"% (count, lowlim, highlim)
 
+            if "em.ab" in self.reject_params.lpstats.stats:
+                iqrc = self.reject_params.lpstats.iqr_coeff
+                print >>self.out, "Rejections based on error model a*b outliers (%.2f*IQR)" % iqrc
+                vals = numpy.array(map(lambda x:x[0]*x[1], xscalelp.get_ISa(xscale_lp)))
+                q25, q75 = numpy.percentile(vals, [25, 75])
+                iqr = q75 - q25
+                lowlim, highlim = q25 - iqrc*iqr, q75 + iqrc*iqr
+                count = 0
+                for i, ab in enumerate(vals):
+                    if ab < lowlim or ab > highlim:
+                        remove_idxes.append(i)
+                        remove_reasons.setdefault(i, []).append("bad_em.ab")
+                        count += 1
+
+                print >>self.out, " %4d error model a*b outliers (<%.2f, >%.2f) removed"% (count, lowlim, highlim)
+
+            if "rfactor" in self.reject_params.lpstats.stats:
+                iqrc = self.reject_params.lpstats.iqr_coeff
+                print >>self.out, "Rejections based on R-factor outliers (%.2f*IQR)" % iqrc
+                rstats = xscalelp.get_rfactors_for_each(xscale_lp)
+                vals = numpy.array(map(lambda x:rstats[x][-1][1], rstats)) # Read total R-factor
+                q25, q75 = numpy.percentile(vals, [25, 75])
+                iqr = q75 - q25
+                lowlim, highlim = q25 - iqrc*iqr, q75 + iqrc*iqr
+                count = 0
+                for i, v in enumerate(vals):
+                    if v < lowlim or v > highlim:
+                        remove_idxes.append(i)
+                        remove_reasons.setdefault(i, []).append("bad_R")
+                        count += 1
+
+                print >>self.out, " %4d R-factor outliers (<%.2f, >%.2f) removed"% (count, lowlim, highlim)
+
             if "pairwise_cc" in self.reject_params.lpstats.stats:
                 corrs = xscalelp.get_pairwise_correlations(xscale_lp)
                 if self.reject_params.lpstats.pwcc.method == "tukey":

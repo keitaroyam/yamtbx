@@ -83,7 +83,7 @@ rejection {
    .type = float
  }
  lpstats {
-  stats = *em.b pairwise_cc bfactor
+  stats = *em.b em.ab pairwise_cc bfactor rfactor
    .type = choice(multi=True)
   iqr_coeff = 1.5
    .type = float
@@ -441,7 +441,8 @@ def run(params):
 
         cc_clusters.do_clustering(nproc=params.cc_clustering.nproc,
                                   b_scale=params.cc_clustering.b_scale,
-                                  use_normalized=params.cc_clustering.use_normalized)
+                                  use_normalized=params.cc_clustering.use_normalized,
+                                  html_maker=html_report)
         summary_out = os.path.join(ccc_wdir, "cc_cluster_summary.dat")
         clusters = cc_clusters.show_cluster_summary(d_min=params.d_min, out=open(summary_out, "w"))
         print >>out, "Clusters were summarized in %s" % summary_out
@@ -469,7 +470,8 @@ def run(params):
         except: print >>out, traceback.format_exc()
         
     else:
-        data_for_merge.append((params.workdir, xds_ascii_files, float("nan"), float("nan")))
+        data_for_merge.append((os.path.join(params.workdir, "all_data"),
+                               xds_ascii_files, float("nan"), float("nan"), 0))
 
     ofs_summary = open(os.path.join(params.workdir, "cluster_summary.dat"), "w")
     ofs_summary.write("# d_min= %.3f A\n" % (params.d_min if params.d_min is not None else float("nan")))
