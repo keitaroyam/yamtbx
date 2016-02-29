@@ -221,10 +221,21 @@ rotation_axis= -1 0 0
 run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*のうち一番数字が大きいディレクトリが最終サイクルです．
 
 ## ローカル環境での使用方法
-### インストール
-1. [INSTALL.md](../INSTALL.md)に従って環境構築を行って下さい
-2. [依存関係](#依存プログラムライブラリ)をすべて導入します (R, CCP4, XDS)
+まず，[依存関係](#依存プログラムライブラリ)をすべて導入してください (R, CCP4, XDS)．
 
+次に，[INSTALL.md](../INSTALL.md)に従って環境構築を行いますが，難しければ，以下のPHENIXを使った方法が簡単です．
+
+### PHENIXを利用した環境構築
+1. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
+2. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
+```
+cd $HOME
+git clone https://github.com/keitaroyam/yamtbx.git
+cd $PHENIX/modules
+ln -s ~/yamtbx/yamtbx .
+cd ../build
+libtbx.configure yamtbx
+```
 
 ### 起動
 基本的には上記と一緒ですが，
