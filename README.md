@@ -4,6 +4,11 @@ This is my crystallographic toolbox. This may contain some useful codes for you,
 Most of python scripts or C++ programs in yamtbx/ are designed to work with [CCTBX](http://cctbx.sourceforge.net/).
 For installation, please read [INSTALL.md](INSTALL.md).
 
+### Documents
+
+* KAMO (Automatic data processing) [Japanese](doc/kamo-ja.md) [English](doc/kamo-en.md)
+* SHIKA (Spotfinder with GUI) [Japanese](doc/shika-ja.md) [English](doc/shika-en.md)
+
 ### Acknowledgements
 
 These packages are included as a part of yamtbx.

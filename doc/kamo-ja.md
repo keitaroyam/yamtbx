@@ -226,8 +226,13 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 次に，[INSTALL.md](../INSTALL.md)に従って環境構築を行いますが，難しければ，以下のPHENIXを使った方法が簡単です．
 
 ### PHENIXを利用した環境構築
-1. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
-2. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
+1. CCP4, R (rjson packageも含め), XDSをインストールする
+2. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
+3. networkxをphenix.pythonから使えるようにする
+   1. https://pypi.python.org/packages/source/n/networkx/networkx-1.11.tar.gz をダウンロード
+   2. `tar xvf networkx-1.11.tar.gz`
+   3. `cd networkx-1.11; phenix.python setup.py install`
+4. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
 ```
 cd $HOME
 git clone https://github.com/keitaroyam/yamtbx.git
