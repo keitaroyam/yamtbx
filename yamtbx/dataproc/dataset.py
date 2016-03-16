@@ -7,7 +7,7 @@ This software is released under the new BSD License; see LICENSE.
 import os, glob, re
 from yamtbx.dataproc import XIO
 
-IMG_EXTENSIONS = ".img", ".osc", ".cbf", ".mccd", ".mar1600"
+IMG_EXTENSIONS = ".img", ".osc", ".cbf", ".mccd", ".mar1600", "_master.h5"
 COMPRESS_EXTENSIONS = ".bz2", ".gz"
 
 re_pref_num_ext = re.compile("(.*[^0-9])([0-9]+)\.(.*)")
@@ -81,6 +81,8 @@ def template_to_filenames(img_template, min_frame, max_frame):
     e.g. template_to_filenames("aaa_????.img", 1, 150)
          you get: [ "aaa_0001.img", ...., "aaa_0150.img" ]
     """
+
+    if "_??????.h5" in img_template: return [img_template.replace("_??????.h5", "_master.h5")]
 
     re_var = re.compile("\?+")
 
@@ -247,7 +249,7 @@ def takeout_datasets(img_template, min_frame, max_frame, _epsilon=1e-5,
             diffs.append(expected_s_ang - start_angles[j])
 
         for j in xrange(1, len(diffs)):
-            if abs(diffs[j] - diffs[j-1]) > 0.00001:
+            if abs(diffs[j] - diffs[j-1]) > 0.002:
                 ex_borders.append(i+j)
             
         i = b
@@ -275,6 +277,8 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False):
     img_files = find_img_files(wdir, skip_symlinks=skip_symlinks)
     img_files.sort()
 
+    h5files = filter(lambda x:x.endswith(".h5"), img_files)
+
     ret = []
 
     # group images
@@ -286,6 +290,8 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False):
 
         for minf, maxf in takeout_datasets(img_template, min_frame, max_frame):
             ret.append([img_template, minf, maxf])
+
+    ret.extend(map(lambda x: [x.replace("_master.h5","_??????.h5"), None, None], h5files))
 
     return ret
 # find_data_sets()

@@ -125,6 +125,7 @@ def run(params):
         tell_p, tell_c = tell_c, ifs.tell()
 
         if "----- Begin chunk -----" in l:
+            if read_flag: del chunk_ranges[-1] # in case chunk is not properly closed
             read_flag = True
             chunk = crystfel.stream.Chunk()
             chunk_ranges.append([tell_p+1,0])
