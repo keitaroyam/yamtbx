@@ -4,6 +4,25 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+
+"""
+CLUSTERS.txt
+
+to ccp4-6.5 looks like:
+ Cluster     Number of         Cluster         LCV      aLCV      Datasets
+  Number      Datasets          Height                            ID
+                               
+     001             2           0.061        0.15      0.13      81 203
+....
+
+from ccp4-7.0 looks like:
+ Cluster     Number of         Cluster         LCV      aLCV   Furthest    Datasets
+  Number      Datasets          Height                         Datasets          ID
+                               
+     001             2           0.061        0.15      0.13    81  203    81 203
+....
+"""
+
 import os
 import numpy
 import shutil
@@ -108,11 +127,23 @@ class BlendClusters:
         
         clusters_txt = os.path.join(self.workdir, "CLUSTERS.txt")
         ifs = open(clusters_txt)
-        for i in xrange(4): ifs.readline()
+        ifs.readline() # skip first (blank)
+        firstline = ifs.readline()
+        if firstline.startswith(" Cluster     Number of         Cluster         LCV      aLCV      Datasets"):
+            with_furhest = False
+        elif firstline.startswith(" Cluster     Number of         Cluster         LCV      aLCV   Furthest    Datasets"):
+            with_furhest = True
+        else:
+            raise Exception("Unexpected header of CLUSTERS.txt")
+        for i in xrange(2): ifs.readline()
         for l in ifs:
             sp = l.split()
-            clno, num, clh, lcv, alcv = sp[:5]
-            ids = map(int, sp[5:])
+            if with_furhest:
+                clno, num, clh, lcv, alcv, f1, f2 = sp[:7]
+                ids = map(int, sp[7:])
+            else:
+                clno, num, clh, lcv, alcv = sp[:5]
+                ids = map(int, sp[5:])
             assert int(num) == len(ids)
             assert max(ids) <= len(self.files)
             self.clusters[int(clno)] = (float(clh), float(lcv), float(alcv), ids)
