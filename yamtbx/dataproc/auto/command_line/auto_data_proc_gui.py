@@ -140,6 +140,10 @@ xds {
  repeat = 1
   .type = int(value_min=1)
   .help = if more than 1, copy GXPARM.XDS to XPARM.XDS and re-integrate
+ ex = []
+  .type = str
+  .multiple = true
+  .help = extra keywords for XDS.INP
 }
 
 merging {
@@ -392,30 +396,36 @@ class BssJobs:
 
                 images = filter(lambda x: os.path.isfile(x), dataset.template_to_filenames(*ds))
 
+                if len(images) == 0:
+                    continue
+
+                h = XIO.Image(images[0]).header
+                job.osc_end = h.get("PhiEnd", 0)
+
                 if len(images) > 1:
-                    h = XIO.Image(images[0]).header
                     h_next = XIO.Image(images[1]).header
                     h_last = XIO.Image(images[-1]).header
-
+                    job.osc_end = h_last.get("PhiEnd", 0)
                     if h_next.get("PhiStart", 0) == h.get("PhiStart", 0):
                         print "This job may be scan?:",  tmpl
                         continue
 
-                    job.wavelength = h.get("Wavelength", 0)
-                    job.osc_end, job.osc_start = h_last.get("PhiEnd", 0), h.get("PhiStart", 0)
-                    job.osc_step = h.get("PhiWidth", 0)
-                    job.status = "finished"
-                    job.exp_time = h.get("ExposureTime", 0)
-                    job.distance = h.get("Distance", 0)
-                    job.attenuator = None, 0
-                    job.detector = "?"
+                job.wavelength = h.get("Wavelength", 0)
+                job.osc_start =  h.get("PhiStart", 0)
+                job.osc_step = h.get("PhiWidth", 0)
+                job.status = "finished"
+                job.exp_time = h.get("ExposureTime", 0)
+                job.distance = h.get("Distance", 0)
+                job.attenuator = None, 0
+                job.detector = "?"
 
-                    if job.osc_step == 0 or job.osc_end - job.osc_start == 0:
-                        print "This job don't look like osc data set:",  tmpl
-                        continue
+                if job.osc_step == 0 or job.osc_end - job.osc_start == 0:
+                    print "This job don't look like osc data set:",  tmpl
+                    continue
                     
-                    self.jobs[(prefix, nr)] = job
-                    self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
+                self.jobs[(prefix, nr)] = job
+                self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
+                    
         # Dump jobs
         pickle.dump(self.jobs, open(os.path.join(config.params.workdir, "jobs.pkl"), "wb"), 2)
     # update_jobs_from_files()
@@ -461,7 +471,9 @@ class BssJobs:
                                               distance=overrides.get("distance",None),
                                               wavelength=overrides.get("wavelength",None),
                                               osc_range=overrides.get("osc_range",None),
-                                              rotation_axis=overrides.get("rotation_axis",None))
+                                              rotation_axis=overrides.get("rotation_axis",None),
+                                              fstart=nr[0], fend=nr[1],
+                                              extra_kwds=config.params.xds.ex)
         open(os.path.join(workdir, "XDS.INP"), "w").write(xdsinp_str)
 
         opts = ["multiproc=false", "topdir=.", "nproc=%d"%config.params.batch.nproc_each, "tryhard=true",
@@ -1013,7 +1025,7 @@ class ControlPanel(wx.Panel):
         lc = self.listctrl
 
         for prefix, nr in bssjobs.jobs:
-            lab = "%s (%d..%d)" % (os.path.relpath(prefix, config.params.topdir), nr[0], nr[1])
+            lab = "%s (%.4d..%.4d)" % (os.path.relpath(prefix, config.params.topdir), nr[0], nr[1])
             job = bssjobs.jobs[(prefix, nr)]
             
             item = [lab]

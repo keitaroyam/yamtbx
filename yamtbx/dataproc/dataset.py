@@ -291,7 +291,13 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False):
         for minf, maxf in takeout_datasets(img_template, min_frame, max_frame):
             ret.append([img_template, minf, maxf])
 
-    ret.extend(map(lambda x: [x.replace("_master.h5","_??????.h5"), None, None], h5files))
+    for f in h5files:
+        im = XIO.Image(f)
+        for i in xrange(im.header["Nimages"]//im.header["Nimages_each"]+1):
+            nr0, nr1 = im.header["Nimages_each"]*i+1, im.header["Nimages_each"]*(i+1)
+            if nr1 > im.header["Nimages"]: nr1 = im.header["Nimages"]
+            ret.append([f.replace("_master.h5","_??????.h5"), nr0, nr1])
+            if nr1 == im.header["Nimages"]: break
 
     return ret
 # find_data_sets()

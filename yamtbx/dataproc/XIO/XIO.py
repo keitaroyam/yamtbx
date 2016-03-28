@@ -227,6 +227,15 @@ class Image:
         """Try to guess the image detector type.
            Detector format recognized:
            adsc, mar, marccd, raxis"""
+
+        if self.fileName.endswith(".h5"):
+            import h5py
+            h5 = h5py.File(self.fileName, "r")
+            if "entry/instrument/detector/description" in h5 and "Eiger" in h5["entry/instrument/detector/description"].value:
+                self.type = "eiger_hdf5"
+                return self.type
+            return
+
         #
         # Test to identify Mar345 or Mar555 header
         # Look for a swap byte marker
@@ -352,7 +361,10 @@ class Image:
         # Special = interpreter.SpecialRules
         #
         self.interpreter = interpreterClass()
-        self.RawHeadDict = self.interpreter.getRawHeadDict(self.rawHead)
+        if self.type == "eiger_hdf5":
+            self.RawHeadDict = self.interpreter.getRawHeadDict(self.fileName)
+        else:
+            self.RawHeadDict = self.interpreter.getRawHeadDict(self.rawHead)
         #VERBOSE = True
         for k in self.interpreter.HTD.keys():
             args, func = self.interpreter.HTD[k]

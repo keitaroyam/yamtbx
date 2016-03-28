@@ -24,10 +24,16 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
                      crystal_symmetry=None, integrate_nimages=None,
                      osc_range=None, orgx=None, orgy=None, rotation_axis=None, distance=None,
                      wavelength=None,
-                     minpk=None, exclude_resolution_range=[]):
-    groups = group_img_files_template(img_files)
-    assert len(groups) == 1
-    template, fstart, fend = groups[0]
+                     minpk=None, exclude_resolution_range=[],
+                     fstart=None, fend=None, extra_kwds=[]):
+    is_eiger_hdf5 = (len(img_files) == 1 and "_master.h5" in img_files[0])
+
+    if is_eiger_hdf5:
+        template = img_files[0].replace("_master.h5","_??????.h5")
+    else:
+        groups = group_img_files_template(img_files)
+        assert len(groups) == 1
+        template, fstart, fend = groups[0] # arguments fstart, fend are overwritten here
     #print inp_dir, img_files[0], template
 
     tmp = [os.path.dirname(os.path.relpath(img_files[0], inp_dir)),
@@ -100,13 +106,16 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
     elif im.header["ImageType"] == "mscccd":
         detector = "SATURN MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 262112" # XXX Should read header!!
         distance *= -1
+    elif is_eiger_hdf5:
+        detector = "EIGER MINIMUM_VALID_PIXEL_VALUE=0 OVERLOAD= %d" % im.header["Overload"]
+        sensor_thickness = im.header["SensorThickness"]
 
-    extra_kwds = ""
-    if minpk is not None: extra_kwds += " MINPK= %.2f\n" % minpk
+    if minpk is not None: extra_kwds.append(" MINPK= %.2f" % minpk)
     for r1, r2 in exclude_resolution_range:
         if r1 < r2: r1, r2 = r2, r1
-        extra_kwds += " EXCLUDE_RESOLUTION_RANGE= %.3f %.3f\n" % (r1, r2)
+        extra_kwds.append(" EXCLUDE_RESOLUTION_RANGE= %.3f %.3f" % (r1, r2))
 
+    extra_kwds = "\n".join(extra_kwds)
     inp_str = """\
  JOB= XYCORR INIT COLSPOT IDXREF DEFPIX INTEGRATE CORRECT
  ORGX= %(orgx).2f ORGY= %(orgy).2f
@@ -120,7 +129,6 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
 ! BACKGROUND_RANGE=1 10 ! rather use defaults (first 5 degree of rotation)
  FRIEDEL'S_LAW= %(friedel)s
  DELPHI= %(delphi).2f
-%(extra_kwds)s
 ! parameters specifically for this detector and beamline:
  DETECTOR= %(detector)s
  SENSOR_THICKNESS= %(sensor_thickness).2f
@@ -128,6 +136,7 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
 ! as about 32* what CORRECT.LP suggests (absorption of phosphor is much higher than that of silicon)
  NX= %(nx)s NY= %(ny)s  QX= %(qx)s  QY= %(qy)s ! to make CORRECT happy if frames are unavailable
  ROTATION_AXIS= %(rotation_axis)s
+%(extra_kwds)s
 """ % locals()
 
     # XXX Really, really BAD idea!!
