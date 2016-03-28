@@ -65,12 +65,13 @@ def set_chunk_stats(chunk, stats, stat_choice, n_residues=None, ref_cell=None, s
             stats["ioversigma"].append(float("nan"))
 
         if "resnatsnr1" in stat_choice:
-            res = iobs.d_max_min()[0]
+            res = float("nan")
             for i_bin in binner.range_used():
                 sel = binner.selection(i_bin)
                 tmp = iobs.select(sel)
+                if tmp.size() == 0: continue
                 sn = flex.mean(tmp.data()/tmp.sigmas())
-                if sn < 1:
+                if sn <= 1:
                     res = binner.bin_d_range(i_bin)[1]
                     break
 
@@ -129,7 +130,7 @@ def run(params):
             read_flag = True
             chunk = crystfel.stream.Chunk()
             chunk_ranges.append([tell_p+1,0])
-        elif "----- End chunk -----" in l:
+        elif read_flag and "----- End chunk -----" in l:
             read_flag = False
             if chunk.indexed_by is not None:
                 chunk_ranges[-1][1] = tell_c
@@ -146,7 +147,14 @@ def run(params):
                 del chunk_ranges[-1]
 
         elif read_flag:
-            chunk.parse_line(l)
+            try: chunk.parse_line(l)
+            except:
+                print "\nError in reading line: '%s'" % l
+                read_flag = False
+                
+    if read_flag: #  Unfinished chunk
+        print "\nWarning: unclosed chunk."
+        del chunk_ranges[-1]
     
     stats["chunk_ranges"] = chunk_ranges
     pickle.dump(stats, open(params.pklout,"w"), -1)
