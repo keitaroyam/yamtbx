@@ -8,6 +8,7 @@ import socket
 import subprocess
 import time
 import os
+import getpass
 
 class Adxv:
     def __init__(self, adxv_bin=None, no_adxv_beam_center=True):
@@ -22,7 +23,7 @@ class Adxv:
         adxv_comm = self.adxv_bin + " -socket %d"
         if self.no_adxv_beam_center: adxv_comm += " -no_adxv_beam_center"
 
-        if self.adxv_proc is None or self.adxv_proc.poll() is not None: # None means still running.
+        if not self.is_alive():
             # find available port number
             sock_test = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock_test.bind(("localhost", 0))
@@ -32,7 +33,11 @@ class Adxv:
             self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd)
     # start()
 
-    def open_image(self, imgfile):
+    def is_alive(self):
+        return self.adxv_proc is not None and self.adxv_proc.poll() is None  # None means still running.
+    # is_alive()
+
+    def open_image(self, imgfile, raise_window=True):
         self.start(cwd=os.path.dirname(imgfile))
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -49,9 +54,18 @@ class Adxv:
         if sent == 0:
             raise RuntimeError("adxv load failed! Close adxv and double-click again.")
 
-        sent = sock.send("raise_window Control\n") # raise_window is available from adxv 1.9.9
-        sent = sock.send("raise_window Image\n")
+        if raise_window:
+            sent = sock.send("raise_window Control\n") # raise_window is available from adxv 1.9.9
+            sent = sock.send("raise_window Image\n")
 
         sock.close()
     # open_image()
+
+    def open_hdf5(self, h5file, frameno, tmpdir="/dev/shm", raise_window=True):
+        from yamtbx.dataproc import eiger
+
+        imgfile = os.path.join(tmpdir, "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
+        eiger.extract_to_minicbf(h5file, frameno, imgfile)
+        self.open_image(imgfile, raise_window=raise_window)
+
 # class Adxv
