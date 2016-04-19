@@ -253,5 +253,16 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
  UNTRUSTED_RECTANGLE=   0 2464  2103 2121
  UNTRUSTED_RECTANGLE=   0 2464  2315 2333
 """
+    if is_eiger_hdf5 and nx == 3110 and ny == 3269:
+            # Eiger 9M
+            inp_str += """\
+ UNTRUSTED_RECTANGLE= 1029 1042 0 3269
+ UNTRUSTED_RECTANGLE= 2069 2082 0 3269
+ UNTRUSTED_RECTANGLE= 0 3110  513  553
+ UNTRUSTED_RECTANGLE= 0 3110 1064 1104
+ UNTRUSTED_RECTANGLE= 0 3110 1615 1655
+ UNTRUSTED_RECTANGLE= 0 3110 2166 2206
+ UNTRUSTED_RECTANGLE= 0 3110 2717 2757
+"""
 
     return inp_str

@@ -63,8 +63,8 @@ class Interpreter:
         self.raw_head_dict["Height"] = detectorsp["y_pixels_in_detector"].value
         self.raw_head_dict["Overload"] = detectorsp["countrate_correction_count_cutoff"].value
         self.raw_head_dict["DateStr"] = detectorsp["data_collection_date"].value
-        self.raw_head_dict["PhiStart"] = gonio["omega"][0]
-        self.raw_head_dict["PhiEnd"] = gonio["omega_end"][-1]
+        self.raw_head_dict["PhiStart"] = gonio["omega"].value if gonio["omega"].shape==() else gonio["omega"][0]
+        self.raw_head_dict["PhiEnd"] = gonio["omega_end"].value if gonio["omega_end"].shape==() else gonio["omega_end"][-1]
         self.raw_head_dict["PhiWidth"] = gonio["omega_range_average"].value
 
         self.raw_head_dict["Nimages_each"] = detectorsp["nimages"].value

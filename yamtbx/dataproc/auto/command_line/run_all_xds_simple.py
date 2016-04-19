@@ -79,7 +79,7 @@ cell_prior {
   .type = floats(size=6)
  sgnum = 0
   .type = int
- tol_length = 0.02
+ tol_length = 0.05
   .type = float
   .help = relative_length_tolerance
  tol_angle = 5

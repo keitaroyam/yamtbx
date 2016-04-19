@@ -144,6 +144,11 @@ xds {
   .type = str
   .multiple = true
   .help = extra keywords for XDS.INP
+ override {
+  rotation_axis = None
+   .type = floats(size=3)
+   .help = "override ROTATION_AXIS= "
+ }
 }
 
 merging {
@@ -218,7 +223,7 @@ class BssJobs:
     def check_bss_log(self, date, daystart):
         re_job_start = re.compile("Job ID ([0-9]+) start")
         re_job_finish = re.compile("Job ID ([0-9]+) (Stopped|Success|Killed)")
-        re_prefix = re.compile("^(.*)_x+") # XXX Is this safe?
+        re_prefix = re.compile("^(.*)_[x\?]+") # XXX Is this safe?
 
         self._prev_job_finished = False
 
@@ -323,9 +328,17 @@ class BssJobs:
             prefix = os.path.splitext(joblog)[0] # XXX what if .gz etc?
             is_running_job = (self._job_is_running and i == len(self._joblogs)-1)
 
+            looks_h5 = False
+            for job in bjl.jobs:
+                if job.get_master_h5_if_exists():
+                    looks_h5 = True
+
             if startnum is None:
-                mylog.error("start number not known: %s"%joblog)
-                continue
+                if looks_h5:
+                    startnum = 1
+                else:
+                    mylog.error("start number not known: %s"%joblog)
+                    continue
 
             for j, job in enumerate(bjl.jobs):
                 if is_running_job and j == len(bjl.jobs)-1:
@@ -360,6 +373,9 @@ class BssJobs:
                     remove_idxes.append(i)
                     continue
 
+                master_h5 = job.get_master_h5_if_exists()
+                if master_h5 is not None: job.filename = master_h5.replace("_master.h5", "_??????.h5")
+
                 self.jobs[(prefix, nr)] = job
                 self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
                 remove_idxes.append(i)
@@ -385,7 +401,7 @@ class BssJobs:
         for rd in include_dir:
             for ds in dataset.find_data_sets(rd, skip_0=True, skip_symlinks=False):
                 tmpl, nr = ds[0], tuple(ds[1:3])
-                prefix = tmpl[:tmpl.index("?")]
+                prefix = tmpl[:tmpl.index("_?" if "_?" in tmpl else "?")]
                     
                 if not directory_included(tmpl, root_dir, [], exclude_dir):
                     mylog.info("This directory is not in topdir or in exclude_dir. Skipped: %s"%tmpl)
@@ -458,6 +474,9 @@ class BssJobs:
             return
 
         overrides = read_override_config(os.path.dirname(job.filename))
+        if "rotation_axis" not in overrides and config.params.xds.override.rotation_axis:
+           overrides["rotation_axis"] = config.params.xds.override.rotation_axis
+
         # XXX need to update self.jobs (display on GUI)
 
         xdsinp_str = xds_inp.generate_xds_inp(img_files=img_files,
@@ -1196,7 +1215,6 @@ anomalous=false # true or false
 lstin=formerge.lst # list of XDS_ASCII.HKL files
 # _______/setting
 
-export PATH=/oys/xtal/xds/old_versions/ver_Jun17_2015/XDS-INTEL64_Linux_x86_64:$PATH
 kamo.multi_merge \\
         workdir=blend_${dmin}A_framecc_b \\
         lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
@@ -1215,7 +1233,6 @@ anomalous=false # true or false
 lstin=formerge.lst # list of XDS_ASCII.HKL files
 # _______/setting
 
-export PATH=/oys/xtal/xds/old_versions/ver_Jun17_2015/XDS-INTEL64_Linux_x86_64:$PATH
 kamo.multi_merge \\
         workdir=ccc_${dmin}A_framecc_b \\
         lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
@@ -1295,7 +1312,7 @@ class ResultLeftPanel(wx.Panel):
 
         vbox.Add(sbsImage, flag=wx.EXPAND|wx.ALL, border=1)
 
-        self.spinRawFrame.Bind(wx.EVT_SPIN, lambda e: self.txtRawFrame.SetValue(str(self.spinRawFrame.GetValue())))
+        self.spinRawFrame.Bind(wx.EVT_SPIN, self.spinRawFrame_spin)
         self.spinPredictFrame.Bind(wx.EVT_SPIN, lambda e: self.txtPredictFrame.SetValue(str(self.spinPredictFrame.GetValue())))
 
         self.btnRawShow.Bind(wx.EVT_BUTTON, self.btnRawShow_click)
@@ -1309,21 +1326,34 @@ class ResultLeftPanel(wx.Panel):
             obj.SetRange(*key[1])
             obj.SetValue(key[1][1])
 
+        # TODO remove this limitation
+        self.spinPredictFrame.SetRange(key[1][1], key[1][1])
+
         self.txtRawFrame.SetValue(str(self.spinRawFrame.GetValue()))
         self.txtPredictFrame.SetValue(str(self.spinPredictFrame.GetValue()))
     # set_current_key()
 
     def set_current_workdir(self, wd): self.current_workdir = wd
 
-    def btnRawShow_click(self, ev):
+    def btnRawShow_click(self, ev, raise_window=True):
         frame = int(self.txtRawFrame.GetValue())
         job = bssjobs.get_job(self.current_key)
         if job is None: return
-        
-        from yamtbx.dataproc.dataset import template_to_filenames
-        path = template_to_filenames(job.filename, frame, frame)[0]
-        mainFrame.adxv.open_image(path)
+
+        masterh5 = job.get_master_h5_if_exists()
+        if masterh5:
+            mainFrame.adxv.open_hdf5(masterh5, frame, raise_window=raise_window)
+        else:
+            from yamtbx.dataproc.dataset import template_to_filenames
+            path = template_to_filenames(job.filename, frame, frame)[0]
+            mainFrame.adxv.open_image(path, raise_window=raise_window)
     # btnPredictShow_click()
+
+    def spinRawFrame_spin(self, ev):
+        self.txtRawFrame.SetValue(str(self.spinRawFrame.GetValue()))
+        if mainFrame.adxv.is_alive(): 
+            wx.CallAfter(self.btnRawShow_click, None, False)
+    # spinRawFrame_spin()
 
     def btnPredictShow_click(self, ev):
         frame = int(self.txtPredictFrame.GetValue())
