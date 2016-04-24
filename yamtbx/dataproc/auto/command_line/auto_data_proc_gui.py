@@ -602,14 +602,8 @@ for i in xrange(%(repeat)d-1):
 
                     ISa = lp.get_ISa() if lp.is_ISa_valid() else float("nan")
 
-                    if config.params.small_wedges:
-                        resn = self._load_if_chached("resn", spot_xds)
-                        if resn is None:
-                            resn = estimate_resolution_by_spotxds.run(spot_xds, xparm_xds)
-                            self._save_chache("resn", spot_xds, resn)
-                    else:
-                        resn = lp.resolution_based_on_ios_of_error_table(min_ios=1.)
-                        self._save_chache("resn", correct_lp, resn) # for html report
+                    resn = lp.resolution_based_on_ios_of_error_table(min_ios=1.)
+                    self._save_chache("resn", correct_lp, resn) # for html report
 
                     sg = lp.space_group_str()
                     cmpl = float(lp.table["all"]["cmpl"][-1]) if "all" in lp.table else float("nan")
