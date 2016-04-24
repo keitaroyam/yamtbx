@@ -74,6 +74,15 @@ class MainFrame(wx.Frame):
         self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(+1))
         self.llbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(-1))
         self.rrbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(+1))
+
+        hbox02 = wx.BoxSizer(wx.HORIZONTAL)
+        hbox02.Add(wx.StaticText(panel1, wx.ID_ANY, "Binning: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        self.txtBin = wx.TextCtrl(panel1, wx.ID_ANY, size=(100,25), style=wx.TE_PROCESS_ENTER)
+        self.txtBin.SetValue("1")
+        self.txtBin.Bind(wx.EVT_TEXT_ENTER, self.onTextEnter)
+        hbox02.Add(self.txtBin, flag=wx.EXPAND|wx.RIGHT)
+        vbox0.Add(hbox02, flag=wx.EXPAND|wx.TOP, border=4)
+
         panel1.SetSizer(vbox0)
         notebook.InsertPage(0, panel1, "File")
 
@@ -103,6 +112,12 @@ class MainFrame(wx.Frame):
         hbox11.Add(self.btnMonStop, flag=wx.EXPAND|wx.RIGHT)
         vbox1.Add(hbox11, flag=wx.EXPAND|wx.TOP, border=4)
 
+        hbox12 = wx.BoxSizer(wx.HORIZONTAL)
+        self.chkMonRaiseW = wx.CheckBox(panel2, wx.ID_ANY, "Raise adxv windows")
+        self.chkMonRaiseW.SetValue(1)
+        hbox12.Add(self.chkMonRaiseW, flag=wx.EXPAND|wx.RIGHT)
+        vbox1.Add(hbox12, flag=wx.EXPAND|wx.TOP, border=4)
+
         panel2.SetSizer(vbox1)
         notebook.InsertPage(1, panel2, "Monitor")
         notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_notebook_page_changed)
@@ -127,7 +142,7 @@ class MainFrame(wx.Frame):
 
         if self.h5file is not None:
             self.read_h5file()
-            self.adxv.open_hdf5(self.h5file, 1)
+            self.open_hdf5(1)
     # __init__()
 
     def on_notebook_page_changed(self, ev):
@@ -143,11 +158,17 @@ class MainFrame(wx.Frame):
         self.monitor_timer.Start(5000)
     # on_btnMonRefresh()
 
+    def open_hdf5(self, frameno, raise_window=True):
+        self.adxv.open_hdf5(self.h5file, frameno,
+                            raise_window=raise_window,
+                            binning=int(self.txtBin.GetValue()))
+    # open_hdf5()
+
     def change_frameno(self, frameno):
         if frameno < 1: frameno = 1
         if frameno > self.n_images: frameno = self.n_images
         self.txtFrame.SetValue(str(frameno))
-        self.adxv.open_hdf5(self.h5file, frameno, raise_window=False)
+        self.open_hdf5(frameno, raise_window=False)
     # change_frameno()
 
     def onTextEnter(self, ev):
@@ -197,7 +218,7 @@ class MainFrame(wx.Frame):
         if dlg.ShowModal() == wx.ID_OK:
             self.h5file = dlg.GetPath()
             self.read_h5file()
-            self.adxv.open_hdf5(self.h5file, 1)
+            self.open_hdf5(1)
             
         dlg.Destroy()
     # btnInfile_click()
@@ -219,7 +240,7 @@ class MainFrame(wx.Frame):
 
         self.h5file = latestfile
         self.read_h5file()
-        self.adxv.open_hdf5(self.h5file, 1)
+        self.open_hdf5(1)
     # btnLatest_click ()
 
     def read_h5file(self):
@@ -305,7 +326,7 @@ class MainFrame(wx.Frame):
 # Beam_xy (%(BeamX).1f, %(BeamY).1f) pixels
 """ % dict(Wavelength=wavelen, Distance=distance/1.e3, BeamX=beamx, BeamY=beamy))
 
-        self.adxv.open_image(imgfile)
+        self.adxv.open_image(imgfile, raise_window=self.chkMonRaiseW.GetValue())
         self.last_monitor_image = data
     # on_monitor_timer()
 

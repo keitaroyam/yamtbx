@@ -13,6 +13,8 @@ import bitshuffle
 import json
 import struct
 import numpy
+import os
+from yamtbx.dataproc import software_binning
 
 def read_stream_data(frames, bss_job_mode=4):
     if len(frames) != 5:
@@ -57,10 +59,7 @@ def read_stream_data(frames, bss_job_mode=4):
     return header, data
 # read_stream_data()
 
-def extract_to_minicbf(h5master, frameno, cbfout):
-    from yamtbx.dataproc import cbf
-    from yamtbx.dataproc.XIO.plugins import eiger_hdf5_interpreter
-
+def extract_data(h5master, frameno):
     h5 = h5py.File(h5master, "r")
     i_seen = 0
     data = None
@@ -73,15 +72,27 @@ def extract_to_minicbf(h5master, frameno, cbfout):
         except KeyError:
             break
 
-    if data is None:
-        print "Data not found."
-        return
+    if data is None: print "Data not found."
 
+    return data
+# extract_data()
+
+def extract_to_minicbf(h5master, frameno, cbfout, binning=1):
+    from yamtbx.dataproc import cbf
+    from yamtbx.dataproc.XIO.plugins import eiger_hdf5_interpreter
+
+    data = extract_data(h5master, frameno)
     byte = data.dtype.itemsize
     data = data.astype(numpy.int32)
     data[data==2**(byte*8)-1] = -1
 
     h = eiger_hdf5_interpreter.Interpreter().getRawHeadDict(h5master)
+    h5 = h5py.File(h5master, "r")
+
+    if binning>1:
+        beamxy = h["BeamX"], h["BeamY"]
+        data, (h["BeamX"], h["BeamY"]) = software_binning(data, binning, beamxy)
+
     h["Detector"] = h5["/entry/instrument/detector/description"].value
     h["ExposurePeriod"] = h5["/entry/instrument/detector/frame_time"].value
     cbf.save_numpy_data_as_cbf(data.flatten(), size1=data.shape[1], size2=data.shape[0], title="",
@@ -133,3 +144,13 @@ def create_data_file(outfile, data, chunks, nrlow, nrhigh):
     h5.close()
 # create_data_file()
 
+def get_masterh5_related_filenames(masterh5):
+    ret = [masterh5]
+
+    h5 = h5py.File(masterh5, "r")
+    for k in h5["/entry/data"]:
+        ret.append(os.path.join(os.path.dirname(masterh5),
+                                h5["/entry/data"].get(k, getlink=True).filename))
+
+    return ret
+# get_masterh5_related_filenames()
