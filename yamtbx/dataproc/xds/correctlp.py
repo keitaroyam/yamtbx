@@ -159,6 +159,8 @@ class CorrectLp:
                         self.table[key].setdefault("cc_half", []).append(float(sp[10].replace("*","")))
                         self.table[key].setdefault("cc_ano", []).append(float(sp[11].replace("*","")))
                         self.table[key].setdefault("sig_ano", []).append(float(sp[12]))
+                        if sp[0]=="total": # in case less than 9 shells
+                            break
                     #print "".join(lines[i+4:i+4+10])
                     
     # parse()
