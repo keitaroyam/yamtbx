@@ -188,23 +188,29 @@ class KabschSelectiveBreeding(ReindexResolver):
 # class KabschSelectiveBreeding
 
 class ReferenceBased(ReindexResolver):
-    def __init__(self, xac_files, reference_file, d_min=3, min_ios=3,  nproc=1, max_delta=3, log_out=null_out()):
+    def __init__(self, xac_files, reference_file, reference_label=None, d_min=3, min_ios=3,  nproc=1, max_delta=3, log_out=null_out()):
         ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
 
         import iotbx.file_reader
         
         ref_arrays = iotbx.file_reader.any_file(reference_file).file_server.miller_arrays
-        self.ref_array = None
-        for array in ref_arrays:
-            if array.is_xray_intensity_array():
-                self.ref_array = array
-                print >>self.log_out, "Using %s as reference data" % array.info().label_string()
-                break
-            elif array.is_xray_amplitude_array():
-                self.ref_array = array.f_as_f_sq()
-                print >>self.log_out, "Using %s as reference data" % array.info().label_string()
-                break
-            #elif FMODEL
+        if not ref_arrays:
+            raise "No arrays in reference file"
+        if reference_label is not None:
+            ref_arrays = filter(lambda x: reference_label in x.info().labels, ref_arrays)
+            if not ref_arrays: raise "No arrays matched to specified label (%s)" % reference_label
+            self.ref_array = ref_arrays[0].as_intensity_array()
+        else:
+            self.ref_array = None
+            for array in ref_arrays:
+                if array.is_xray_intensity_array():
+                    self.ref_array = array
+                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                    break
+                elif array.is_xray_amplitude_array():
+                    self.ref_array = array.f_as_f_sq()
+                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                    break
 
         if self.ref_array is None:
             raise "suitable reference data not found"
@@ -276,7 +282,7 @@ class BrehmDiederichs(ReindexResolver):
             latt_id.extend(flex.int(a.size(), i))
 
         latt_id = data.customized_copy(data=latt_id.as_double())
-        result = brehm_diederichs.run(L=[data, latt_id], nproc=self.nproc, plot=True, verbose=True)
+        result = brehm_diederichs.run(L=[data, latt_id], nproc=self.nproc, verbose=True)
 
         self.best_operators = map(lambda x: None, xrange(len(arrays)))
         for op in result:

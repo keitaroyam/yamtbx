@@ -38,12 +38,16 @@ max_delta = 3
  .type = float
  .help = maximum obliquity used in determining the lattice symmetry, using a modified Le-Page algorithm.
 
+max_cycles = 100
+ .type = int(value_min=1)
+ .help = Maximum number of cycles for selective_breeding algorithm.
+
 reference_file = None
  .type = path
  .help = Only needed when method=reference
-#reference_label = None
-# .type = str
-# .help = data label of reference_file
+reference_label = None
+ .type = str
+ .help = data label of reference_file
 """
 
 def run(params):
@@ -68,13 +72,17 @@ def run(params):
                                      d_min=params.d_min, min_ios=params.min_ios,
                                      nproc=params.nproc, log_out=log_out)
     elif params.method == "reference":
-        rb = ReferenceBased(xac_files, params.reference_file, max_delta=params.max_delta,
+        rb = ReferenceBased(xac_files, params.reference_file, params.reference_label, max_delta=params.max_delta,
                             d_min=params.d_min, min_ios=params.min_ios,
                             nproc=params.nproc, log_out=log_out)
     else:
         raise "Unknown method: %s" % params.method
 
-    rb.assign_operators()
+    if params.method == "selective_breeding":
+        rb.assign_operators(max_cycle=params.max_cycles)
+    else:
+        rb.assign_operators()
+
     new_files = rb.modify_xds_ascii_files()
 
     lstout = os.path.splitext(os.path.basename(params.lstin))[0]+"_reindexed.lst"
