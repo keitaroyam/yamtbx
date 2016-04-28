@@ -30,6 +30,7 @@ class ScanInfo:
         self.has_extra_images = True # whether one extra image in each row is created in shutterless mode.
         self.need_treatment_on_image_numbers = True # old bss does not write "dummy" lines in shutterless mode and therefore number in the logfile has offset from filename.
         self.filename_coords = [] # becomes dict later?
+        self.filename_idxes = [] # for speed?
     # __init__ ()
 
     def is_shutterless(self):
@@ -187,6 +188,7 @@ class BssDiffscanLog:
 
                 # XXX Need to check if the filename is already registered (file is overwritten!!)
                 self.scans[-1].filename_coords.append((filename, (gonio, grid_coord)))
+                self.scans[-1].filename_idxes.append((filename, num))
                 self.filename_gonio_gc[os.path.basename(filename)] = (gonio, grid_coord)
     # parse()
 
@@ -257,6 +259,20 @@ class BssDiffscanLog:
                 else: return x, -y
 
     # get_grid_coord()
+
+    def remove_overwritten_scans(self):
+        table = {}
+        for i, scan in enumerate(self.scans):
+            if scan.filename_coords:
+                table.setdefault(scan.filename_template, []).append(i)
+
+        table = filter(lambda x: len(x[1])>1, table.items())
+        rem_idxes = map(lambda x: x[1][:-1], table) # last indexes will be alive
+        if not rem_idxes: return
+        rem_idxes = reduce(lambda x,y:x+y, rem_idxes) 
+        for i in sorted(rem_idxes, reverse=True):
+            del self.scans[i]
+    # remove_overwritten_scan()
 # class BssDiffscanLog
 
 
@@ -437,6 +453,13 @@ class JobInfo:
                 return (int(r_st.group(2)), int(r_en.group(2)))
 
         return (None, None)
+
+    def get_master_h5_if_exists(self):
+        if self.prefix is None: return None
+        masterh5 = os.path.join(os.path.dirname(self.filename), self.prefix+"_master.h5")
+        if os.path.isfile(masterh5): return masterh5
+        return None
+    # get_master_h5_if_exists()
 
 # class JobInfo
 
