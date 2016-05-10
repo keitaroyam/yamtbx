@@ -46,6 +46,12 @@ H5ToXdsは[Dectrisのサイト](https://www.dectris.com/EIGER_X_Features.html)�
 またH5ToXdsはCBFにヘッダ情報を付与しません．
 これらの理由から，eiger2cbfをH5ToXdsという名前に変えて(またはH5ToXdsという名前のリンクを作って)使うことを推奨します．
 
+eiger2cbfは，以下のようにmaster.h5を与えて使います．
+
+* `eiger2cbf sample_master.h5` .. 格納されているフレーム数を出力
+* `eiger2cbf sample_master.h5 10 sample_10.cbf` .. 10枚目(最初の番号は1)のフレームをsample_10.cbfとして保存
+* `eiger2cbf sample_master.h5 1:100 sample` .. 1-100枚目をsample_??????.cbfとして保存
+
 
 ## イメージの表示
 eiger2cbfを用いてcbfに変換すれば，adxvやその他cbfをサポートするビューアで表示できます．
@@ -92,7 +98,7 @@ dials.import ../sample_master.h5
 ### iMosflm
 
 cbfに変換することで処理できます．
-[eiger2cbf](http://www.mrc-lmb.cam.ac.uk/harry/imosflm/ver721/downloads.html#Eiger2CBF)を用いてcbfに変換して下さい．
+[eiger2cbf](#eiger2cbf-h5toxds互換)を用いてcbfに変換して下さい．
 
 ## 参考
 * [EIGER X series (Dectris公式サイト)](https://www.dectris.com/EIGER_X_Detectors.html#main_head_navigation)
