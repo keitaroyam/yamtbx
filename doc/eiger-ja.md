@@ -52,6 +52,21 @@ eiger2cbfは，以下のようにmaster.h5を与えて使います．
 * `eiger2cbf sample_master.h5 10 sample_10.cbf` .. 10枚目(最初の番号は1)のフレームをsample_10.cbfとして保存
 * `eiger2cbf sample_master.h5 1:100 sample` .. 1-100枚目をsample_??????.cbfとして保存
 
+### bitshuffle plugin (少し上級編)
+必ずしも必須ではありませんが，[bitshuffle](https://github.com/kiyo-masui/bitshuffle) pluginを導入しておくとh5dumpやhdfview，あるいはadxv経由でbslz4圧縮されたhdf5も開けるようになります．
+導入には開発環境が必要です(MacではXcode? [未検証])
+
+```
+(sudo) easy_install cython
+(sudo) easy_install h5py
+cd ~/tmp (任意の場所)
+git clone https://github.com/kiyo-masui/bitshuffle.git
+cd bitshuffle
+(sudo) python setup.py install --h5plugin
+```
+デフォルトでは/usr/local/hdf5/lib/pluginにインストールされます．変更したい場合は`--h5plugin`の後に`--h5plugin-dir=`を付けてください．
+インストールした場所に，環境変数`HDF5_PLUGIN_PATH`を設定する必要があります(bashなら`export HDF5_PLUGIN_PATH=`をcshなら`setenv HDF5_PLUGIN_PATH `を使って設定してください)
+
 
 ## イメージの表示
 eiger2cbfを用いてcbfに変換すれば，adxvやその他cbfをサポートするビューアで表示できます．
