@@ -79,11 +79,15 @@ def get_arrays(mtzfiles):
     ret = []
     for f in mtzfiles:
         arrays = iotbx.mtz.object(f).as_miller_arrays()
-        f_obs = filter(lambda x:x.info().labels[0]=="F-obs-filtered", arrays)[0]
-        f_model = filter(lambda x:x.info().labels[0]=="F-model", arrays)[0].as_amplitude_array()
+        f_obs = filter(lambda x:x.info().labels[0].startswith("F-obs-filtered"), arrays)[0]
+        f_model = filter(lambda x:x.info().labels[0].startswith("F-model"), arrays)[0].as_amplitude_array()
         flag = get_flag(arrays)
 
         print f, "includes %d reflections. (d= %.2f - %.2f)" % ((f_obs.data().size(),)+ f_obs.d_max_min())
+
+        # XXX better treatment!!
+        if f_obs.anomalous_flag(): f_obs = f_obs.average_bijvoet_mates()
+        if f_model.anomalous_flag(): f_model = f_model.average_bijvoet_mates()
 
         f_obs, flag = f_obs.common_sets(flag)
         f_model, flag = f_model.common_sets(flag)

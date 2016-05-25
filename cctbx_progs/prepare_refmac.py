@@ -56,8 +56,9 @@ if __name__ == "__main__":
             if array.anomalous_flag():
                 if "+" not in array.info().label_string():
                     print "non-supported anomalous array:", array.info().labels
-                    continue
-                col_target.append("F+=%s SIGF+=%s F-=%s SIGF-=%s" % tuple(array.info().labels))
+                    col_target.append("FP=%s SIGFP=%s" % tuple(array.info().labels[:2]))
+                else:
+                    col_target.append("F+=%s SIGF+=%s F-=%s SIGF-=%s" % tuple(array.info().labels))
             else:
                 col_target.append("FP=%s SIGFP=%s" % tuple(array.info().labels))
 
