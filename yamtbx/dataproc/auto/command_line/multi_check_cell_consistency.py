@@ -64,7 +64,7 @@ class CheckMulti:
             print >>self.out, "%.3d"%idx,
             print >>self.out, os.path.relpath(root, self.topdir) if self.topdir is not None else root,
             gxparm_xds = os.path.join(root, "GXPARM.XDS")
-            p1cell = correctlp.get_P1_cell(os.path.join(root, "CORRECT.LP"))
+            p1cell = correctlp.get_P1_cell(os.path.join(root, "CORRECT.LP"), force_obtuse_angle=True)
             try:
                 xparm = XPARM(gxparm_xds)
             except ValueError:
@@ -140,9 +140,13 @@ class CheckMulti:
                     cbop = obj.allowed_xtal_syms[0][1]
                     trans_cell = avg_cell.change_basis(cbop)
 
+                    if pg.group() == sgtbx.space_group_info("I2").group():
+                        print >>self.out, "Warning!! I2 cell was given." # Not sure if this happens..
+
                     # Transform to best cell
                     fbc = crystal.find_best_cell(crystal.symmetry(trans_cell, space_group_info=pg,
-                                                                  assert_is_compatible_unit_cell=False))
+                                                                  assert_is_compatible_unit_cell=False),
+                                                 best_monoclinic_beta=False) # If True, C2 may result in I2..
                     cbop = fbc.cb_op() * cbop
                     trans_cell = trans_cell.change_basis(fbc.cb_op())
                     #print "debug:: op-to-best-cell=", fbc.cb_op()
@@ -214,6 +218,15 @@ class CheckMulti:
             return ""
     # get_most_frequent_symmetry()
 
+    def get_symmetry_reference_matched(self, group_idx, ref_cs):
+        ref_pg = ref_cs.space_group().build_derived_reflection_intensity_group(True)
+        for rs_idx, (pg, cell) in enumerate(self.reference_symmetries[group_idx]):
+            if pg.group() == ref_pg:
+                return rs_idx, self.get_reference_symm(group_idx, rs_idx)
+
+        return None, None
+    # get_symmetry_reference_matched()
+
 def run(params, out=sys.stdout):
     cm = CheckMulti(topdir=params.topdir, xdsdirs=params.xdsdir, out=out)
     cm.get_symms_from_xds_results()
@@ -224,7 +237,7 @@ def run(params, out=sys.stdout):
     ret = cm.grouped_dirs
 
     if len(ret) == 0:
-        return ret
+        return cm
     
     print >>out
     print >>out, "About the largest group:"
@@ -288,7 +301,7 @@ def run_from_args(argv):
         if os.path.isdir(arg) and params.topdir is None:
             params.topdir = arg
 
-    if params.topdir is None:
+    if not params.xdsdir and params.topdir is None:
         params.topdir = os.getcwd()
 
     run(params)

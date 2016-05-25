@@ -23,13 +23,20 @@ def get_ISa(lp, check_valid=False):
     return float("nan")
 # get_ISa()
 
-def get_P1_cell(lp):
+def get_P1_cell(lp, force_obtuse_angle=False):
     read_flag = False
     for l in open(lp):
         if l.startswith(" CHARACTER  LATTICE     OF FIT      a      b      c   alpha  beta gamma"):
             read_flag = True
         elif read_flag and l[14:16] == "aP":
             cell = map(float, (l[32:39], l[39:46], l[46:53], l[53:59], l[59:65], l[65:71]))
+            if force_obtuse_angle:
+                tmp = map(lambda x: (x[0]+3,abs(90.-x[1])), enumerate(cell[3:])) # Index and difference from 90 deg
+                tmp.sort(key=lambda x: x[1], reverse=True)
+                if cell[tmp[0][0]] < 90:
+                    tmp = map(lambda x: (x[0]+3,90.-x[1]), enumerate(cell[3:])) # Index and 90-val.
+                    tmp.sort(key=lambda x: x[1], reverse=True)
+                    for i,v in tmp[:2]: cell[i] = 180.-cell[i]
             return uctbx.unit_cell(cell)
     return None
 # get_P1_cell()
