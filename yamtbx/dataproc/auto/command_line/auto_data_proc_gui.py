@@ -1136,6 +1136,7 @@ class ControlPanel(wx.Panel):
         
         mpd = MultiPrepDialog(cm=cm)
         group, symmidx, workdir, cell_method = mpd.ask(sio.getvalue())
+        mpd.Destroy()
 
         if None in (group,symmidx):
             mylog.info("Canceled")
@@ -1307,7 +1308,7 @@ class ResultLeftPanel(wx.Panel):
         vbox.Add(sbsImage, flag=wx.EXPAND|wx.ALL, border=1)
 
         self.spinRawFrame.Bind(wx.EVT_SPIN, self.spinRawFrame_spin)
-        self.spinPredictFrame.Bind(wx.EVT_SPIN, lambda e: self.txtPredictFrame.SetValue(str(self.spinPredictFrame.GetValue())))
+        self.spinPredictFrame.Bind(wx.EVT_SPIN, self.spinPredictFrame_spin)
 
         self.btnRawShow.Bind(wx.EVT_BUTTON, self.btnRawShow_click)
         self.btnPredictShow.Bind(wx.EVT_BUTTON, self.btnPredictShow_click)
@@ -1319,9 +1320,6 @@ class ResultLeftPanel(wx.Panel):
         for obj in (self.spinRawFrame, self.spinPredictFrame):
             obj.SetRange(*key[1])
             obj.SetValue(key[1][1])
-
-        # TODO remove this limitation
-        self.spinPredictFrame.SetRange(key[1][1], key[1][1])
 
         self.txtRawFrame.SetValue(str(self.spinRawFrame.GetValue()))
         self.txtPredictFrame.SetValue(str(self.spinPredictFrame.GetValue()))
@@ -1349,15 +1347,34 @@ class ResultLeftPanel(wx.Panel):
             wx.CallAfter(self.btnRawShow_click, None, False)
     # spinRawFrame_spin()
 
-    def btnPredictShow_click(self, ev):
+    def btnPredictShow_click(self, ev, raise_window=True):
         frame = int(self.txtPredictFrame.GetValue())
         prefix, nr = self.current_key
         
         if self.current_workdir is None: return
-        
-        # XXX load (make if not exists) FRAME.cbf of frame number!!
-        mainFrame.adxv.open_image(os.path.join(self.current_workdir,"FRAME.cbf"))
+        if frame == self.spinPredictFrame.GetMax():
+            framecbf = os.path.join(self.current_workdir,"FRAME.cbf")
+        else:
+            framecbf = os.path.join(self.current_workdir, "FRAME_%.4d.cbf" % frame)
+            if not os.path.isfile(framecbf): # TODO check timestamp and recalculate if needed
+                from yamtbx.dataproc.xds.command_line import xds_predict_mitai
+                busyinfo = wx.lib.agw.pybusyinfo.PyBusyInfo("Calculating prediction..", title="Busy KAMO")
+                try: wx.SafeYield()
+                except: pass
+                try:
+                    xds_predict_mitai.run(param_source=os.path.join(self.current_workdir, "INTEGRATE.LP"),
+                                          frame_num=frame, wdir=self.current_workdir)
+                finally:
+                    busyinfo = None
+
+        mainFrame.adxv.open_image(framecbf, raise_window=raise_window)
     # btnPredictShow_click()
+
+    def spinPredictFrame_spin(self, ev):
+        self.txtPredictFrame.SetValue(str(self.spinPredictFrame.GetValue()))
+        if mainFrame.adxv.is_alive(): 
+            wx.CallAfter(self.btnPredictShow_click, None, False)
+    # spinPredictFrame_spin()
 
     def update_summary(self, job, result):
         prefix = os.path.relpath(job.filename, config.params.topdir)
@@ -1603,7 +1620,7 @@ class MainFrame(wx.Frame):
         self.splitter.SetMinimumPaneSize(10)
 
         self.Bind(EVT_SHOW_PROC_RESULT, self.show_proc_result)
-        #self.Bind(wx.EVT_CLOSE, self.onClose)
+        self.Bind(wx.EVT_CLOSE, self.onClose)
 
         self.watch_log_thread = WatchLogThread(self)
         self.Bind(EVT_LOGS_UPDATED, self.ctrlPanel.on_update)
@@ -1614,7 +1631,6 @@ class MainFrame(wx.Frame):
     # __init__()
 
     def onClose(self, ev):
-        self.watch_log_thread.stop()
         self.Destroy()
     # onClose()
 

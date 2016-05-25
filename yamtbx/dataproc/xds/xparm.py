@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+import os
 import numpy
 import itertools
 from yamtbx.dataproc.xds import get_xdsinp_keyword
@@ -216,7 +217,7 @@ def get_xparm_from_integrate_lp(lpfile, frame):
     baxis = data["b axis"]
     caxis = data["c axis"]
 
-    xp = XPARM("XPARM.XDS")
+    xp = XPARM(os.path.join(os.path.dirname(lpfile), "XPARM.XDS"))
 
     xp.rotation_axis = numpy.array(rotaxis)
     xp.incident_beam = numpy.array(beam)
