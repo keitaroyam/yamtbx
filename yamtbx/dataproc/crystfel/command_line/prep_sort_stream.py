@@ -41,9 +41,9 @@ def make_G6(uc):
     a = uc[0] ** 2
     b = uc[1] ** 2
     c = uc[2] ** 2
-    d = 2 * uc[1] * uc[2] * math.cos(uc[3])
-    e = 2 * uc[0] * uc[2] * math.cos(uc[4])
-    f = 2 * uc[0] * uc[1] * math.cos(uc[5])
+    d = 2 * uc[1] * uc[2] * math.cos(uc[3]/180.*math.pi)
+    e = 2 * uc[0] * uc[2] * math.cos(uc[4]/180.*math.pi)
+    f = 2 * uc[0] * uc[1] * math.cos(uc[5]/180.*math.pi)
     return [a, b, c, d, e, f]
 
 
