@@ -72,7 +72,31 @@ def run(params):
                                      d_min=params.d_min, min_ios=params.min_ios,
                                      nproc=params.nproc, log_out=log_out)
     elif params.method == "reference":
-        rb = ReferenceBased(xac_files, params.reference_file, params.reference_label, max_delta=params.max_delta,
+        import iotbx.file_reader
+        
+        ref_arrays = iotbx.file_reader.any_file(params.reference_file).file_server.miller_arrays
+        if not ref_arrays:
+            raise "No arrays in reference file"
+        if params.reference_label is not None:
+            ref_arrays = filter(lambda x: params.reference_label in x.info().labels, ref_arrays)
+            if not ref_arrays: raise "No arrays matched to specified label (%s)" % params.reference_label
+            ref_array = ref_arrays[0].as_intensity_array()
+        else:
+            ref_array = None
+            for array in ref_arrays:
+                if array.is_xray_intensity_array():
+                    ref_array = array
+                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                    break
+                elif array.is_xray_amplitude_array():
+                    self.ref_array = array.f_as_f_sq()
+                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                    break
+
+        if ref_array is None:
+            raise "suitable reference data not found"
+
+        rb = ReferenceBased(xac_files, ref_array, max_delta=params.max_delta,
                             d_min=params.d_min, min_ios=params.min_ios,
                             nproc=params.nproc, log_out=log_out)
     else:
@@ -83,9 +107,12 @@ def run(params):
     else:
         rb.assign_operators()
 
-    new_files = rb.modify_xds_ascii_files()
+    out_prefix = os.path.splitext(os.path.basename(params.lstin))[0]
 
-    lstout = os.path.splitext(os.path.basename(params.lstin))[0]+"_reindexed.lst"
+    ofs_cell = open(out_prefix+"_reindexed_cells.dat", "w")
+    new_files = rb.modify_xds_ascii_files(cells_dat_out=ofs_cell)
+
+    lstout = out_prefix + "_reindexed.lst"
     ofs = open(lstout, "w")
     ofs.write("\n".join(new_files)+"\n")
     ofs.close()

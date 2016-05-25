@@ -55,23 +55,31 @@ class ReindexResolver:
         return reidx_ops
     # find_reindex_ops()
 
-    def modify_xds_ascii_files(self, suffix="_reidx"):
+    def modify_xds_ascii_files(self, suffix="_reidx", cells_dat_out=None):
         #ofs_lst = open("for_merge_new.lst", "w")
+        if cells_dat_out: cells_dat_out.write("file a b c al be ga\n")
+
         new_files = []
         print >>self.log_out, "Writing reindexed files.."
         for i, (f, op) in enumerate(zip(self.xac_files, self.best_operators)):
+            xac = XDS_ASCII(f, read_data=False)
             if op.is_identity_op():
-                #ofs_lst.write(f+"\n")
                 new_files.append(f)
+                if cells_dat_out:
+                    cell = xac.symm.unit_cell().parameters()
+                    cells_dat_out.write(f+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
+
                 continue
 
             newf = f.replace(".HKL", suffix+".HKL") if ".HKL" in f else os.path.splitext(f)[0]+suffix+".HKL"
             print >>self.log_out, "%4d %s" % (i, newf)
 
-            xac = XDS_ASCII(f, read_data=False)
-            xac.write_reindexed(op, newf)
+            cell_tr = xac.write_reindexed(op, newf, space_group=self.arrays[0].crystal_symmetry().space_group())
             #ofs_lst.write(newf+"\n")
             new_files.append(newf)
+
+            if cells_dat_out:
+                cells_dat_out.write(newf+" "+" ".join(map(lambda x:"%7.3f"%x, cell_tr.parameters()))+"\n")
 
         return new_files
     # modify_xds_ascii_files()
@@ -188,34 +196,9 @@ class KabschSelectiveBreeding(ReindexResolver):
 # class KabschSelectiveBreeding
 
 class ReferenceBased(ReindexResolver):
-    def __init__(self, xac_files, reference_file, reference_label=None, d_min=3, min_ios=3,  nproc=1, max_delta=3, log_out=null_out()):
+    def __init__(self, xac_files, ref_array, d_min=3, min_ios=3,  nproc=1, max_delta=3, log_out=null_out()):
         ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
-
-        import iotbx.file_reader
-        
-        ref_arrays = iotbx.file_reader.any_file(reference_file).file_server.miller_arrays
-        if not ref_arrays:
-            raise "No arrays in reference file"
-        if reference_label is not None:
-            ref_arrays = filter(lambda x: reference_label in x.info().labels, ref_arrays)
-            if not ref_arrays: raise "No arrays matched to specified label (%s)" % reference_label
-            self.ref_array = ref_arrays[0].as_intensity_array()
-        else:
-            self.ref_array = None
-            for array in ref_arrays:
-                if array.is_xray_intensity_array():
-                    self.ref_array = array
-                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
-                    break
-                elif array.is_xray_amplitude_array():
-                    self.ref_array = array.f_as_f_sq()
-                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
-                    break
-
-        if self.ref_array is None:
-            raise "suitable reference data not found"
-
-        self.ref_array = self.ref_array.resolution_filter(d_min=d_min).as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
+        self.ref_array = ref_array.resolution_filter(d_min=d_min).as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
         
     # __init__()
 
