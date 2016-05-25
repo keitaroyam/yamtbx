@@ -496,7 +496,7 @@ def xds2mtzmulti(xds_file, dir_name, hklout=None, dmin=None, dmax=None, force_an
 
     xac = xds_ascii.XDS_ASCII(xds_file)
     iobs = xac.i_obs(anomalous_flag=True if force_anomalous else None)
-    iobs = iobs.resolution_filter(d_min=dmin, d_max=dmax)
+    iobs = iobs.resolution_filter(d_min=float(dmin) if dmin is not None else None, d_max=float(dmax) if dmax is not None else None)
     iobs = iobs.select(iobs.sigmas() > 0)
     merge = merging_statistics.filter_intensities_by_sigma(iobs, sigma_filtering="xds").merge
 
