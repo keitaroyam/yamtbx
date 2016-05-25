@@ -59,7 +59,7 @@ def read_stream_data(frames, bss_job_mode=4):
     return header, data
 # read_stream_data()
 
-def extract_data(h5master, frameno):
+def extract_data(h5master, frameno, apply_pixel_mask=True):
     h5 = h5py.File(h5master, "r")
     i_seen = 0
     data = None
@@ -74,6 +74,46 @@ def extract_data(h5master, frameno):
 
     if data is None: print "Data not found."
 
+    byte = data.dtype.itemsize
+    data = data.astype(numpy.int32)
+    data[data==2**(byte*8)-1] = -3 # To see pixels not masked by pixel mask.
+    if apply_pixel_mask and "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5:
+        mask = h5["/entry/instrument/detector/detectorSpecific/pixel_mask"][:]
+        data[mask==1] = -1
+        data[mask>1] = -2
+
+    return data
+# extract_data()
+
+def extract_data_range_sum(h5master, frames):
+    h5 = h5py.File(h5master, "r")
+    i_seen = 0
+    i_found = 0
+    data = None
+    for k in sorted(h5["/entry/data"].keys()):
+        try:
+            for i in xrange(h5["/entry/data"][k].shape[0]):
+                i_seen += 1
+                if i_seen in frames:
+                    i_found += 1
+                    tmp = h5["/entry/data"][k][i,]
+                    badnum = 2**(tmp.dtype.itemsize*8)-1
+                    tmp = tmp.astype(numpy.int32)
+                    tmp[tmp==badnum] = -1 # XXX if not always 'bad' pixel...
+                    if data is None: data = tmp.astype(numpy.int32)
+                    else: data += tmp
+        except KeyError:
+            break
+
+    data[data<0] = -3 # To see pixels not masked by pixel mask.
+    # Apply pixel mask
+    if "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5:
+        mask = h5["/entry/instrument/detector/detectorSpecific/pixel_mask"][:]
+        data[mask==1] = -1
+        data[mask>1] = -2
+
+    if data is None: print "Data not found."
+    if i_found != len(frames): return None
     return data
 # extract_data()
 
@@ -81,10 +121,12 @@ def extract_to_minicbf(h5master, frameno, cbfout, binning=1):
     from yamtbx.dataproc import cbf
     from yamtbx.dataproc.XIO.plugins import eiger_hdf5_interpreter
 
-    data = extract_data(h5master, frameno)
-    byte = data.dtype.itemsize
-    data = data.astype(numpy.int32)
-    data[data==2**(byte*8)-1] = -1
+    if type(frameno) in (tuple, list):
+        data = extract_data_range_sum(h5master, frameno)
+        nframes = len(frameno)
+    else:
+        data = extract_data(h5master, frameno)
+        nframes = 1
 
     h = eiger_hdf5_interpreter.Interpreter().getRawHeadDict(h5master)
     h5 = h5py.File(h5master, "r")
@@ -95,6 +137,7 @@ def extract_to_minicbf(h5master, frameno, cbfout, binning=1):
 
     h["Detector"] = h5["/entry/instrument/detector/description"].value
     h["ExposurePeriod"] = h5["/entry/instrument/detector/frame_time"].value
+    h["PhiWidth"] *= nframes
     cbf.save_numpy_data_as_cbf(data.flatten(), size1=data.shape[1], size2=data.shape[0], title="",
                                cbfout=cbfout,
                                pilatus_header="""\

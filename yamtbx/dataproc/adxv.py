@@ -67,5 +67,5 @@ class Adxv:
         imgfile = os.path.join(tmpdir, "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
         eiger.extract_to_minicbf(h5file, frameno, imgfile, binning=binning)
         self.open_image(imgfile, raise_window=raise_window)
-
+    # open_hdf5()
 # class Adxv

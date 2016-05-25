@@ -22,7 +22,7 @@ def is_bslz4_applied(h5obj, dspath):
     return p.get_filter(0)[0] == bitshuffle.h5.H5FILTER
 # is_bslz4_applied()
 
-def run_safe(infile):
+def run_safe(infile, check_data=True):
     startt = time.time()
     h5in = h5py.File(infile, "r")
 
@@ -44,14 +44,18 @@ def run_safe(infile):
     size1 = os.path.getsize(infile) / 1024**2
     size2 = os.path.getsize(outfile) / 1024**2
 
-    # Check data and overwrite if ok
-    h5in = h5py.File(infile, "r")
-    h5out = h5py.File(outfile, "r")
-    if (h5in["/entry/data/data"][:] == h5out["/entry/data/data"][:]).all():
-        print "OK. overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.)
-        shutil.move(outfile, infile)
+    if check_data:
+        # Check data and overwrite if ok
+        h5in = h5py.File(infile, "r")
+        h5out = h5py.File(outfile, "r")
+        if (h5in["/entry/data/data"][:] == h5out["/entry/data/data"][:]).all():
+            print "OK. overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.)
+            shutil.move(outfile, infile)
+        else:
+            print "Error! data not match: %s # %.3f sec" % (infile, eltime)
     else:
-        print "Error! data not match: %s # %.3f sec" % (infile, eltime)
+        print "Overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.)
+        shutil.move(outfile, infile)
 
     if os.path.isfile(outfile):
         print " temporary file removed: %s" % outfile

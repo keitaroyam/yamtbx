@@ -22,6 +22,32 @@ from yamtbx.dataproc import eiger
 from yamtbx.dataproc import adxv
 from yamtbx.dataproc.XIO.plugins import eiger_hdf5_interpreter
 
+def parse_range(s):
+    ret = []
+    if not s: return ret
+    for x in s.split(","):
+        if x.count("-") > 1: return None
+        tmp = map(int, x.split("-"))
+        if len(tmp) == 1: ret.append(tmp[0])
+        else: ret.extend(range(tmp[0], tmp[1]+1))
+    return sorted(set(ret))
+# parse_range()
+
+def make_range_str(frames):
+    # frames must be unique and sorted
+    if not frames: return ""
+    s = str(frames[0])
+    if len(frames) == 1: return s
+    diffs = map(lambda i: frames[i]-frames[i-1], xrange(1, len(frames)))
+    for i, d in enumerate(diffs):
+        if d > 1:
+            if i>0 and diffs[i-1] == 1: s += "-%d,%d"%(frames[i],frames[i+1])
+            else: s += ",%d"%frames[i+1]
+        
+    if diffs[-1] == 1: s += "-%d" % frames[-1]
+    return s
+# make_range_str()
+
 class MainFrame(wx.Frame):
     def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204"):
         wx.Frame.__init__(self, parent=parent, id=id, title="Adxv launcher for Eiger",
@@ -70,8 +96,12 @@ class MainFrame(wx.Frame):
         self.rrbtn = wx.Button(panel1, wx.ID_ANY, ">>")
         hbox01.Add(self.rrbtn, flag=wx.EXPAND|wx.RIGHT)
         vbox0.Add(hbox01, flag=wx.EXPAND|wx.TOP, border=4)
-        self.lbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(-1))
-        self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(+1))
+        #self.lbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(-1))
+        #self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(+1))
+        #self.llbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(-1))
+        #self.rrbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(+1))
+        self.lbtn.Bind(wx.EVT_BUTTON, lambda e: self.next_or_back(-1))
+        self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.next_or_back(+1))
         self.llbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(-1))
         self.rrbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(+1))
 
@@ -164,21 +194,35 @@ class MainFrame(wx.Frame):
                             binning=int(self.txtBin.GetValue()))
     # open_hdf5()
 
-    def change_frameno(self, frameno):
-        if frameno < 1: frameno = 1
-        if frameno > self.n_images: frameno = self.n_images
-        self.txtFrame.SetValue(str(frameno))
-        self.open_hdf5(frameno, raise_window=False)
+    def change_frameno(self, frames):
+        if all(map(lambda x: x < 1, frames)): frames = [1]
+        if all(map(lambda x: x > self.n_images, frames)): frames = [self.n_images]
+        frames = filter(lambda x: 0 < x <= self.n_images, frames)
+        if not frames: frames = [1]
+        self.txtFrame.SetValue(make_range_str(frames))
+        self.open_hdf5(frames, raise_window=False)
     # change_frameno()
 
     def onTextEnter(self, ev):
-        frameno = int(self.txtFrame.GetValue())
-        self.change_frameno(frameno)
+        frames = parse_range(self.txtFrame.GetValue())
+        self.change_frameno(frames)
     # onTextEnter()
 
+    def next_or_back(self, sign):
+        s = make_range_str(parse_range(self.txtFrame.GetValue()))
+        if "-" not in s: return self.go_rel(sign)
+        val = 1
+        for x in s.split(","):
+            if "-" not in x: continue
+            x = map(int, x.split("-"))
+            val = max(val, x[1]-x[0]+1)
+        return self.go_rel(sign*val)
+    # next_or_back()
+
     def go_rel(self, rel):
-        frameno = int(self.txtFrame.GetValue()) + rel
-        self.change_frameno(frameno)
+        frames = parse_range(self.txtFrame.GetValue())
+        frames = map(lambda x: x+rel, frames)
+        self.change_frameno(frames)
     # go_rel()
 
     def play(self, rel):
@@ -197,9 +241,8 @@ class MainFrame(wx.Frame):
 
     def on_play_timer(self, ev):
         save = self.txtFrame.GetValue()
-        self.go_rel(self.play_relval)
-
-        try: wx.SafeYield()
+        self.next_or_back(self.play_relval)
+        try: wx.Yield()
         except: pass
 
         if save == self.txtFrame.GetValue(): self.play_stop()
@@ -267,7 +310,7 @@ class MainFrame(wx.Frame):
             self.n_images = 0
             self.txtInfo.SetValue(traceback.format_exc())
 
-        self.change_frameno(1)
+        self.change_frameno([1])
     # read_h5file()
 
     def on_monitor_timer(self, ev):
