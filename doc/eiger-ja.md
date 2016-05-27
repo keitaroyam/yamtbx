@@ -81,6 +81,20 @@ hdf5形式のまま表示するには，以下の方法があります．
 * [ALBULA](https://www.dectris.com/Albula_Overview.html)
 * [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (要[bitshuffle plugin](#bitshuffle-plugin-少し上級編). 但し実験情報が読まれないため分解能が正しく表示されない)
 * dials.image_viewer (DIALSプログラムに同梱)
+* yamtbx.adxv_eiger (32XUで標準使用の拙作スクリプト．adxvを使用)
+
+yamtbx.adxv_eigerは以下の方法で導入できます．
+
+1. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
+2. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
+```
+cd $HOME
+git clone https://github.com/keitaroyam/yamtbx.git
+cd $PHENIX/modules
+ln -s ~/yamtbx/yamtbx .
+cd ../build
+libtbx.configure yamtbx
+```
 
 
 ## データ処理の方法

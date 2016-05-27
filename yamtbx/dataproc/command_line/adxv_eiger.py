@@ -12,6 +12,7 @@ import re
 import socket
 import subprocess
 import time
+import tempfile
 import json
 import traceback
 import getpass
@@ -189,7 +190,8 @@ class MainFrame(wx.Frame):
     # on_btnMonRefresh()
 
     def open_hdf5(self, frameno, raise_window=True):
-        self.adxv.open_hdf5(self.h5file, frameno,
+        tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
+        self.adxv.open_hdf5(self.h5file, frameno, tmpdir=tmpdir,
                             raise_window=raise_window,
                             binning=int(self.txtBin.GetValue()))
     # open_hdf5()
@@ -358,6 +360,7 @@ class MainFrame(wx.Frame):
 %s"""% (time.ctime(), data_size, wavelen, distance, beamx, beamy, self.txtInfo.GetValue()))
 
         from yamtbx.dataproc import cbf
+        tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
         imgfile = os.path.join("/dev/shm", "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
         cbf.save_numpy_data_as_cbf(data.flatten(), size1=data.shape[1], size2=data.shape[0], title="",
                                    cbfout=imgfile,

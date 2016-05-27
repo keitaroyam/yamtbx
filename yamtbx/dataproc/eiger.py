@@ -8,8 +8,6 @@ Reference: tools/python/streamreceiver2.py by Dectris.
 """
 
 import h5py
-import lz4
-import bitshuffle
 import json
 import struct
 import numpy
@@ -17,6 +15,8 @@ import os
 from yamtbx.dataproc import software_binning
 
 def read_stream_data(frames, bss_job_mode=4):
+    import lz4
+    import bitshuffle
     if len(frames) != 5:
         return None, None
 
