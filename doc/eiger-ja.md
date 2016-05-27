@@ -83,7 +83,7 @@ hdf5形式のまま表示するには，以下の方法があります．
 * dials.image_viewer (DIALSプログラムに同梱)
 * yamtbx.adxv_eiger (32XUで標準使用の拙作スクリプト．adxvを使用)
 
-yamtbx.adxv_eigerは以下の方法で導入できます．
+yamtbx.adxv_eigerは以下の方法で導入できます．[KAMO](kamo-ja.md#ローカル環境での使用方法)またはyamtbxを導入済みの場合は既に使えるようになっています．
 
 1. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
 2. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
