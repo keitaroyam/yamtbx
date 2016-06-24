@@ -1,4 +1,5 @@
 # LIBTBX_SET_DISPATCHER_NAME kamo.multi_merge
+# LIBTBX_PRE_DISPATCHER_INCLUDE_SH export PHENIX_GUI_ENVIRONMENT=1
 """
 (c) RIKEN 2015. All rights reserved. 
 Author: Keitaro Yamashita

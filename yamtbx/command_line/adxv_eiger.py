@@ -1,4 +1,5 @@
 # LIBTBX_SET_DISPATCHER_NAME yamtbx.adxv_eiger
+# LIBTBX_PRE_DISPATCHER_INCLUDE_SH export PHENIX_GUI_ENVIRONMENT=1
 """
 (c) RIKEN 2016. All rights reserved. 
 Author: Keitaro Yamashita
