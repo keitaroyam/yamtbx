@@ -29,7 +29,7 @@ class reader:
 
         self.hkl = flex.miller_index()
         self.data = {}
-
+        
         for l in open(filein):
 
             if l.startswith("!UNIT_CELL_CONSTANTS="):
@@ -82,7 +82,7 @@ class reader:
         #print self.data
 
         self.column_names = column_names
-
+        self._filein = filein
     # __init__ ()
 
     def get_column_names(self): return self.column_names
@@ -115,6 +115,31 @@ class reader:
                             data=self.data["IOBS"],
                             sigmas=self.data["SIGMA"]).set_info(array_info).set_observation_type_xray_intensity()
     # i_obs()
+
+    def write_peak_corrected(self, hklout):
+        ofs = open(hklout, "w")
+
+        i_peak = self.column_names.index("PEAK")
+        i_iobs, i_sigma = self.column_names.index("IOBS"), self.column_names.index("SIGMA")
+
+        data_flag = False
+
+        for line in open(self._filein):
+            if line.startswith('!END_OF_HEADER'):
+                ofs.write(line)
+                data_flag = True
+            elif line.startswith("!END_OF_DATA"):
+                ofs.write(line)
+                break
+            elif not data_flag:
+                ofs.write(line)
+            elif data_flag:
+                sp = line.split()
+                peak = float(sp[i_peak]) * .01
+                sp[i_iobs] = "%.3e" % (float(sp[i_iobs]) * peak)
+                sp[i_sigma] = "%.3e" % (float(sp[i_sigma]) * peak)
+                ofs.write(" %s\n" % " ".join(sp))
+    # write_peak_corrected()
 
 
 if __name__ == "__main__":

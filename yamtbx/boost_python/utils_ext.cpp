@@ -8,8 +8,12 @@
 #include <scitbx/array_family/boost_python/flex_fwd.h>
 #include <scitbx/array_family/flex_types.h>
 #include <cctbx/miller.h>
+#include <cctbx/miller/match.h>
 #include <cctbx/miller/index_span.h>
 #include <algorithm>
+#include <functional>
+#include <map>
+#include <vector>
 
 namespace bp = boost::python;
 namespace af = scitbx::af;
@@ -89,11 +93,50 @@ make_selection_for_xds_unmerged(const flex_miller_index &lhs_indices,
   return ret;
 }
 
+struct comp {
+  comp(af::shared<cctbx::miller::index<> > const& ind): ind(ind) {}
+  bool operator()(size_t i, size_t j) { return _comp(ind[i],ind[j]); }
+  cctbx::miller::fast_less_than<> _comp;
+  af::shared<cctbx::miller::index<> > const& ind;
+};
+
+af::shared<size_t>
+sort_permutation_fast_less(af::shared<cctbx::miller::index<> > const& indices)
+{
+  af::shared<size_t> ret(indices.size());
+  for (int i = 0; i < indices.size(); ++i) ret[i] = i;
+
+  std::sort(ret.begin(), ret.end(), comp(indices));
+  return ret;
+}
+
+boost::python::tuple
+my_common_indices(af::shared<cctbx::miller::index<> > const& indices_0,
+		  af::shared<cctbx::miller::index<> > const& indices_1)
+{
+  cctbx::miller::fast_less_than<> lt;
+
+  af::shared<size_t> ret0, ret1;
+  ret0.reserve(indices_0.size());
+  ret1.reserve(indices_1.size());
+
+
+  for (int i = 0, j = 0; i < indices_0.size() && j < indices_1.size(); ++j) {
+    while (i < indices_0.size() && lt(indices_0[i], indices_1[j])) ++i;
+    if (i < indices_0.size() && indices_0[i] == indices_1[j]) {
+      ret0.push_back(i);
+      ret1.push_back(j);
+    }
+  }
+  return boost::python::make_tuple(ret0, ret1);
+}
+
 BOOST_PYTHON_MODULE(yamtbx_utils_ext)
 {
 
   typedef bp::return_value_policy<bp::return_by_value> rbv;
 
   bp::def("make_selection_for_xds_unmerged", make_selection_for_xds_unmerged);
-
+  bp::def("sort_permutation_fast_less", sort_permutation_fast_less, rbv());
+  bp::def("my_common_indices", my_common_indices, rbv());
 }

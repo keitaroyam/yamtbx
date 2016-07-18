@@ -6,6 +6,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 import re
 import os
+import numpy
 from cctbx import crystal
 from cctbx import miller
 from cctbx import uctbx
@@ -225,6 +226,7 @@ class XDS_ASCII:
             params += ("xd", "yd", "zd", "rlp", "peak", "corr", "iframe")
 
         for p in params:
+            if not getattr(self, p): continue
             setattr(self, p, getattr(self, p).select(~sel))
     # remove_selection()
 
@@ -260,17 +262,26 @@ class XDS_ASCII:
         col_H, col_K, col_L = map(lambda x:self._colindex[x], "HKL")
         assert col_H==0 and col_K==1 and col_L==2
 
+        tr_mat = numpy.array(op.c_inv().r().as_double()).reshape(3,3).transpose()
+        transformed = numpy.dot(tr_mat, numpy.array([self.a_axis, self.b_axis, self.c_axis]))
+        
         data_flag = False
 
         for line in open(self._filein):
             if line.startswith('!UNIT_CELL_CONSTANTS='):
-                # XXX transform UNIT_CELL_[ABC]-AXIS= too?
+                # XXX split by fixed columns
                 cell = uctbx.unit_cell(line[line.index("=")+1:].strip())
                 cell_tr = cell.change_basis(op)
                 if space_group is not None: cell_tr = space_group.average_unit_cell(cell_tr)
                 ofs.write("!UNIT_CELL_CONSTANTS=%10.3f%10.3f%10.3f%8.3f%8.3f%8.3f\n" % cell_tr.parameters())
             elif line.startswith('!SPACE_GROUP_NUMBER=') and space_group is not None:
                 ofs.write("!SPACE_GROUP_NUMBER=%5d \n" % space_group.type().number())
+            elif line.startswith("!UNIT_CELL_A-AXIS="):
+                ofs.write("!UNIT_CELL_A-AXIS=%10.3f%10.3f%10.3f\n" % tuple(transformed[0,:]))
+            elif line.startswith("!UNIT_CELL_B-AXIS="):
+                ofs.write("!UNIT_CELL_B-AXIS=%10.3f%10.3f%10.3f\n" % tuple(transformed[1,:]))
+            elif line.startswith("!UNIT_CELL_C-AXIS="):
+                ofs.write("!UNIT_CELL_C-AXIS=%10.3f%10.3f%10.3f\n" % tuple(transformed[2,:]))
             elif line.startswith('!END_OF_HEADER'):
                 ofs.write(line)
                 data_flag = True
