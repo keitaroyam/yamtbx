@@ -204,7 +204,7 @@ class Chunk:
 
         if self.latt_type is not None: ret.append("lattice_type = %s" % self.latt_type)
         if self.centering is not None: ret.append("centering = %s" % self.centering)
-        if self.profile_radius is not None: ret.append("profile_radius = %.5f nm^-1" % self.profile_radius*10.)
+        if self.profile_radius is not None: ret.append("profile_radius = %.5f nm^-1" % (self.profile_radius*10.))
 
         if self.res_lim is not None: ret.append("diffraction_resolution_limit = %.2f nm^-1 or %.2f A" % (10./self.res_lim, self.res_lim))
         if self.n_refl is not None: ret.append("num_reflections = %d" % self.n_refl)
