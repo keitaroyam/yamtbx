@@ -18,6 +18,10 @@ class Adxv:
 
         self.adxv_proc = None # subprocess object
         self.adxv_port = 8100 # adxv's default port. overridden later.
+        self.sock = None
+
+        self.spot_type_counter = -1
+    # __init__()
 
     def start(self, cwd=None):
         adxv_comm = self.adxv_bin + " -socket %d"
@@ -31,6 +35,16 @@ class Adxv:
             sock_test.close()
             # start adxv
             self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd)
+
+            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            for i in xrange(10): # try for 5 seconds.
+                try:
+                    self.sock.connect(("localhost", self.adxv_port))
+                    break
+                except socket.error:
+                    time.sleep(.5)
+                    continue
+
     # start()
 
     def is_alive(self):
@@ -40,25 +54,16 @@ class Adxv:
     def open_image(self, imgfile, raise_window=True):
         self.start(cwd=os.path.dirname(imgfile))
 
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        for i in xrange(10): # try for 5 seconds.
-            try:
-                sock.connect(("localhost", self.adxv_port))
-                break
-            except socket.error:
-                time.sleep(.5)
-                continue
-
-        sent = sock.send("load_image %s\n"%imgfile)
+        sent = self.sock.send("load_image %s\n"%imgfile)
         if sent == 0:
             raise RuntimeError("adxv load failed! Close adxv and double-click again.")
 
         if raise_window:
-            sent = sock.send("raise_window Control\n") # raise_window is available from adxv 1.9.9
-            sent = sock.send("raise_window Image\n")
+            sent = self.sock.send("raise_window Control\n") # raise_window is available from adxv 1.9.9
+            sent = self.sock.send("raise_window Image\n")
 
-        sock.close()
+        #sock.close()
     # open_image()
 
     def open_hdf5(self, h5file, frameno, tmpdir="/dev/shm", raise_window=True, binning=1):
@@ -68,4 +73,29 @@ class Adxv:
         eiger.extract_to_minicbf(h5file, frameno, imgfile, binning=binning)
         self.open_image(imgfile, raise_window=raise_window)
     # open_hdf5()
+
+    def define_spot(self, color, radius=0, box=0):
+        self.spot_type_counter += 1
+        sent = self.sock.send("box %d %d\n" % (box,box)) # seems ignored?
+        sent = self.sock.send("define_type %d color %s radius %d\n"%(self.spot_type_counter, color, radius))
+        print sent
+        if sent == 0:
+            print "define_spot failed!"
+
+        sent = self.sock.send("box 20 20\n")
+        return self.spot_type_counter
+    # define_spot()
+
+    def load_spots(self, spots):
+        if len(spots) == 0:
+            return
+
+        sent = self.sock.send("load_spots %d\n" % len(spots))
+
+        for x, y, t in spots:
+            sent = self.sock.send("%.2f %.2f %d\n" % (x, y, t))
+        
+        sent = self.sock.send("end_of_pack\n")
+    # load_spots()
+
 # class Adxv

@@ -9,6 +9,7 @@ This software is released under the new BSD License; see LICENSE.
 from yamtbx.dataproc.xds import idxreflp
 from yamtbx.dataproc.xds import get_xdsinp_keyword
 from yamtbx.dataproc import dataset
+from yamtbx.dataproc.adxv import Adxv
 
 import iotbx.phil
 
@@ -27,69 +28,6 @@ xds_dir = "."
 interactive = True
  .type = bool
 """
-
-class Adxv:
-    def __init__(self, adxv_bin):
-        self.adxv_comm = adxv_bin + " -socket %d"
-        self.sock = None
-        self.adxv_proc = None
-        self.spot_type_counter = -1
-    # __init__()
-
-    def start(self, wdir):
-        # find available port number
-        sock_test = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock_test.bind(("localhost", 0))
-        adxv_port = sock_test.getsockname()[1]
-        sock_test.close()
-
-        # start adxv
-        self.adxv_proc = subprocess.Popen(self.adxv_comm % adxv_port, shell=True,
-                                          cwd=wdir)
-
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-
-        for i in xrange(4): # try for 2 seconds.
-            try:
-                self.sock.connect(("localhost", adxv_port))
-                break
-            except socket.error:
-                time.sleep(.5)
-                continue
-    # start()
-
-    def define_spot(self, color, radius=0):
-        self.spot_type_counter += 1
-        sent = self.sock.send("define_type %d color %s radius %d\n"%(self.spot_type_counter, color, radius))
-        print sent
-        if sent == 0:
-            print "define_spot failed!"
-
-        sent = self.sock.send("box 20 20\n")
-        return self.spot_type_counter
-    # define_spot()
-
-    def open_file(self, imgfile):
-        sent = self.sock.send("load_image %s\n"%imgfile)
-        if sent == 0:
-            print "adxv load failed!"
-
-        #sock.close()
-    # open_file()
-
-    def load_spots(self, spots):
-        if len(spots) == 0:
-            return
-
-        sent = self.sock.send("load_spots %d\n" % len(spots))
-
-        for x, y, t in spots:
-            sent = self.sock.send("%.2f %.2f %d\n" % (x, y, t))
-        
-        sent = self.sock.send("end_of_pack\n")
-    # load_spots()
-
-# class Adxv
 
 def run(params):
     xds_inp = os.path.join(params.xds_dir, "XDS.INP")
@@ -115,7 +53,7 @@ def run(params):
         print "Showing image %d" % num
 
         img_file = dataset.template_to_filenames(filename_template, num, num)[0]
-        adxv.open_file(img_file)
+        adxv.open_image(img_file)
 
         uninds = map(lambda x: [x[0], x[1], type_unindexed], spots["unindexed"].get(num, []))
         inds = map(lambda x: [x[0], x[1], type_indexed], spots["indexed"].get(num, []))
