@@ -19,12 +19,17 @@ d_min = None
  .type = float
 workdir = "."
  .type = path
+use_tmpdir_if_available = False
+ .type = bool
+cbf_to_dat = True
+ .type = bool
 """
 
 import os
 import sys
 import iotbx.phil
 from yamtbx import util
+from yamtbx.dataproc.xds import xscale
 
 xscale_comm = "xscale_par"
 
@@ -108,7 +113,11 @@ def run(params, xac_files):
         inp_out.write("  ! INCLUDE_RESOLUTION_RANGE= %s\n\n" % infos[xds_ascii]["resol_range"])
 
     inp_out.close()
-    util.call(xscale_comm, wdir=params.workdir, stdout=sys.stdout)
+
+    xscale.run_xscale(os.path.join(params.workdir, "XSCALE.INP"),
+                      cbf_to_dat=params.cbf_to_dat,
+                      use_tmpdir_if_available=params.use_tmpdir_if_available)
+
 # run()
 
 if __name__ == "__main__":

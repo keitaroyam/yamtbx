@@ -99,6 +99,7 @@ class CheckMulti:
                                                           tol_length, tol_angle)
                     self.cosets[(i,j)] = cosets
                     if cosets.double_cosets is not None:
+                        print cell_i, cell_j, cosets.combined_cb_ops()[0]
                         self.G.add_edge(i, j)
         #nx.write_dot(self.G, "compatible_cell_graph.dot")
     # construct_graph()
@@ -132,7 +133,6 @@ class CheckMulti:
             print >>self.out, " Members=", sg
             if show_details:
                 # by explore_metric_symmetry
-                print >>self.out, " Possible symmetries:"
                 sg_explorer = pointgroup_tools.space_group_graph_from_cell_and_sg(avg_cell,  sgtbx.space_group_info("P1").group(), max_delta=10)
                 tmp = []
                 for obj in sg_explorer.pg_graph.graph.node_objects.values():
@@ -157,20 +157,31 @@ class CheckMulti:
                         cbop = op * cbop
                         trans_cell = trans_cell.change_basis(op)
 
-                    self.reference_symmetries[i].append((pg, trans_cell))
-                    tmp.append(["   %-10s %s %s" % (pg, " ".join(map(lambda x:"%6.2f"%x, trans_cell.parameters())), cbop), pg.type().number()])
-                for t in sorted(tmp, key=lambda x:x[1]):
-                    print >> self.out, t[0]
-                
-                self.reference_symmetries[i].sort(key=lambda x:x[0].type().number())
+                    tmp.append([0, pg, trans_cell, cbop, pg.type().number()])
 
-                # by pointless results
-                sgs = map(lambda x: self.symms[x].space_group(), sg)
-                sgs_set = set(sgs)
-                print >>self.out, " Space group and frequency in processed results:"
-                for s in sorted(sgs_set, key=lambda x:x.type().number()):
-                    print >>self.out, "   %-10s: %4d files" % (s.info(), sgs.count(s))
-                print >>self.out, ""
+                # Calculate frequency
+                for pgnum in set(map(lambda x: x[-1], tmp)):
+                    sel = filter(lambda x: tmp[x][-1]==pgnum, xrange(len(tmp)))
+                    pgg = tmp[sel[0]][1].group()
+
+                    if len(sel) == 1:
+                        freq = len(filter(lambda x: self.symms[x].space_group().build_derived_reflection_intensity_group(True) == pgg, sg))
+                        tmp[sel[0]][0] = freq
+                    else:
+                        trans_cells = map(lambda x: numpy.array(tmp[x][2].parameters()), sel)
+                        
+                        for idx in sg:
+                            if self.symms[idx].space_group().build_derived_reflection_intensity_group(True) != pgg: continue
+                            cell = numpy.array(self.symms[idx].unit_cell().parameters())
+                            celldiffs = map(lambda tc: sum(abs(tc-cell)), trans_cells)
+                            min_idx = celldiffs.index(min(celldiffs))
+                            tmp[sel[min_idx]][0] += 1
+
+                print >>self.out, " Possible symmetries:"
+                print >>self.out, "   freq symmetry     a      b      c     alpha  beta   gamma reindex"
+                for freq, pg, trans_cell, cbop, pgnum in sorted(tmp, key=lambda x:x[-1]):
+                    print >> self.out, "   %4d %-10s %s %s" % (freq, pg, " ".join(map(lambda x:"%6.2f"%x, trans_cell.parameters())), cbop)
+                    self.reference_symmetries[i].append((pg, trans_cell, freq))
 
             dirs = map(lambda x: self.dirs[x], sg)
             self.grouped_dirs.append(dirs)
@@ -184,7 +195,7 @@ class CheckMulti:
         if rs_idx >= len(self.reference_symmetries[group_idx]):
             return None
 
-        pg, cell = self.reference_symmetries[group_idx][rs_idx]
+        pg, cell, freq = self.reference_symmetries[group_idx][rs_idx]
 
         return crystal.symmetry(cell,
                                 space_group_info=pg,
@@ -201,30 +212,38 @@ class CheckMulti:
 
     def get_most_frequent_symmetry(self, group_idx):
         # Should call after self.group_xds_results()
-        sym_freq = {}
-        grp = self.groups[group_idx]
-        sgs = map(lambda x: str(self.symms[x].space_group().build_derived_reflection_intensity_group(True).info()), grp)
-        for s in sgs:
-            sym_freq[s] = sym_freq.get(s,0) + 1
 
-        if len(sym_freq) > 0:
-            sym_freq = sym_freq.items()
-            sym_freq.sort(key=lambda x:-x[1])
-            if len(sym_freq) > 1 and sym_freq[0][0] == "P 1":
-                return sym_freq[1][0]
-            else:
-                return sym_freq[0][0]
+        symms = filter(lambda x: x[2]>0, self.reference_symmetries[group_idx])
+        symms.sort(key=lambda x: x[2], reverse=True)
+
+        if len(symms) == 0: return None
+
+        if len(symms) > 1 and symms[0][0].group() == sgtbx.space_group_info("P1").group():
+            return crystal.symmetry(symms[1][1], space_group_info=symms[1][0],
+                                    assert_is_compatible_unit_cell=False)
         else:
-            return ""
+            return crystal.symmetry(symms[0][1], space_group_info=symms[0][0],
+                                    assert_is_compatible_unit_cell=False)
+        
     # get_most_frequent_symmetry()
 
     def get_symmetry_reference_matched(self, group_idx, ref_cs):
         ref_pg = ref_cs.space_group().build_derived_reflection_intensity_group(True)
-        for rs_idx, (pg, cell) in enumerate(self.reference_symmetries[group_idx]):
-            if pg.group() == ref_pg:
-                return rs_idx, self.get_reference_symm(group_idx, rs_idx)
+        ref_cell = numpy.array(ref_cs.unit_cell().parameters())
 
-        return None, None
+        symms = filter(lambda x: x[0].group()==ref_pg, self.reference_symmetries[group_idx])
+        if len(symms) == 0: return None
+
+        if len(symms) > 1:
+            cells = map(lambda x: numpy.array(x[1].parameters()), symms)
+            celldiffs = map(lambda c: sum(abs(c-ref_cell)), cells)
+            min_idx = celldiffs.index(min(celldiffs))
+            return crystal.symmetry(symms[min_idx][1], space_group_info=symms[min_idx][0],
+                                    assert_is_compatible_unit_cell=False)
+        else:
+            return crystal.symmetry(symms[0][1], space_group_info=symms[0][0],
+                                    assert_is_compatible_unit_cell=False)
+
     # get_symmetry_reference_matched()
 
 def run(params, out=sys.stdout):

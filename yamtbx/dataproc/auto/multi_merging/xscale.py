@@ -8,6 +8,7 @@ from yamtbx.dataproc.xds import xscale
 from yamtbx.dataproc.xds import xscalelp
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.xds.command_line import xds2mtz
+from yamtbx.dataproc import blend_lcv
 from yamtbx import util
 import collections
 
@@ -38,6 +39,7 @@ class XscaleCycles:
         self.batchjobs = batchjobs
         self.all_data_root = None # the root directory for all data
         self.altfile = {} # Modified files
+        self.cell_info_at_cycles = {}
 
         if reject_params.delta_cchalf.bin == "total-then-outer":
             self.delta_cchalf_bin = "total"
@@ -114,14 +116,16 @@ OUTPUT_FILE= xscale.hkl
         cells = numpy.array(cells)
         mean_cell = map(lambda i: cells[:,i].mean(), xrange(6))
         cell_std = map(lambda i: numpy.std(cells[:,i]), xrange(6))
+        lcv, alcv = blend_lcv.calc_lcv(cells)
 
         mean_cell_str = " ".join(map(lambda x:"%.3f"%x, mean_cell))
         cell_std_str = " ".join(map(lambda x:"%.1e"%x, cell_std))
 
         print >>self.out, "Averaged cell= %s (%d)" % (mean_cell_str, len(cells))
         print >>self.out, "Cell Std dev.= %s" % cell_std_str
+        print >>self.out, "LCV, aLCV= %.3f%%, %.3f A" % (lcv, alcv)
 
-        return sg, mean_cell_str
+        return sg, mean_cell_str, lcv, alcv
     # average_cells()
 
     def run_cycles(self, xds_ascii_files):
@@ -136,9 +140,13 @@ OUTPUT_FILE= xscale.hkl
 
         for i in xrange(1, self.get_last_cycle_number()+1):
             wd = os.path.join(self.workdir_org, "run_%.2d"%i)
-            xds2mtz.xds2mtz(xds_file=os.path.abspath(os.path.join(wd, "xscale.hkl")),
-                            dir_name=os.path.join(wd, "ccp4"),
-                            run_xtriage=True, run_ctruncate=True)
+            try:
+                xds2mtz.xds2mtz(xds_file=os.path.abspath(os.path.join(wd, "xscale.hkl")),
+                                dir_name=os.path.join(wd, "ccp4"),
+                                run_xtriage=True, run_ctruncate=True)
+            except:
+                # Don't want to stop the program.
+                print >>self.out, traceback.format_exc()
 
         return self.removed_files, self.removed_reason
     # run_cycles()
@@ -163,7 +171,8 @@ OUTPUT_FILE= xscale.hkl
         xscale_lp = os.path.join(self.workdir, "XSCALE.LP")
 
         # Get averaged cell for scaling
-        sg, cell = self.average_cells(xds_ascii_files)
+        sg, cell, lcv, alcv = self.average_cells(xds_ascii_files)
+        self.cell_info_at_cycles[self.get_last_cycle_number()] = (cell, lcv, alcv)
         
         # Choose directory containing XDS_ASCII.HKL and set space group (but how??)
         inp_out = open(xscale_inp, "w")
@@ -188,17 +197,11 @@ OUTPUT_FILE= xscale.hkl
         inp_out.close()
 
         print >>self.out, "DEBUG:: running xscale with %3d files.." % len(xds_ascii_files)
-        xscale.run_xscale(xscale_inp)
-        #util.call(xscale_comm, wdir=self.workdir)
-
-        cbfouts = glob.glob(os.path.join(self.workdir, "*.cbf"))
-        if len(cbfouts) > 0:
-            # This doesn't affect anything, so I don't want program to stop if this failed
-            try:
-                xscalelp.cbf_to_dat(xscale_lp)
-                for f in cbfouts: os.remove(f)
-            except:
-                print >>self.out, traceback.format_exc()
+        try:
+            xscale.run_xscale(xscale_inp, cbf_to_dat=True,
+                              use_tmpdir_if_available=self.xscale_params.use_tmpdir_if_available)
+        except:
+            print >>self.out, traceback.format_exc()
 
         xscale_log = open(xscale_lp).read()
         if "!!! ERROR !!! INSUFFICIENT NUMBER OF COMMON STRONG REFLECTIONS." in xscale_log:

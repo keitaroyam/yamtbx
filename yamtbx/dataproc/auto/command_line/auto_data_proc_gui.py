@@ -119,6 +119,10 @@ batch {
   .help = maximum number of concurrent jobs when engine=sh
 }
 
+use_tmpdir_if_available = true
+ .type = bool
+ .help = Use ramdisk or tempdir if sufficient size is available
+
 known {
  unit_cell = None
   .type = floats(size=6)
@@ -496,7 +500,7 @@ class BssJobs:
         open(os.path.join(workdir, "XDS.INP"), "w").write(xdsinp_str)
 
         opts = ["multiproc=false", "topdir=.", "nproc=%d"%config.params.batch.nproc_each, "tryhard=true",
-                "make_report=true"]
+                "make_report=true", "use_tmpdir_if_available=%s"%config.params.use_tmpdir_if_available]
         if config.params.small_wedges: opts.append("no_scaling=true")
         if None not in (config.params.known.space_group, config.params.known.unit_cell):
             opts.append("cell_prior.cell=%s" % ",".join(map(lambda x: "%.3f"%x, config.params.known.unit_cell)))
@@ -868,7 +872,7 @@ class MultiPrepDialog(wx.Dialog):
         self.btnProceed = wx.Button(mpanel, wx.ID_ANY, "Proceed")
         self.btnCancel = wx.Button(mpanel, wx.ID_ANY, "Cancel")
         self.btnProceed.Bind(wx.EVT_BUTTON, self.btnProceed_click)
-        self.btnCancel.Bind(wx.EVT_BUTTON, lambda e: self.Hide())
+        self.btnCancel.Bind(wx.EVT_BUTTON, lambda e: self.EndModal(wx.OK))
         hbox1.Add(self.btnProceed)
         hbox1.Add(self.btnCancel)
         vbox.Add(hbox1)
@@ -902,14 +906,17 @@ class MultiPrepDialog(wx.Dialog):
         self.cmbSymmetry.Clear()
 
         igrp = int(self.cmbGroup.GetValue()) - 1
-        defpg = self.cm.get_most_frequent_symmetry(igrp)
-        selectidx = 0
+        symms = self.cm.get_selectable_symms(igrp)
+        def_idx = symms.index(max(symms, key=lambda x:x[2]))
 
-        for i, (pg, cell) in enumerate(self.cm.get_selectable_symms(igrp)):
+        if len(symms) > 1 and symms[def_idx][0].group() == sgtbx.space_group_info("P1").group():
+            tmp = symms.index(max(filter(lambda x: x!=symms[def_idx], symms), key=lambda x:x[2]))
+            if symms[tmp][2] > 0: def_idx = tmp
+
+        for i, (pg, cell, freq) in enumerate(symms):
             self.cmbSymmetry.Append("%-10s (%s)" % (pg, format_unit_cell(cell)))
-            if str(pg) == defpg: selectidx = i
 
-        self.cmbSymmetry.Select(selectidx)
+        self.cmbSymmetry.Select(def_idx)
     # cmbGroup_select()
 
     def btnProceed_click(self, ev):
@@ -934,7 +941,7 @@ class MultiPrepDialog(wx.Dialog):
             return
 
         self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine"
-        self.Hide()
+        self.EndModal(wx.OK)
     # btnProceed_click()
 
     def ask(self, txt):
@@ -1208,6 +1215,7 @@ class ControlPanel(wx.Panel):
 dmin=2.8 # resolution
 anomalous=false # true or false
 lstin=formerge.lst # list of XDS_ASCII.HKL files
+use_ramdisk=true # set false if there is few memory or few space in /tmp
 # _______/setting
 
 kamo.multi_merge \\
@@ -1216,7 +1224,8 @@ kamo.multi_merge \\
         program=xscale xscale.reference=bmin \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
-#        batch.par_run=merging batch.nproc_each=8 nproc=8
+        xscale.use_tmpdir_if_available=${use_ramdisk} \\
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8
 """)
         os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
         open(os.path.join(workdir, "merge_ccc.sh"), "w").write("""\
@@ -1226,6 +1235,7 @@ dmin=2.8 # resolution
 clustering_dmin=3.5  # resolution for CC calculation
 anomalous=false # true or false
 lstin=formerge.lst # list of XDS_ASCII.HKL files
+use_ramdisk=true # set false if there is few memory or few space in /tmp
 # _______/setting
 
 kamo.multi_merge \\
@@ -1235,7 +1245,8 @@ kamo.multi_merge \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
         cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
-#        batch.par_run=merging batch.nproc_each=8 nproc=8
+        xscale.use_tmpdir_if_available=${use_ramdisk} \\
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8
 """)
         os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
 

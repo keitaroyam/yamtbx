@@ -6,6 +6,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 import os
 import shutil
+import glob
 
 from yamtbx.dataproc.xds import xscalelp
 from yamtbx.dataproc import xds
@@ -35,11 +36,24 @@ def run_xscale(d_min=None, d_max=100, nbins=9, anomalous_flag=None, min_ios=None
         inp_out.write("SPACE_GROUP_NUMBER= %s\nUNIT_CELL_CONSTANTS= %s\n\n" % (sg, cell))
     """
 
-def run_xscale(xscale_inp):
+def run_xscale(xscale_inp, cbf_to_dat=False, use_tmpdir_if_available=False):
     ftable = {}
     outfile = None
     count = 0
-    wdir = os.path.dirname(os.path.abspath(xscale_inp))
+    inpdir = os.path.dirname(os.path.abspath(xscale_inp))
+    wdir = inpdir # may be overridden
+    tmpdir = None
+
+    if use_tmpdir_if_available:
+        tmpdir = util.get_temp_local_dir("xscale", min_gb=1) # TODO guess required tempdir size
+        print tmpdir
+        if tmpdir is None:
+            print "Can't get temp dir with sufficient size."
+
+    if tmpdir is not None:
+        shutil.copy2(xscale_inp, tmpdir)
+        xscale_inp = os.path.join(tmpdir, os.path.basename(xscale_inp))
+        wdir = tmpdir
 
     os.rename(xscale_inp, xscale_inp+".org")
     ofs = open(xscale_inp, "w")
@@ -48,14 +62,14 @@ def run_xscale(xscale_inp):
     for l in open(xscale_inp+".org"):
         ll = l[:l.index("!")] if "!" in l else l
         if "OUTPUT_FILE=" in ll:
-            outfile = ll[ll.index("=")+1:].strip()
-        if "INPUT_FILE=" in ll and len(l) > 132: # one line is limited to 131 characters!
+            outfile = ll[ll.index("=")+1:].strip() # TODO what if the file is not in current directory?
+        if "INPUT_FILE=" in ll: #  and len(l) > 132: # one line is limited to 131 characters!
             filename = ll[ll.index("=")+1:].strip()
             if "*" in filename: filename = filename[filename.index("*")+1:].strip()
             assert " " not in filename
             lnkf = "lnk%.6d.hkl" % count
             assert not os.path.isfile(os.path.join(wdir, lnkf))
-            filename_abs = os.path.normpath(os.path.join(wdir, filename)) if not os.path.isabs(filename) else filename
+            filename_abs = os.path.normpath(os.path.join(inpdir, filename)) if not os.path.isabs(filename) else filename
             os.symlink(filename_abs, os.path.join(wdir, lnkf))
             print "xscale: %s -> %s" % (lnkf, filename)
             count += 1
@@ -84,11 +98,26 @@ def run_xscale(xscale_inp):
                 for lfn in ftable: l = l.replace(lfn, ftable[lfn])
                 ofs.write(l)
             ofs.close()
+            os.remove(f+".org")
 
         for lfn in ftable:
             os.remove(os.path.join(wdir, lfn))
 
         os.rename(xscale_inp+".org", xscale_inp)
+
+    if cbf_to_dat:
+        xscale_lp = os.path.join(wdir, "XSCALE.LP")
+        cbfouts = glob.glob(os.path.join(wdir, "*.cbf"))
+        if len(cbfouts) > 0:
+            xscalelp.cbf_to_dat(xscale_lp)
+            for f in cbfouts: os.remove(f)
+
+    # Move to original directory
+    if tmpdir is not None:
+        for f in glob.glob(os.path.join(tmpdir, "*")):
+            shutil.copy2(f, inpdir)
+
+        shutil.rmtree(tmpdir)
 # run_xscale()
 
 def _calc_cchalf_by_removing_worker_1(wdir, inp_head, inpfiles, iex, nproc=None):

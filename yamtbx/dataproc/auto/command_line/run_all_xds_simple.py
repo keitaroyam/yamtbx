@@ -14,8 +14,9 @@ import sys
 import re
 import pickle
 import time
+import glob
 
-from yamtbx.dataproc.xds import modify_xdsinp, optimal_delphi_by_nproc, make_backup, revert_files, remove_backups
+from yamtbx.dataproc.xds import get_xdsinp_keyword, modify_xdsinp, optimal_delphi_by_nproc, make_backup, revert_files, remove_backups
 from yamtbx.dataproc.xds import idxreflp
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.xds.command_line import xds_plot_integrate
@@ -72,6 +73,9 @@ no_scaling = False
 make_report = True
  .type = bool
  .help = Create html report
+use_tmpdir_if_available = true
+ .type = bool
+ .help = Use ramdisk or tempdir if sufficient size is available
 cell_prior {
  check = true
   .type = bool
@@ -486,19 +490,80 @@ def xds_sequence(root, params):
     decilog.close()
 # xds_sequence()
 
+def run_xds_sequence(root, params):
+    tmpdir = None
+    
+    if params.use_tmpdir_if_available:
+        tmpdir = util.get_temp_local_dir("xdskamo", min_gb=2) # TODO guess required tempdir size
+        if tmpdir is None:
+            print "Can't get temp dir with sufficient size."
+
+    # If tmpdir is not used
+    if tmpdir is None:
+        return xds_sequence(root, params)
+
+    print "Using %s as temp dir.." % tmpdir
+
+    # If tempdir is used
+    for f in glob.glob(os.path.join(root, "*")): shutil.copy2(f, tmpdir)
+    xdsinp = os.path.join(tmpdir, "XDS.INP")
+    xdsinp_dict = dict(get_xdsinp_keyword(xdsinp))
+
+    # Make a link to data dir
+    org_data_template = xdsinp_dict["NAME_TEMPLATE_OF_DATA_FRAMES"]
+    ord_data_dir = os.path.dirname(org_data_template)
+    if not os.path.isabs(ord_data_dir): ord_data_dir = os.path.join(root, ord_data_dir)
+    datadir_lns = os.path.join(tmpdir, "data_loc")
+    os.symlink(ord_data_dir, datadir_lns)
+
+    # Modify XDS.INP
+    modify_xdsinp(xdsinp, inp_params=[("NAME_TEMPLATE_OF_DATA_FRAMES",
+                                       os.path.join("data_loc", os.path.basename(org_data_template)))])
+
+    try:
+        ret = xds_sequence(tmpdir, params)
+    finally:
+        # Revert XDS.INP
+        modify_xdsinp(xdsinp, inp_params=[("NAME_TEMPLATE_OF_DATA_FRAMES", org_data_template)])
+
+        # Remove link
+        os.remove(datadir_lns)
+        
+        # Move to original directory
+        for f in glob.glob(os.path.join(tmpdir, "*")):
+            f_dest = os.path.join(root, os.path.relpath(f, tmpdir))
+            if os.path.isfile(f_dest):
+                # Copy only if newer
+                if os.stat(f).st_mtime > os.stat(f_dest).st_mtime:
+                    shutil.copy2(f, root)
+                else:
+                    print "%s already exists and not modified. skip." % f
+
+                os.remove(f)
+            else:
+                shutil.move(f, root)
+        
+        # Remove tmpdir
+        shutil.rmtree(tmpdir)
+
+    return ret
+# run_xds_sequence()
+
 class xds_runmanager(object):
     def __init__(self, params):
         self.params = params
 
     def __call__(self, arg):
         try:
-            return xds_sequence(arg, self.params)
+            return run_xds_sequence(arg, self.params)
         except:
             print traceback.format_exc()
 
 # xds_runmanager()
 
 def run(params):
+    params.topdir = os.path.abspath(params.topdir)
+
     xds_dirs = []
     print "Found xds directories:"
     for root, dirnames, filenames in os.walk(params.topdir, followlinks=True):
@@ -540,7 +605,8 @@ def run(params):
         """
     else:
         for root in xds_dirs:
-            xds_sequence(root, params)
+            run_xds_sequence(root, params)
+                
 # run()
 
 def run_from_args(argv):

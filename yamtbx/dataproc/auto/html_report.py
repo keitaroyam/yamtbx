@@ -661,6 +661,8 @@ def find_problems(xds_wd):
         if len(lp.subtree_population) > 0:
             pp0 = float(lp.subtree_population[0])/sum(lp.subtree_population)
             if pp0 < 0.9: idexref_has_problem = True
+    else:
+        idexref_has_problem = True
 
     if not os.path.isfile(xparm_xds): idexref_has_problem = True
 

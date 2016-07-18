@@ -71,6 +71,8 @@ xscale {
  corrections = *MODPIX *ABSORP *DECAY
   .type = choice(multi=True)
   .help = controls CORRECTIONS=. Use lower case to specify
+ use_tmpdir_if_available = True
+  .type = bool
 }
 
 rejection {
@@ -167,7 +169,7 @@ batch {
  par_run = *deltacchalf merging
   .type = choice(multi=True)
   .help = What to run in parallel
- engine = *sge sh
+ engine = sge *sh
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
@@ -175,6 +177,9 @@ batch {
  nproc_each = 4
   .type = int
   .help = maximum number of cores used for single data processing
+ sh_max_jobs = 1
+  .type = int
+  .help = maximum number of concurrent jobs when engine=sh
 }
 """
 
@@ -232,7 +237,8 @@ def merge_datasets(params, workdir, xds_files, cells, batchjobs):
             table = xscalelp.read_stats_table(xscale_lp)
             num_files = len(xscalelp.get_read_data(xscale_lp))
             xtriage_logfile = os.path.join(wd, "ccp4", "logfile.log")
-            ret.append([i, wd, num_files,
+            cellinfo = cycles.cell_info_at_cycles[i]
+            ret.append([i, wd, num_files, 
                         dict(cmpl=tkvals(table["cmpl"]),
                              redundancy=tkvals(table["redundancy"]),
                              i_over_sigma=tkvals(table["i_over_sigma"]),
@@ -242,7 +248,9 @@ def merge_datasets(params, workdir, xds_files, cells, batchjobs):
                              cc_ano=tkvals(table["cc_ano"]),
                              drange=tkvals(table["d_range"]),
                              lp=xscale_lp,
-                             xtriage_log=xtriage.XtriageLogfile(xtriage_logfile))
+                             xtriage_log=xtriage.XtriageLogfile(xtriage_logfile),
+                             lcv=cellinfo[1],
+                             alcv=cellinfo[2],)
                         ])
 
         xscale_lp = os.path.join(cycles.current_working_dir(), "XSCALE.LP")
@@ -345,7 +353,7 @@ def run(params):
     if params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)
     elif params.batch.engine == "sh":
-        batchjobs = batchjob.ExecLocal()
+        batchjobs = batchjob.ExecLocal(max_parallel=params.batch.sh_max_jobs)
     else:
         raise "Unknown batch engine: %s" % params.batch.engine
 
@@ -520,8 +528,9 @@ def run(params):
 import pickle; \
 from yamtbx.dataproc.auto.command_line.multi_merge import merge_datasets; \
 args = pickle.load(open("args.pkl")); \
+ofs = open("result.pkl","w"); \
 ret = merge_datasets(*args); \
-pickle.dump(ret, open("result.pkl","w")); \
+pickle.dump(ret, ofs); \
 '
 """ % sys.executable)
             batchjobs.submit(job)
@@ -539,9 +548,11 @@ pickle.dump(ret, open("result.pkl","w")); \
             if len(results) == 0:
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))
             for cycle, wd, num_files, stats in results:
-                write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats)
+                lcv, alcv = stats.get("lcv", LCV), stats.get("alcv", aLCV)
+                write_ofs_summary(workdir, cycle, clh, lcv, alcv, xds_files, num_files, stats)
 
-            try: html_report.add_merge_result(workdir, clh, LCV, aLCV, xds_files, results[-1][2], results[-1][3])
+            # Last lcv & alcv
+            try: html_report.add_merge_result(workdir, clh, lcv, alcv, xds_files, results[-1][2], results[-1][3])
             except: print >>out, traceback.format_exc()
     else:
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
@@ -553,9 +564,10 @@ pickle.dump(ret, open("result.pkl","w")); \
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))
 
             for cycle, wd, num_files, stats in results:
-                write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats)
+                lcv, alcv = stats.get("lcv", LCV), stats.get("alcv", aLCV)
+                write_ofs_summary(workdir, cycle, clh, lcv, alcv, xds_files, num_files, stats)
 
-            try: html_report.add_merge_result(workdir, clh, LCV, aLCV, xds_files, results[-1][2], results[-1][3])
+            try: html_report.add_merge_result(workdir, clh, lcv, alcv, xds_files, results[-1][2], results[-1][3])
             except: print >>out, traceback.format_exc()
 
     try: html_report.write_html()

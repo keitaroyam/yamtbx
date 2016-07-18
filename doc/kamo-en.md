@@ -257,3 +257,16 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ```
 
 NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do not forget to give `reverse_phi=false`. Vertically installed goniometer is not supported now.
+
+## Version hisotry
+Dates when the code became available on GitHub are shown
+
+* 2016-07-18
+ * use ramdisk/tmpdir for xds/xscale run
+ * calculate frequency of crystal symmetry taking unit cell parameters into account
+ * bug fix for OSX (with phenix-1.10.1?)
+ * bug fix on html report making
+ * bug fix for non-sge environment (multi_merge)
+ * calculate LCV & aLCV for actual set of parameters
+ * bug fix on parsing xtriage. anisotropy is now max(B_cart)-min(B_cart)
+

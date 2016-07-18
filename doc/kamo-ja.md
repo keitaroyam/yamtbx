@@ -258,3 +258,15 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 として，同時に動かす最大ジョブ数を指定して下さい．
 
 また，reverse-phiでは無いビームライン(SPring-8以外のビームラインは大体該当)では，`reverse_phi=false`を必ず指定して下さい．縦置きゴニオなどには未対応です．
+
+## バージョン履歴
+日付はGitHub公開時
+
+* 2016-07-18
+ * XDS/XSCALE実行時にRAMディスクまたは一時ディレクトリを使用するオプションを追加(デフォルト)
+ * 対称性でグルーピングする際，頻度計算に格子定数も考慮するよう変更（同じ空間群で異なるa,b,cがある場合に区別される）
+ * OSX (phenix-1.10.1環境下?)におけるバグ（Multi mergeでProceedしても先に進まない）を修正
+ * KAMOのHTML report作成の軽微なバグを修正
+ * 非SGE環境でkamo.multi_mergeが実行できないバグを修正
+ * LCVとaLCVを実際にマージされた結晶の格子定数から計算するように変更
+ * phenix.xtriageのログのパースを修正．Anisotropyをmax(B_cart)-min(B_cart)と定義．

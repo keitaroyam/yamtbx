@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import commands
 import glob
+import tempfile
 from libtbx.utils import null_out
 
 def call(cmd, arg="",
@@ -213,3 +214,32 @@ def expand_wildcard_in_list(fdlst, err_out=null_out()):
         ret.extend(gd)
     return ret
 # expand_wildcard_in_list()
+
+def check_disk_free_bytes(d):
+    try:
+        x = os.statvfs(d)
+        return x.f_frsize * x.f_bavail
+    except:
+        return -1
+# check_disk_free_bytes()
+
+def get_temp_local_dir(prefix, min_kb=None, min_mb=None, min_gb=None):
+    assert (min_kb, min_mb, min_gb).count(None) >= 2
+
+    min_free_bytes = 0
+
+    if min_kb is not None: min_free_bytes = min_kb * 1024
+    if min_mb is not None: min_free_bytes = min_mb * 1024**2
+    if min_gb is not None: min_free_bytes = min_gb * 1024**3
+
+    ramdisk = "/dev/shm"
+
+    if os.path.isdir(ramdisk): tmpdirs = (ramdisk, tempfile.gettempdir())
+    else: tmpdirs = (tempfile.gettempdir(), )
+
+    for tmpdir in tmpdirs:
+        if check_disk_free_bytes(tmpdir) >= min_free_bytes:
+            return tempfile.mkdtemp(prefix=prefix, dir=tmpdir)
+
+    return None
+# get_temp_local_dir()
