@@ -8,6 +8,7 @@ This software is released under the new BSD License; see LICENSE.
 import wx
 import sys
 import os
+import glob
 import re
 import socket
 import subprocess
@@ -70,9 +71,10 @@ class MainFrame(wx.Frame):
         vbox0 = wx.BoxSizer(wx.VERTICAL)
         hbox00 = wx.BoxSizer(wx.HORIZONTAL)
         hbox00.Add(wx.StaticText(panel1, wx.ID_ANY, "File: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
-        self.txtInfile = wx.TextCtrl(panel1, wx.ID_ANY, size=(350,25))
-        self.txtInfile.SetEditable(False)
-        hbox00.Add(self.txtInfile, 1, flag=wx.EXPAND|wx.RIGHT)
+        self.cmbInfile = wx.ComboBox(panel1, wx.ID_ANY, size=(350,25))
+        self.cmbInfile.Bind(wx.EVT_COMBOBOX, self.cmbInfile_onChange)
+        self.cmbInfile.Bind(wx.EVT_TEXT_ENTER, self.cmbInfile_onChange)
+        hbox00.Add(self.cmbInfile, 1, flag=wx.EXPAND|wx.RIGHT)
         self.btnInfile = wx.Button(panel1, wx.ID_ANY, "...", size=(25,25))
         self.btnInfile.Bind(wx.EVT_BUTTON, self.btnInfile_click)
         self.btnLatest = wx.Button(panel1, wx.ID_ANY, "Latest", size=(50,25))
@@ -83,11 +85,10 @@ class MainFrame(wx.Frame):
 
         hbox01 = wx.BoxSizer(wx.HORIZONTAL)
         hbox01.Add(wx.StaticText(panel1, wx.ID_ANY, "Frame no: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
-        self.txtFrame = wx.TextCtrl(panel1, wx.ID_ANY, size=(100,25), style=wx.TE_PROCESS_ENTER)
-        self.txtFrame.SetEditable(True)
-        self.txtFrame.SetValue("1")
-        self.txtFrame.Bind(wx.EVT_TEXT_ENTER, self.onTextEnter)
-        hbox01.Add(self.txtFrame, flag=wx.EXPAND|wx.RIGHT)
+        self.cmbFrame = wx.ComboBox(panel1, wx.ID_ANY, size=(100,25), value="1")
+        self.cmbFrame.Bind(wx.EVT_COMBOBOX, self.onTextEnter)
+        self.cmbFrame.Bind(wx.EVT_TEXT_ENTER, self.onTextEnter)
+        hbox01.Add(self.cmbFrame, flag=wx.EXPAND|wx.RIGHT)
         self.llbtn = wx.Button(panel1, wx.ID_ANY, "<<")
         hbox01.Add(self.llbtn, flag=wx.EXPAND|wx.RIGHT)
         self.lbtn = wx.Button(panel1, wx.ID_ANY, "<")
@@ -97,10 +98,6 @@ class MainFrame(wx.Frame):
         self.rrbtn = wx.Button(panel1, wx.ID_ANY, ">>")
         hbox01.Add(self.rrbtn, flag=wx.EXPAND|wx.RIGHT)
         vbox0.Add(hbox01, flag=wx.EXPAND|wx.TOP, border=4)
-        #self.lbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(-1))
-        #self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.go_rel(+1))
-        #self.llbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(-1))
-        #self.rrbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(+1))
         self.lbtn.Bind(wx.EVT_BUTTON, lambda e: self.next_or_back(-1))
         self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.next_or_back(+1))
         self.llbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(-1))
@@ -120,7 +117,7 @@ class MainFrame(wx.Frame):
         # panel2
         vbox1 = wx.BoxSizer(wx.VERTICAL)
         #hbox10 = wx.BoxSizer(wx.HORIZONTAL)
-        #hbox10.Add(wx.StaticText(panel2, wx.ID_ANY, "Wavelength: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+       #hbox10.Add(wx.StaticText(panel2, wx.ID_ANY, "Wavelength: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         #self.txtMonWavelen = wx.TextCtrl(panel2, wx.ID_ANY, size=(100,25))
         #self.txtMonWavelen.SetValue("1.0000")
         #hbox10.Add(self.txtMonWavelen, flag=wx.EXPAND|wx.RIGHT)
@@ -201,17 +198,19 @@ class MainFrame(wx.Frame):
         if all(map(lambda x: x > self.n_images, frames)): frames = [self.n_images]
         frames = filter(lambda x: 0 < x <= self.n_images, frames)
         if not frames: frames = [1]
-        self.txtFrame.SetValue(make_range_str(frames))
+        rstr = make_range_str(frames)
+        if rstr not in self.cmbFrame.GetItems(): self.cmbFrame.Append(rstr)
+        self.cmbFrame.SetStringSelection(rstr)
         self.open_hdf5(frames, raise_window=False)
     # change_frameno()
 
     def onTextEnter(self, ev):
-        frames = parse_range(self.txtFrame.GetValue())
+        frames = parse_range(self.cmbFrame.GetValue())
         self.change_frameno(frames)
     # onTextEnter()
 
     def next_or_back(self, sign):
-        s = make_range_str(parse_range(self.txtFrame.GetValue()))
+        s = make_range_str(parse_range(self.cmbFrame.GetValue()))
         if "-" not in s: return self.go_rel(sign)
         val = 1
         for x in s.split(","):
@@ -222,7 +221,7 @@ class MainFrame(wx.Frame):
     # next_or_back()
 
     def go_rel(self, rel):
-        frames = parse_range(self.txtFrame.GetValue())
+        frames = parse_range(self.cmbFrame.GetValue())
         frames = map(lambda x: x+rel, frames)
         self.change_frameno(frames)
     # go_rel()
@@ -242,12 +241,12 @@ class MainFrame(wx.Frame):
     # play()
 
     def on_play_timer(self, ev):
-        save = self.txtFrame.GetValue()
+        save = self.cmbFrame.GetValue()
         self.next_or_back(self.play_relval)
         try: wx.Yield()
         except: pass
 
-        if save == self.txtFrame.GetValue(): self.play_stop()
+        if save == self.cmbFrame.GetValue(): self.play_stop()
     # on_play_timer()
 
     def play_stop(self):
@@ -257,7 +256,15 @@ class MainFrame(wx.Frame):
     # play_stop()
 
     def btnInfile_click(self, ev):
-        dlg = wx.FileDialog(None, message="Choose a master.h5", defaultFile=self.h5file if self.h5file else "",
+        dfile, ddir = "", ""
+        if self.h5file:
+            if os.path.exists(self.h5file): dfile = self.h5file
+            else:
+                ddir = os.path.dirname(self.h5file)
+                if not os.path.exists(ddir): ddir = ""
+        
+        dlg = wx.FileDialog(None, message="Choose a master.h5",
+                            defaultFile=dfile, defaultDir=ddir,
                             wildcard="Mater HDF5 (*_master.h5)|*_master.h5")
 
         if dlg.ShowModal() == wx.ID_OK:
@@ -288,8 +295,18 @@ class MainFrame(wx.Frame):
         self.open_hdf5(1)
     # btnLatest_click ()
 
+    def cmbInfile_onChange(self, ev):
+        f = self.cmbInfile.GetValue()
+        self.h5file = f
+        self.read_h5file()
+        self.open_hdf5(1)
+    # cmbInfile_onChange()
+
+
     def read_h5file(self):
-        self.txtInfile.SetValue(self.h5file)
+        self.cmbInfile.Clear()
+        for f in sorted(glob.glob(os.path.join(os.path.dirname(self.h5file), "*_master.h5"))): self.cmbInfile.Append(f)
+        self.cmbInfile.SetStringSelection(self.h5file)
 
         try:
             h5 = h5py.File(self.h5file, "r")
@@ -311,6 +328,10 @@ class MainFrame(wx.Frame):
         except:
             self.n_images = 0
             self.txtInfo.SetValue(traceback.format_exc())
+
+        self.cmbFrame.Clear()
+        values = filter(lambda x:x>0, sorted(set([1,] + map(lambda x: int(self.n_images*x), (3/4., 1/4.,1/2.,1)))))
+        for v in values: self.cmbFrame.Append(str(v))
 
         self.change_frameno([1])
     # read_h5file()
