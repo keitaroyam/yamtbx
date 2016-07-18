@@ -66,7 +66,10 @@ eiger2cbfは，以下のようにmaster.h5を与えて使います．
 (sudo) easy_install h5py
 cd ~/tmp (任意の場所)
 git clone https://github.com/kiyo-masui/bitshuffle.git
-cd bitshuffle
+cd bitshuffle/bitshuffle
+cython ext.pyx
+cython h5.pyx
+cd ..
 (sudo) python setup.py install --h5plugin
 ```
 デフォルトでは/usr/local/hdf5/lib/pluginにインストールされます．変更したい場合は`--h5plugin`の後に`--h5plugin-dir=`を付けてください．
