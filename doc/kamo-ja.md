@@ -242,6 +242,13 @@ cd ../build
 libtbx.configure yamtbx
 ```
 
+KAMOセットアップ後，
+```
+kamo.test_installation
+```
+を実行することで必要なパッケージがインストールされているかどうか確認できます．
+
+
 ### 起動
 基本的には上記と一緒ですが，
 

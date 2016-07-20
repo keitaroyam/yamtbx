@@ -242,6 +242,12 @@ cd ../build
 libtbx.configure yamtbx
 ```
 
+After installation, run
+```
+kamo.test_installation
+```
+to check if dependencies are all installed.
+
 ### Launch
 Basically, the same as above, but like
 

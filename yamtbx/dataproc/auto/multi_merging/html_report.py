@@ -22,7 +22,11 @@ class HtmlReportMulti:
         self.root = root
 
         jsdir = os.path.join(self.root, "js")
-        shutil.copytree(libtbx.env.find_in_repositories("yamtbx/dataproc/auto/js/d3-3.5.10"), jsdir)
+        d3path = libtbx.env.find_in_repositories("yamtbx/dataproc/auto/js/d3-3.5.10")
+        if not d3path:
+            raise Exception("Can't find d3-3.5.10 location. Check installation of yamtbx.")
+
+        shutil.copytree(d3path, jsdir)
 
         self.html_head = """\
 <!DOCTYPE html>
