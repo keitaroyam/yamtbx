@@ -1225,8 +1225,8 @@ kamo.multi_merge \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
         xscale.use_tmpdir_if_available=${use_ramdisk} \\
-#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8
-""")
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
+""" % config.params.batch.sge_pe_name)
         os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
         open(os.path.join(workdir, "merge_ccc.sh"), "w").write("""\
 #!/bin/sh
@@ -1246,8 +1246,8 @@ kamo.multi_merge \\
         clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
         cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
         xscale.use_tmpdir_if_available=${use_ramdisk} \\
-#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8
-""")
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
+""" % config.params.batch.sge_pe_name)
         os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
 
         open(os.path.join(workdir, "filter_cell.R"), "w").write("""\
