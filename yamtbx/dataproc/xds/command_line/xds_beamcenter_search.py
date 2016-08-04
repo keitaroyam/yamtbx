@@ -17,6 +17,10 @@ ny = 3
  .type = int
 unit = *px mm
  .type = choice(multi=False)
+workdir = orgxy_search
+ .type = str
+nproc = 1
+ .type = int
 """
 from yamtbx.dataproc.xds import modify_xdsinp
 from yamtbx.dataproc.xds import files
@@ -27,6 +31,9 @@ from yamtbx.util import call
 
 import re
 import iotbx.phil
+from libtbx import easy_mp
+import shutil
+import os
 
 def analyze_result(idxreflp):
     re_outof = re.compile("^ *([0-9]+) OUT OF *([0-9]+) SPOTS INDEXED.")
@@ -38,6 +45,20 @@ def analyze_result(idxreflp):
             outof = int(r.group(1)), int(r.group(2))
 
     print "  Indexed: %d/%d (%.2f%%)" % (outof[0],outof[1], 100.*float(outof[0])/float(outof[1]))
+
+def work(rootdir, xdsinp, orgxy):
+    workdir = os.path.join(rootdir, "bs_x%+.1f_y%+.1f" % orgxy)
+    inpdir = os.path.normpath(os.path.dirname(xdsinp))
+    print workdir
+    os.makedirs(workdir)
+    shutil.copyfile(os.path.join(inpdir, "SPOT.XDS"), os.path.join(workdir, "SPOT.XDS"))
+    shutil.copyfile(xdsinp, os.path.join(workdir, "XDS.INP"))
+    modify_xdsinp(os.path.join(workdir, "XDS.INP"), inp_params=[("JOB", "IDXREF"),
+                                                                ("ORGX", orgxy[0]),
+                                                                ("ORGY", orgxy[1]),
+                                                                ])
+    call("xds", wdir=workdir)
+# work()
 
 def run(params):
     xdsinp = "XDS.INP"
@@ -51,33 +72,20 @@ def run(params):
         dx /= float(kwds["QX"])
         dy /= float(kwds["QY"])
 
-    backup_needed = files.generated_by_IDXREF + ("XDS.INP",)
-    bk_prefix = make_backup(backup_needed)
-    try:
-        results = []
-        for i in xrange(-params.nx, params.nx+1):
-            for j in xrange(-params.ny, params.ny+1):
-                work_name = "bs_x%+.2d_y%+.2d" % (i, j)
-                orgx = orgx_org + i * dx
-                orgy = orgy_org + j * dy
-                print "Trying", orgx, orgy
+    #backup_needed = files.generated_by_IDXREF + ("XDS.INP",)
+    #bk_prefix = make_backup(backup_needed)
 
-                modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
-                                                  ("ORGX", orgx),
-                                                  ("ORGY", orgy),
-                                                  ])
-                call("xds")
-                make_backup(backup_needed, work_name+"_")
+    orgxy_list = []
+    for i in xrange(-params.nx, params.nx+1):
+        for j in xrange(-params.ny, params.ny+1):
+            orgxy_list.append((orgx_org + i * dx, orgy_org + j * dy))
 
-                results.append([work_name, orgx, orgy])
-
-        for ret in results:
-                print ret,
-                analyze_result(ret[0]+"_IDXREF.LP")
-                
-
-    finally:
-        revert_files(backup_needed, bk_prefix)
+    easy_mp.pool_map(fixed_func=lambda x: work(os.path.abspath(params.workdir), os.path.abspath(xdsinp), x),
+                     args=orgxy_list,
+                     processes=params.nproc)
+    #for ret in results:
+    #    print ret,
+    #    analyze_result(ret[0]+"_IDXREF.LP")
 
 if __name__ == "__main__":
     import sys
