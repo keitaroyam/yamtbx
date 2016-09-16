@@ -1,0 +1,65 @@
+#!/bin/bash
+# chkconfig: 345 85 15
+# description: Cheetah spot finder for Eiger streaming
+# processname: shika_cheetah_daemon
+#
+# This script needs to be saved as /etc/init.d/shika_cheetah_daemon
+# and chmod u+x /etc/init.d/shika_cheetah_daemon
+#     chkconfig --add shika_cheetah_daemon
+#     chkconfig shika_cheetah_daemon on
+# 
+# Original file:
+# /usr/share/doc/initscripts-9.03.53/sysvinitfiles
+#
+#	/etc/rc.d/init.d/<servicename>
+#
+#	<description of the *service*>
+#	<any general comments about this init script>
+#
+# <tags -- see below for tag definitions.  *Every line* from the top
+#  of the file to the end of the tags section must begin with a #
+#  character.  After the tags section, there should be a blank line.
+#  This keeps normal comments in the rest of the file from being
+#  mistaken for tags, should they happen to fit the pattern.>
+
+# Source function library.
+. /etc/init.d/functions
+export PATH=/oys/xtal/cctbx/build/bin2:/oys/xtal/cctbx/build_dev/bin2:${PATH}
+. /oys/xtal/yamtbx/setenv.sh
+
+SERVICE_NAME="shika_cheetah_daemon"
+PYSCR=<>
+
+start() {
+	echo -n "Starting ${SERVICE_NAME}: "
+	test -e /ramdisk/32xu/ || mkdir /ramdisk/32xu/
+        chmod 777 /ramdisk/32xu/
+	yamtbx.python "$PYSCR" start
+}	
+
+stop() {
+	echo -n "Shutting down ${SERVICE_NAME}: "
+	yamtbx.python "$PYSCR" stop
+}
+
+case "$1" in
+    start)
+	start
+	;;
+    stop)
+	stop
+	;;
+    status)
+	echo "Not implemented"
+	;;
+    restart)
+    	stop
+	start
+	;;
+    *)
+	echo "Usage: <servicename> {start|stop|status|reload|restart[|probe]"
+	exit 1
+	;;
+esac
+exit $?
+
