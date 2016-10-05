@@ -8,6 +8,7 @@ from yamtbx.dataproc.auto import gui_config as config
 from yamtbx.dataproc.auto import gui_logger as mylog
 from yamtbx.dataproc.auto import html_report
 from yamtbx.dataproc.xds import xds_inp
+from yamtbx.dataproc.xds import get_xdsinp_keyword
 from yamtbx.dataproc.xds import idxreflp
 from yamtbx.dataproc.xds import integratelp
 from yamtbx.dataproc.xds import correctlp
@@ -131,6 +132,10 @@ known {
   .type = str
   .help = space group (no. or name)
 }
+
+auto_frame_exclude_spot_based = false
+ .type = bool
+ .help = automatic frame exclusion from integration based on spot search result.
 
 engine = *xds dials
  .type = choice(multi=False)
@@ -500,7 +505,8 @@ class BssJobs:
         open(os.path.join(workdir, "XDS.INP"), "w").write(xdsinp_str)
 
         opts = ["multiproc=false", "topdir=.", "nproc=%d"%config.params.batch.nproc_each, "tryhard=true",
-                "make_report=true", "use_tmpdir_if_available=%s"%config.params.use_tmpdir_if_available]
+                "make_report=true", "use_tmpdir_if_available=%s"%config.params.use_tmpdir_if_available,
+                "auto_frame_exclude_spot_based=%s"%config.params.auto_frame_exclude_spot_based]
         if config.params.small_wedges: opts.append("no_scaling=true")
         if None not in (config.params.known.space_group, config.params.known.unit_cell):
             opts.append("cell_prior.cell=%s" % ",".join(map(lambda x: "%.3f"%x, config.params.known.unit_cell)))
@@ -642,6 +648,7 @@ for i in xrange(%(repeat)d-1):
         ret = {}
         ret["workdir"] = workdir
 
+        xds_inp = os.path.join(workdir, "XDS.INP")
         correct_lp = os.path.join(workdir, "CORRECT.LP")
         gxparm_xds = os.path.join(workdir, "GXPARM.XDS")
         stats_pkl = os.path.join(workdir, "merging_stats.pkl")
@@ -666,6 +673,9 @@ for i in xrange(%(repeat)d-1):
             i_table_begin = filter(lambda x: "Statistics by resolution bin:" in x[1], enumerate(lines))
             if len(i_table_begin) == 1:
                 ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])
+
+        exc_frames = filter(lambda x: x[0]=="EXCLUDE_DATA_RANGE", get_xdsinp_keyword(xds_inp))
+        ret["exclude_data_ranges"] = map(lambda x: map(int, x[1].split()), exc_frames)
 
         return ret
     # get_process_result()
@@ -1402,7 +1412,16 @@ class ResultLeftPanel(wx.Panel):
 <table>
 <tr align="left"><th>Files</th><td>%(prefix)s (%(startframe)4d .. %(endframe)4d)</td></tr>
 <tr align="left"><th>Conditions</th><td>DelPhi= %(osc).3f&deg;, Exp= %(exptime).3f s, Distance= %(clen).1f mm (%(edgeresn).1f A), Att= %(att)s</td></tr>
+<tr align="left"><th>Excluded frames</th><td>%(exc_ranges)s</td></tr>
 """
+        
+        exc_ranges_strs = []
+        for lr, rr in result["exclude_data_ranges"]:
+            if lr==rr: exc_ranges_strs.append("%d"%lr)
+            else: exc_ranges_strs.append("%d-%d"%(lr,rr))
+        
+        exc_ranges = ", ".join(exc_ranges_strs)
+        if not exc_ranges_strs: exc_ranges = "(none)"
 
         if "ISa" not in result:
             html_str += "</table>"
@@ -1545,7 +1564,7 @@ class ResultRightPanel(wx.Panel):
             spots = sx.spots_by_frame()
             spots_f, spots_n = sorted(spots), map(lambda k: spots[k], sorted(spots))
             i_plot += 1
-            self.plots[i_plot].add_plot(spots_f, spots_n, label=("Spots"),marker=None)
+            self.plots[i_plot].add_plot(spots_f, spots_n, label=("Spots"))
             self.plots[i_plot].show_legend()
             
         if os.path.isfile(integrate_lp):
@@ -1553,7 +1572,7 @@ class ResultRightPanel(wx.Panel):
 
             # SgimaR
             i_plot += 1
-            self.plots[i_plot].add_plot(map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"),marker=None)
+            self.plots[i_plot].add_plot(map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"))
             self.plots[i_plot].show_legend()
 
             # Rotations
@@ -1585,17 +1604,23 @@ class ResultRightPanel(wx.Panel):
         for p in self.plots: p.refresh()
 
         # Log file stuff
-        self.cmbLog.Clear()
-        i_sel = -1
+        prev_cmbLog_sel = self.cmbLog.GetValue()
+        to_append = []
         for j in ("XYCORR", "INIT", "COLSPOT", "IDXREF", "DEFPIX", "XPLAN", "INTEGRATE", "CORRECT"):
             for f in glob.glob(os.path.join(wd, "%s*.LP"%j)):
-                bf = os.path.basename(f)
-                self.cmbLog.Append(bf)
-                if bf == "CORRECT.LP": i_sel = self.cmbLog.GetCount() - 1
-        
-        if i_sel >= 0:
-            self.cmbLog.Select(i_sel)
-            self.cmbLog_select(None)
+                to_append.append(os.path.basename(f))
+
+        self.cmbLog.Clear()
+        self.cmbLog.AppendItems(to_append)
+
+        if prev_cmbLog_sel and prev_cmbLog_sel in to_append:
+            self.cmbLog.Select(to_append.index(prev_cmbLog_sel))
+        elif "CORRECT.LP" in to_append:
+            self.cmbLog.Select(to_append.index("CORRECT.LP"))
+        else:
+            self.cmbLog.Select(self.cmbLog.GetCount() - 1)
+
+        self.cmbLog_select(None)
     # set_current_workdir()
 
     def cmbLog_select(self, ev):
@@ -1659,6 +1684,10 @@ class MainFrame(wx.Frame):
 # class MainFrame
 
 def run_from_args(argv):
+    # Not used in this script, but required in KAMO.
+    #import scipy
+    import networkx
+
     global batchjobs
     global mainFrame
 

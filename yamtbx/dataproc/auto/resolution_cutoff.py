@@ -14,7 +14,6 @@ from libtbx.utils import null_out
 from libtbx import adopt_init_args
 
 import numpy
-import scipy.optimize
 
 class estimate_resolution_based_on_cc_half:
   def __init__(self, i_obs, cc_half_min, cc_half_tol, n_bins, log_out=null_out()):
@@ -32,6 +31,8 @@ class estimate_resolution_based_on_cc_half:
   # fun_ed_aimless()
 
   def initial_est_byfit(self):
+    import scipy.optimize
+
     # Up to 200 bins. If few reflections, 50 reflections per bin. At least 9 shells.
     n_bins = max(min(int(self.i_obs.size()/50. + .5), 200), 9)
     self.log_out.write("Using %d bins for initial estimate\n" % n_bins)

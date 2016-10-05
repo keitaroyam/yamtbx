@@ -15,6 +15,7 @@ import re
 import pickle
 import time
 import glob
+import numpy
 
 from yamtbx.dataproc.xds import get_xdsinp_keyword, modify_xdsinp, optimal_delphi_by_nproc, make_backup, revert_files, remove_backups
 from yamtbx.dataproc.xds import idxreflp
@@ -76,6 +77,9 @@ make_report = True
 use_tmpdir_if_available = true
  .type = bool
  .help = Use ramdisk or tempdir if sufficient size is available
+auto_frame_exclude_spot_based = false
+ .type = bool
+ .help = automatic frame exclusion from integration based on spot search result.
 cell_prior {
  check = true
   .type = bool
@@ -274,9 +278,12 @@ def xds_sequence(root, params):
     integrate_hkl = os.path.join(root, "INTEGRATE.HKL")
     xac_hkl = os.path.join(root, "XDS_ASCII.HKL")
     integrate_lp = os.path.join(root, "INTEGRATE.LP")
+    spot_xds = os.path.join(root, "SPOT.XDS")
     xdsinp = os.path.join(root, "XDS.INP")
 
     assert os.path.isfile(xdsinp)
+
+    xdsinp_dict = dict(get_xdsinp_keyword(xdsinp))
 
     decilog = multi_out()
     decilog.register("log", open(os.path.join(root, "decision.log"), "a"), atexit_send_to=None)
@@ -305,8 +312,43 @@ def xds_sequence(root, params):
                                           ])
 
     if params.mode == "initial":
-        # To Indexing
-        modify_xdsinp(xdsinp, inp_params=[("JOB", "XYCORR INIT COLSPOT IDXREF")])
+        # Peak search
+        modify_xdsinp(xdsinp, inp_params=[("JOB", "XYCORR INIT COLSPOT")])
+        run_xds(wdir=root, show_progress=params.show_progress)
+        if params.auto_frame_exclude_spot_based:
+            sx = idxreflp.SpotXds(spot_xds)
+            sx.set_xdsinp(xdsinp)
+            spots = filter(lambda x: 5 < x[-1] < 30, sx.collected_spots()) # low-res (5 A)
+            frame_numbers = numpy.array(map(lambda x: int(x[2])+1, spots))
+            data_range = map(int, xdsinp_dict["DATA_RANGE"].split())
+            # XXX this assumes SPOT_RANGE equals to DATA_RANGE. Is this guaranteed?
+            h = numpy.histogram(frame_numbers,
+                                bins=numpy.arange(data_range[0], data_range[1]+2, step=1))
+            q14 = numpy.percentile(h[0], [25,75])
+            iqr = q14[1] - q14[0]
+            cutoff = max(h[0][h[0]<=iqr*1.5+q14[1]]) / 5 # magic number
+            print "DEBUG:: IQR= %.2f, Q1/4= %s, cutoff= %.2f" % (iqr,q14, cutoff)
+            cut_frames = h[1][h[0]<cutoff]
+            keep_frames = h[1][h[0]>=cutoff]
+            print "DEBUG:: keep_frames=", keep_frames
+            print "DEBUG::  cut_frames=", cut_frames
+
+            if len(cut_frames) > 0:
+                cut_ranges = [[cut_frames[0], cut_frames[0]], ]
+                for fn in cut_frames:
+                    if fn - cut_ranges[-1][1] <= 1: cut_ranges[-1][1] = fn
+                    else: cut_ranges.append([fn, fn])
+
+                # Edit XDS.INP
+                cut_inp_str = "".join(map(lambda x: "EXCLUDE_DATA_RANGE= %6d %6d\n"%tuple(x), cut_ranges))
+                open(xdsinp, "a").write("\n"+cut_inp_str)
+
+                # Edit SPOT.XDS
+                shutil.copyfile(spot_xds, spot_xds+".org")
+                sx.write(open(spot_xds, "w"), frame_selection=set(keep_frames))
+
+        # Indexing
+        modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF")])
         run_xds(wdir=root, show_progress=params.show_progress)
         print # indexing stats like indexed percentage here.
 

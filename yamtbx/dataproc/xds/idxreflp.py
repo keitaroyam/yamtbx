@@ -140,6 +140,16 @@ class SpotXds:
                 
             self.items.append(((x, y, z), intensity, iseg, (h, k, l)))
     # parse()
+    
+    def write(self, out, frame_selection=[]):
+        for (i, (xyz, intensity, iseg, hkl)) in enumerate(self.items):
+            if frame_selection and int(xyz[2])+1 not in frame_selection: continue
+            out.write("% .2f % .2f % .2f" % xyz)
+            out.write(" % .1f" % intensity)
+            if iseg is not None: out.write(" %d" % iseg)
+            if None not in hkl: out.write(" %d %d %d" % hkl)
+            out.write("\n")
+    # write()
 
     def collected_spots(self, with_resolution=True):
         if len(self.items) == 0: return []
@@ -236,6 +246,7 @@ class SpotXds:
         qx = float(inp["QX"])
         distance = abs(float(inp["DETECTOR_DISTANCE"]))
 
+        # XXX no support for non-normal incident beam or multipanel detector
         self.calc_d = lambda x, y: wavelength/2./math.sin(0.5*math.atan(math.sqrt((x-orgx)**2+(y-orgy)**2)*qx/distance))
     # set_xdsinp()
 
