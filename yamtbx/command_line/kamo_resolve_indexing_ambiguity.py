@@ -73,25 +73,37 @@ def run(params):
                                      nproc=params.nproc, log_out=log_out)
     elif params.method == "reference":
         import iotbx.file_reader
-        
-        ref_arrays = iotbx.file_reader.any_file(params.reference_file).file_server.miller_arrays
-        if not ref_arrays:
-            raise "No arrays in reference file"
-        if params.reference_label is not None:
-            ref_arrays = filter(lambda x: params.reference_label in x.info().labels, ref_arrays)
-            if not ref_arrays: raise "No arrays matched to specified label (%s)" % params.reference_label
-            ref_array = ref_arrays[0].as_intensity_array()
+
+        ref_file = iotbx.file_reader.any_file(params.reference_file)
+        if ref_file.file_type == "hkl":
+            ref_arrays = ref_file.file_server.miller_arrays
+            if not ref_arrays:
+                raise "No arrays in reference file"
+            if params.reference_label is not None:
+                ref_arrays = filter(lambda x: params.reference_label in x.info().labels, ref_arrays)
+                if not ref_arrays: raise "No arrays matched to specified label (%s)" % params.reference_label
+                ref_array = ref_arrays[0].as_intensity_array()
+            else:
+                ref_array = None
+                for array in ref_arrays:
+                    if array.is_xray_intensity_array():
+                        ref_array = array
+                        print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                        break
+                    elif array.is_xray_amplitude_array():
+                        self.ref_array = array.f_as_f_sq()
+                        print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                        break
+        elif ref_file.file_type == "pdb":
+            import mmtbx.utils
+            xrs = ref_file.file_content.xray_structure_simple()
+            fmodel_params = mmtbx.command_line.fmodel.fmodel_from_xray_structure_master_params.extract()
+            fmodel_params.fmodel.k_sol = 0.35
+            fmodel_params.fmodel.b_sol = 50
+            fmodel_params.high_resolution = params.d_min
+            ref_array = mmtbx.utils.fmodel_from_xray_structure(xray_structure=xrs, params=fmodel_params).f_model.as_intensity_array()
         else:
-            ref_array = None
-            for array in ref_arrays:
-                if array.is_xray_intensity_array():
-                    ref_array = array
-                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
-                    break
-                elif array.is_xray_amplitude_array():
-                    self.ref_array = array.f_as_f_sq()
-                    print >>self.log_out, "Using %s as reference data" % array.info().label_string()
-                    break
+            raise "input file type invalid"
 
         if ref_array is None:
             raise "suitable reference data not found"
