@@ -110,13 +110,13 @@ blend {
  use_old_result = None
   .type = path
   .help = Directory where BLEND ran
- min_cmpl = None
+ min_cmpl = 90
   .type = float
   .help = minimum completeness of cluster for merging
  min_acmpl = None
   .type = float
   .help = minimum anomalous completeness of cluster for merging
- min_redun = None
+ min_redun = 2
   .type = float
   .help = minimum redundancy of cluster for merging
  min_aredun = None
@@ -146,13 +146,13 @@ cc_clustering {
  min_ios = None
   .type = float
   .help = minimum I/sigma for CC calculation
- min_cmpl = None
+ min_cmpl = 90
   .type = float
   .help = minimum completeness of cluster for merging
  min_acmpl = None
   .type = float
   .help = minimum anomalous completeness of cluster for merging
- min_redun = None
+ min_redun = 2
   .type = float
   .help = minimum redundancy of cluster for merging
  min_aredun = None
@@ -547,6 +547,8 @@ pickle.dump(ret, ofs); \
 
             if len(results) == 0:
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))
+
+            lcv, alcv = float("nan"), float("nan")
             for cycle, wd, num_files, stats in results:
                 lcv, alcv = stats.get("lcv", LCV), stats.get("alcv", aLCV)
                 write_ofs_summary(workdir, cycle, clh, lcv, alcv, xds_files, num_files, stats)

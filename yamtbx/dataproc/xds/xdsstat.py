@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+
+from yamtbx.util import safe_float
+
 class XdsstatLp:
     def __init__(self, lpin):
         if lpin is not None:
@@ -31,12 +34,12 @@ class XdsstatLp:
                 self.by_frame.setdefault("frame", []).append(int(sp[0]))
                 self.by_frame.setdefault("nrefs", []).append(int(sp[1]))
                 self.by_frame.setdefault("nmisfits", []).append(int(sp[2]))
-                self.by_frame.setdefault("iobs", []).append(float(sp[3]))
-                self.by_frame.setdefault("sigma", []).append(float(sp[4]))
-                self.by_frame.setdefault("ios", []).append(float(sp[5]))
-                self.by_frame.setdefault("peak", []).append(float(sp[6]))
-                self.by_frame.setdefault("corr", []).append(float(sp[7]))
-                self.by_frame.setdefault("rmeas", []).append(float(sp[8]))
+                self.by_frame.setdefault("iobs", []).append(safe_float(sp[3]))
+                self.by_frame.setdefault("sigma", []).append(safe_float(sp[4]))
+                self.by_frame.setdefault("ios", []).append(safe_float(sp[5]))
+                self.by_frame.setdefault("peak", []).append(safe_float(sp[6]))
+                self.by_frame.setdefault("corr", []).append(safe_float(sp[7]))
+                self.by_frame.setdefault("rmeas", []).append(safe_float(sp[8]))
                 self.by_frame.setdefault("nrmeas", []).append(int(sp[9]))
                 self.by_frame.setdefault("nuniq", []).append(int(sp[10]))
             elif "Framediff #refs R_d n-notfriedel Rd-notfriedel n-friedel Rd-friedel" in l:

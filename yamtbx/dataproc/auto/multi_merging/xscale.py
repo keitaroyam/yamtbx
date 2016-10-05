@@ -314,6 +314,7 @@ OUTPUT_FILE= xscale.hkl
                                                    nproc=self.nproc).values()
             if self.reject_params.framecc.method == "tukey":
                 ccs = numpy.array(map(lambda x: x[3], reduce(lambda x,y:x+y,framecc)))
+                ccs = ccs[ccs==ccs] # Remove nan
                 q25, q75 = numpy.percentile(ccs, [25, 75])
                 cc_cutoff  = q25 - self.reject_params.framecc.iqr_coeff * (q75 - q25)
                 print >>self.out, " frameCC cutoff = %.4f (%.2f*IQR)" % (cc_cutoff, self.reject_params.framecc.iqr_coeff)
