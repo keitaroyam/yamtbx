@@ -3,6 +3,7 @@ import cPickle as pickle
 import numpy
 from yamtbx.dataproc import crystfel
 from yamtbx.util import read_path_list
+from yamtbx.dataproc.xds import xds_ascii
 from yamtbx.util.xtal import v6cell
 import iotbx.phil
 from cctbx.array_family import flex
