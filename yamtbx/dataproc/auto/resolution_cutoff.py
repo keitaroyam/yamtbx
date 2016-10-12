@@ -16,10 +16,9 @@ from libtbx import adopt_init_args
 import numpy
 
 class estimate_resolution_based_on_cc_half:
-  def __init__(self, i_obs, cc_half_min, cc_half_tol, n_bins, log_out=null_out()):
+  def __init__(self, i_obs, cc_half_min, cc_half_tol, n_bins, anomalous_flag=False, log_out=null_out()):
     adopt_init_args(self, locals())
     log_out.write("estimate_resolution_based_on_cc_half: cc_half_min=%.4f, cc_half_tol=%.4f n_bins=%d\n" % (cc_half_min, cc_half_tol, n_bins))
-    
     self.d_min_data = i_obs.d_min()
     self.d_min, self.cc_at_d_min = self.estimate_resolution()
   # __init__()
@@ -45,7 +44,7 @@ class estimate_resolution_based_on_cc_half:
       unmerged = self.i_obs.select(self.i_obs.binner().selection(bin))
       try:
         bin_stats = merging_statistics.merging_stats(unmerged,
-                                                     anomalous=False)
+                                                     anomalous=self.anomalous_flag)
         s_list.append(1./bin_stats.d_min**2)
         cc_list.append(bin_stats.cc_one_half)
       except RuntimeError: # complains that no reflections left after sigma-filtering.
