@@ -1594,12 +1594,12 @@ class ResultRightPanel(wx.Panel):
 
         if os.path.isfile(xdsstat_lp):
             lp = xdsstat.XdsstatLp(xdsstat_lp)
-
-            # R-meas
-            i_plot += 1
-            self.plots[i_plot].add_plot(map(int,lp.by_frame["frame"]),
-                                        map(float,lp.by_frame["rmeas"]), label=("R-meas"),marker=None)
-            self.plots[i_plot].show_legend()
+            if lp.by_frame:
+                # R-meas
+                i_plot += 1
+                self.plots[i_plot].add_plot(map(int,lp.by_frame["frame"]),
+                                            map(float,lp.by_frame["rmeas"]), label=("R-meas"))
+                self.plots[i_plot].show_legend()
 
         for p in self.plots: p.refresh()
 

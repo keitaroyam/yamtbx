@@ -55,6 +55,21 @@ def tst_xds():
     return True
 # tst_xds()
 
+def tst_xdsstat():
+    print "Testing XDSSTAT.."
+    rcode, out, err = util.call("xdsstat")
+    if rcode != 2:
+        print "  Not installed. NG"
+        return False
+
+    if "XDSSTAT version" not in err:
+        print "  Seems not working. NG"
+        return False
+
+    print "  OK"
+    return True
+# tst_xdsstat()
+
 def tst_ccp4():
     print "Testing ccp4.."
     if "CCP4" not in os.environ or not os.path.isdir(os.environ["CCP4"]):
@@ -154,7 +169,7 @@ def run():
 
     failed = []
 
-    for f in (tst_jsdir, tst_R, tst_xds, tst_ccp4, tst_numpy,
+    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_ccp4, tst_numpy,
               tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
         ret = f()
         if not ret: failed.append(f.func_name)
@@ -162,8 +177,10 @@ def run():
     print
     if not failed:
         print "All OK!"
+        return True
     else:
         print "%d Failures (%s)" % (len(failed), ", ".join(failed))
+        return False
 # run()
 
 if __name__ == "__main__":
