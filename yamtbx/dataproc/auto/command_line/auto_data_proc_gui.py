@@ -443,6 +443,7 @@ class BssJobs:
                 job.distance = h.get("Distance", 0)
                 job.attenuator = None, 0
                 job.detector = "?"
+                job.prefix = prefix
 
                 if job.osc_step == 0 or job.osc_end - job.osc_start == 0:
                     print "This job don't look like osc data set:",  tmpl
