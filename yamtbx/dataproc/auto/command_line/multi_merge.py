@@ -106,6 +106,10 @@ rejection {
  }
 }
 
+max_clusters = None
+ .type = int
+ .help = "Upper limit of clusters for merging"
+
 blend {
  use_old_result = None
   .type = path
@@ -429,6 +433,10 @@ def run(params):
         if params.blend.max_aLCV is not None:
             clusters = filter(lambda x: x[8] <= params.blend.max_aLCV, clusters)
 
+        if params.max_clusters is not None and len(clusters) > params.max_clusters:
+            print >>out, "Only first %d (/%d) clusters will be merged (as specified by max_clusters=)" % (params.max_clusters, len(clusters))
+            clusters = clusters[:params.max_clusters]
+
         print >>out, "With specified conditions, following %d clusters will be merged:" % len(clusters)
         for clno, IDs, clh, cmpl, redun, acmpl, aredun, LCV, aLCV in clusters: # process largest first
             print >>out, " Cluster_%.4d NumDS= %4d CLh= %5.1f Cmpl= %6.2f Redun= %4.1f ACmpl=%6.2f ARedun=%4.1f LCV= %5.1f aLCV=%5.1f" % (clno, len(IDs), clh, cmpl, redun, acmpl, aredun, LCV, aLCV)
@@ -443,7 +451,7 @@ def run(params):
         ccc_wdir = os.path.join(params.workdir, "cc_clustering")
         os.mkdir(ccc_wdir)
         cc_clusters = cc_clustering.CCClustering(ccc_wdir, xds_ascii_files,
-                                                 d_min=params.cc_clustering.d_min,
+                                                 d_min=params.cc_clustering.d_min if params.cc_clustering.d_min is not None else params.d_min,
                                                  min_ios=params.cc_clustering.min_ios)
         print >>out, "\nRunning CC-based clustering"
 
@@ -465,6 +473,10 @@ def run(params):
             clusters = filter(lambda x: x[6] >= params.cc_clustering.min_aredun, clusters)            
         if params.cc_clustering.max_clheight is not None:
             clusters = filter(lambda x: x[2] <= params.cc_clustering.max_clheight, clusters)
+
+        if params.max_clusters is not None and len(clusters) > params.max_clusters:
+            print >>out, "Only first %d (/%d) clusters will be merged (as specified by max_clusters=)" % (params.max_clusters, len(clusters))
+            clusters = clusters[:params.max_clusters]
 
         print >>out, "With specified conditions, following %d clusters will be merged:" % len(clusters)
         for clno, IDs, clh, cmpl, redun, acmpl, aredun in clusters: # process largest first
