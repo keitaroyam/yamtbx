@@ -15,6 +15,8 @@ cc_half_tol = 0.03
  .type = float
 anomalous = False
  .type = bool
+show_plot = False
+ .type = bool
 """
 
 def run(params):
@@ -40,6 +42,9 @@ def run(params):
     print
     print "Suggested cutoff= %.2f A (CC1/2= %.4f)" %(est.d_min, est.cc_at_d_min)
     print "# Treated as *%s* data" % ("anomalous" if params.anomalous else "non-anomalous")
+
+    if params.show_plot:
+        est.show_plot(filename="cchalf_plot.pdf")
 # run()    
 
 def show_help():

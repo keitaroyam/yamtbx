@@ -20,6 +20,7 @@ class estimate_resolution_based_on_cc_half:
     adopt_init_args(self, locals())
     log_out.write("estimate_resolution_based_on_cc_half: cc_half_min=%.4f, cc_half_tol=%.4f n_bins=%d\n" % (cc_half_min, cc_half_tol, n_bins))
     self.d_min_data = i_obs.d_min()
+    self.shells_and_fit = ()
     self.d_min, self.cc_at_d_min = self.estimate_resolution()
   # __init__()
 
@@ -61,6 +62,8 @@ class estimate_resolution_based_on_cc_half:
     lsq = scipy.optimize.least_squares(fun, x0, args=(s_list, cc_list), loss="soft_l1", f_scale=.1)
     #lsq = fit_ed(s_list, cc_list)
 
+    self.shells_and_fit = (s_list, cc_list, lsq.x)
+
     self.log_out.write("Least-square result:\n")
     self.log_out.write(str(lsq))
     self.log_out.write("\n")
@@ -70,6 +73,32 @@ class estimate_resolution_based_on_cc_half:
     d_min = 1./numpy.sqrt((numpy.arctanh(1.-2.*self.cc_half_min)*r + d0))
     return d_min
   # initial_est_byfit()
+
+  def show_plot(self, show=True, filename=None):
+    if not self.shells_and_fit: return
+
+    import matplotlib
+    matplotlib.use('Agg') # Allow to work without X
+    import pylab
+    from matplotlib.ticker import FuncFormatter
+
+    s2_formatter = lambda x,pos: "inf" if x == 0 else "%.2f" % (1./numpy.sqrt(x))
+    s_list, cc_list, (d0, r) = self.shells_and_fit
+    fitted = self.fun_ed_aimless(s_list, d0, r)
+    
+    fig, ax1 = pylab.plt.subplots()
+
+    pylab.plot(s_list, cc_list, label="CC1/2", marker="o", color="blue")
+    pylab.plot(s_list, fitted, label="(1-tanh((s^2%+.2e)/%.2e))/2"%(-d0,r), marker=None, color="red")
+    
+    pylab.legend()
+    pylab.xlabel("resolution (d^-2)")
+    pylab.ylabel("CC1/2")
+    pylab.gca().xaxis.set_major_formatter(FuncFormatter(s2_formatter))
+
+    if filename: pylab.savefig(filename)
+    if show: pylab.show()
+  # show_plot()
 
   def cc_outer_shell(self, d_min):
     binner = self.i_obs.setup_binner(d_min=d_min, n_bins=self.n_bins)
