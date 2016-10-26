@@ -9,6 +9,7 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 
+import dxtbx.format # to set HDF5_PLUGIN_PATH in phenix environment
 from yamtbx.dataproc.auto.command_line import auto_data_proc_gui
 
 if __name__ == "__main__":

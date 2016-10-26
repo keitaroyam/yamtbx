@@ -7,6 +7,8 @@ This software is released under the new BSD License; see LICENSE.
 Reference: tools/python/streamreceiver2.py by Dectris.
 """
 
+import dxtbx.format # to set HDF5_PLUGIN_PATH in phenix environment
+
 import h5py
 import json
 import struct
