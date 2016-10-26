@@ -36,9 +36,9 @@ class Adxv:
             # start adxv
             self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd)
 
-            self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             for i in xrange(10): # try for 5 seconds.
-                try:
+                try: 
+                    self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # On OSX(?), need to re-create object when failed
                     self.sock.connect(("localhost", self.adxv_port))
                     break
                 except socket.error:
