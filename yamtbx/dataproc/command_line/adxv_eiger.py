@@ -265,10 +265,17 @@ class MainFrame(wx.Frame):
         
         dlg = wx.FileDialog(None, message="Choose a master.h5",
                             defaultFile=dfile, defaultDir=ddir,
-                            wildcard="Mater HDF5 (*_master.h5)|*_master.h5")
+                            wildcard="Mater HDF5 (*_master.h5)|*.h5")
 
         if dlg.ShowModal() == wx.ID_OK:
-            self.h5file = dlg.GetPath()
+            tmp = dlg.GetPath()
+            if not tmp.endswith("_master.h5"):
+                dlg.Destroy()
+                wx.MessageDialog(None, "Choose master h5 file (*_master.h5)",
+                                 "Error", style=wx.OK).ShowModal()
+                return
+
+            self.h5file = tmp
             self.read_h5file()
             self.open_hdf5(1)
             
