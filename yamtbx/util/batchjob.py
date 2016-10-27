@@ -187,7 +187,7 @@ class SGE(JobManager):
 
     def update_state(self, j):
         # if job_id is unknown (waiting or finished), state won't be changed
-        if self.job_id.has_key(j):
+        if j in self.job_id:
             status = self.qstat(self.job_id[j])
 
             if status is None: # if qsub failed, flagged as FINISHED

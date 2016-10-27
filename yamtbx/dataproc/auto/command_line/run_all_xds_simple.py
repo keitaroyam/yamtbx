@@ -10,7 +10,6 @@ import os
 import shutil
 import traceback
 import subprocess
-import sys
 import re
 import pickle
 import time

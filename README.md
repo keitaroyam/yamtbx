@@ -16,3 +16,5 @@ These packages are included as a part of yamtbx.
 * [XIO](https://code.google.com/p/xdsme/) by Pierre Legrand (New BSD License)
 * [D3.js](http://d3js.org/) by Mike Bostock (New BSD License)
 * [d3-tip](https://github.com/Caged/d3-tip) by Justin Palmer (MIT License)
+
+[![Code Issues](https://www.quantifiedcode.com/api/v1/project/b1023eb0a40b4b48a9efd3396cc8265e/badge.svg)](https://www.quantifiedcode.com/app/project/b1023eb0a40b4b48a9efd3396cc8265e)

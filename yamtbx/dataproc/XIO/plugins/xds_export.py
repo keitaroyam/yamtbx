@@ -255,7 +255,6 @@ CTD = {
 'BACKGROUND_RANGE':(['imageRanges'], lambda x: \
                                         [x[0][0], min(x[0][0]+7, x[0][1])]),
 'DETECTOR':(['imageType'], lambda x: XDS_DETECTOR_DICT["detector_name"][x]),
-'NAME_TEMPLATE_OF_DATA_FRAMES':(['xdsTemplate'], str),
 'OVERLOAD':(['imageType'], lambda x: XDS_DETECTOR_DICT["overload"][x]),
 'SENSOR_THICKNESS':(['imageType'], lambda x: \
                                    XDS_DETECTOR_DICT["sensor_thickness"][x]),

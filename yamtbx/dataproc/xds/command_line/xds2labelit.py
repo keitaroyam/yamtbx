@@ -19,7 +19,6 @@ import cctbx.sgtbx.bravais_types
 from iotbx.detectors.context.endstation import EndStation
 import iotbx.detectors
 from labelit.symmetry.subgroup import MetricSubgroup
-import iotbx.detectors
 from iotbx.detectors.context.config_detector import beam_center_convention_from_image_object
 from scitbx import matrix
 

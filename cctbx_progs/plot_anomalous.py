@@ -9,7 +9,7 @@ master_params_str = """
     .help = range of energy in eV
   energy_step = 1.
     .type = float
-    .type = step in eV
+    .help = step in eV
 """
 
 def run(params):
@@ -20,15 +20,15 @@ def run(params):
 
     print "lambda eV fp fdp table"
 
-    for table in ["sasaki", "henke"]:
+    for name, table in (("sasaki", sasaki), ("henke", henke)):
         for ev in (er[0]+es*i for i in xrange(int((er[1]-er[0])/es+1))):
-            t = eval(table).table(params.element)
+            t = table.table(params.element)
             f = t.at_ev(ev)
 
             fp = f.fp() if f.is_valid_fp() else float("nan")
             fdp = f.fdp() if f.is_valid_fdp() else float("nan")
 
-            print "%.4f %.1f %.3f %.3f %s" % (12398.4/ev, ev, fp, fdp, table)
+            print "%.4f %.1f %.3f %.3f %s" % (12398.4/ev, ev, fp, fdp, name)
 
 # run()
 if __name__ == "__main__":

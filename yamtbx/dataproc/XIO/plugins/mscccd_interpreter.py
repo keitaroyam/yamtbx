@@ -59,7 +59,6 @@ class Interpreter:
     # Added keys from Graeme's convention.
     'TwoTheta':(['CCD_GONIO_VALUES'], lambda x: float(x.split()[1])),   # _FIXME_ Not really here now...
     'SerialNumber':(['CCD_SERIAL_NUMBER'], str),
-    'HeaderSize':(['HEADER_BYTES'], int),
     'EndianType':(['BYTE_ORDER'], endian),
     'OscAxis':(['SCAN_ROTATION_AXIS_NAME'], lambda x: x.lower()),
     # Date and time
