@@ -74,7 +74,9 @@ def extract_data(h5master, frameno, apply_pixel_mask=True):
         except KeyError:
             break
 
-    if data is None: print "Data not found."
+    if data is None:
+        print "Data not found."
+        return data
 
     byte = data.dtype.itemsize
     data = data.astype(numpy.int32)
@@ -107,6 +109,10 @@ def extract_data_range_sum(h5master, frames):
         except KeyError:
             break
 
+    if data is None:
+        print "Data not found."
+        return data
+
     data[data<0] = -3 # To see pixels not masked by pixel mask.
     # Apply pixel mask
     if "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5:
@@ -114,7 +120,6 @@ def extract_data_range_sum(h5master, frames):
         data[mask==1] = -1
         data[mask>1] = -2
 
-    if data is None: print "Data not found."
     if i_found != len(frames): return None
     return data
 # extract_data()
@@ -129,6 +134,9 @@ def extract_to_minicbf(h5master, frameno, cbfout, binning=1):
     else:
         data = extract_data(h5master, frameno)
         nframes = 1
+
+    if data is None:
+        raise RuntimeError("Cannot extract frame %s from %s"%(frameno, h5master))
 
     h = eiger_hdf5_interpreter.Interpreter().getRawHeadDict(h5master)
     h5 = h5py.File(h5master, "r")

@@ -51,15 +51,15 @@ def make_range_str(frames):
 # make_range_str()
 
 class MainFrame(wx.Frame):
-    def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204"):
+    def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204", eiger_api_ver="1.6.1", bl="BL32XU"):
         wx.Frame.__init__(self, parent=parent, id=id, title="Adxv launcher for Eiger",
                           size=(500,500))
         self.adxv_proc = None # subprocess object
         self.h5file = h5in
         self.n_images = -1
-        self.eiger_host = eiger_host
         self.adxv = adxv.Adxv()
         self.last_monitor_image = None
+        self.bl = bl
 
         vbox = wx.BoxSizer(wx.VERTICAL)
 
@@ -146,6 +146,16 @@ class MainFrame(wx.Frame):
         hbox12.Add(self.chkMonRaiseW, flag=wx.EXPAND|wx.RIGHT)
         vbox1.Add(hbox12, flag=wx.EXPAND|wx.TOP, border=4)
 
+        hbox13 = wx.BoxSizer(wx.HORIZONTAL)
+        hbox13.Add(wx.StaticText(panel2, wx.ID_ANY, "Eiger DCU host: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        self.txtEigerHost = wx.TextCtrl(panel2, wx.ID_ANY, eiger_host, size=(150,25))
+        hbox13.Add(self.txtEigerHost)
+        hbox13.Add(wx.StaticText(panel2, wx.ID_ANY, "  API ver.: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        self.txtEigerAPIver = wx.TextCtrl(panel2, wx.ID_ANY, eiger_api_ver, size=(100,25))
+        hbox13.Add(self.txtEigerAPIver)
+        vbox1.Add(hbox13, flag=wx.EXPAND|wx.TOP, border=4)
+
+
         panel2.SetSizer(vbox1)
         notebook.InsertPage(1, panel2, "Monitor")
         notebook.Bind(wx.EVT_NOTEBOOK_PAGE_CHANGED, self.on_notebook_page_changed)
@@ -170,7 +180,6 @@ class MainFrame(wx.Frame):
 
         if self.h5file is not None:
             self.read_h5file()
-            self.open_hdf5(1)
     # __init__()
 
     def on_notebook_page_changed(self, ev):
@@ -188,9 +197,15 @@ class MainFrame(wx.Frame):
 
     def open_hdf5(self, frameno, raise_window=True):
         tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
-        self.adxv.open_hdf5(self.h5file, frameno, tmpdir=tmpdir,
-                            raise_window=raise_window,
-                            binning=int(self.txtBin.GetValue()))
+        try:
+            self.adxv.open_hdf5(self.h5file, frameno, tmpdir=tmpdir,
+                                raise_window=raise_window,
+                                binning=int(self.txtBin.GetValue()))
+        except RuntimeError, re:
+            self.txtInfo.SetValue("Error! %s\n\n%s" % (re.message, self.txtInfo.GetValue()))
+        except:
+            self.txtInfo.SetValue(traceback.format_exc() + "\n\n" + self.txtInfo.GetValue())
+            
     # open_hdf5()
 
     def change_frameno(self, frames):
@@ -277,15 +292,14 @@ class MainFrame(wx.Frame):
 
             self.h5file = tmp
             self.read_h5file()
-            self.open_hdf5(1)
             
         dlg.Destroy()
     # btnInfile_click()
 
     def btnLatest_click(self, ev):
-        latestlog = os.path.join(os.environ["HOME"], ".bss_latest_file_BL32XU.log")
+        latestlog = os.path.join(os.environ["HOME"], ".bss_latest_file_%s.log" % self.bl)
         if not os.path.isfile(latestlog):
-            wx.MessageDialog(None, ".bss_latest_file_BL32XU.log not found in $HOME.",
+            wx.MessageDialog(None, ".bss_latest_file_%s.log not found in $HOME." % self.bl,
                              "Error", style=wx.OK).ShowModal()
             return
 
@@ -299,14 +313,12 @@ class MainFrame(wx.Frame):
 
         self.h5file = latestfile
         self.read_h5file()
-        self.open_hdf5(1)
     # btnLatest_click ()
 
     def cmbInfile_onChange(self, ev):
         f = self.cmbInfile.GetValue()
         self.h5file = f
         self.read_h5file()
-        self.open_hdf5(1)
     # cmbInfile_onChange()
 
 
@@ -345,7 +357,7 @@ class MainFrame(wx.Frame):
 
     def on_monitor_timer(self, ev):
         print "monitoring"
-        response = urllib.urlopen("http://%s/monitor/api/1.6.1/images/monitor" % (self.eiger_host))
+        response = urllib.urlopen("http://%s/monitor/api/%s/images/monitor" % (self.txtEigerHost.GetValue(), self.txtEigerAPIver.GetValue()))
         data = response.read()
         data_size = len(data)
         curlines = self.txtInfo.GetValue().splitlines()
@@ -360,56 +372,76 @@ class MainFrame(wx.Frame):
         #pickle.dump(data, open("monitor.pkl","wb"), -1)
         #data = pickle.load(open("monitor.pkl"))
 
+        def request(query):
+            r = urllib.urlopen("http://%s/detector/api/%s/%s"%(self.txtEigerHost.GetValue(), self.txtEigerAPIver.GetValue(), query)).read()
+            return json.loads(r)
+
+        nx = request("config/x_pixels_in_detector")["value"]
+        ny = request("config/y_pixels_in_detector")["value"]
+
         if len(data) < 1000:
             data = self.last_monitor_image
             if data is None: return
         else:
-            byte = data_size // (3269*3110)
+            byte = data_size // (nx*ny)
             assert byte == 4 or byte == 2
-            data = numpy.fromstring(data[8:-102], dtype=numpy.int32 if byte==4 else numpy.int16).reshape(3269,3110)
+            data = numpy.fromstring(data[8:-102], dtype=numpy.int32 if byte==4 else numpy.int16).reshape(ny,nx)
 
             if self.last_monitor_image is not None and (data==self.last_monitor_image).all():
                 return
 
-        def request(query):
-            r = urllib.urlopen("http://%s/detector/api/1.6.1/%s"%(self.eiger_host, query)).read()
-            return json.loads(r)
-            
         wavelen = request("config/wavelength")["value"]
-        distance = request("config/detector_distance")["value"] * 1000.
         beamx = request("config/beam_center_x")["value"]
         beamy = request("config/beam_center_y")["value"]
+
+        distance = request("config/detector_distance")
 
         self.txtInfo.SetValue("""\
 %s: Downloaded (%d)
     Wavelength: %.5f A
-    Detector_distance: %.2f mm
+    Detector_distance: %.2f %s
     Beam_xy: %.2f, %.2f
-%s"""% (time.ctime(), data_size, wavelen, distance, beamx, beamy, self.txtInfo.GetValue()))
+%s"""% (time.ctime(), data_size, wavelen, distance["value"], str(distance["unit"]), beamx, beamy, self.txtInfo.GetValue()))
 
         from yamtbx.dataproc import cbf
         tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
         imgfile = os.path.join("/dev/shm", "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
+
+        xp = request("config/x_pixel_size")
+        yp = request("config/y_pixel_size")
+
         cbf.save_numpy_data_as_cbf(data.flatten(), size1=data.shape[1], size2=data.shape[0], title="",
                                    cbfout=imgfile,
                                    pilatus_header="""\
 # Detector: Eiger
-# Pixel_size 75e-6 m x 75e-6 m
+# Pixel_size %(px).5e %(pxu)s x %(py).5e %(pyu)s
 # Wavelength %(Wavelength).6f A
-# Detector_distance %(Distance).3e m
+# Detector_distance %(Distance).4e %(DistanceU)s
 # Beam_xy (%(BeamX).1f, %(BeamY).1f) pixels
-""" % dict(Wavelength=wavelen, Distance=distance/1.e3, BeamX=beamx, BeamY=beamy))
+""" % dict(px=xp["value"], pxu=str(xp["unit"]), py=yp["value"], pyu=str(yp["unit"]), Wavelength=wavelen, Distance=distance["value"], DistanceU=str(distance["unit"]), BeamX=beamx, BeamY=beamy))
 
         self.adxv.open_image(imgfile, raise_window=self.chkMonRaiseW.GetValue())
         self.last_monitor_image = data
     # on_monitor_timer()
 
 def run(argv):
-    h5in = argv[0] if argv else None
+    import optparse
+
+    parser = optparse.OptionParser(usage="usage: %prog [options] foo_master.h5")
+
+    parser.add_option("--bl", action="store", dest="bl", default="BL32XU", help="To look for ~/.bss_latest_file_<bl>.log")
+    parser.add_option("--dcu-host", action="store", dest="dcu_host", default="192.168.163.204", help="Eiger DCU host (ip addr) for monitor mode")
+    parser.add_option("--api-ver", action="store", dest="api_ver", default="1.6.1", help="Eiger API ver.")
+
+    opts, args = parser.parse_args(argv)
+
+    h5in = args[0] if args else None
 
     app = wx.App()
     app.TopWindow = MainFrame(parent=None, id=wx.ID_ANY, 
-                              h5in=h5in)
+                              h5in=h5in,
+                              eiger_host=opts.dcu_host, eiger_api_ver=opts.api_ver,
+                              bl=opts.bl)
     app.MainLoop()
 
 if __name__ == "__main__":
