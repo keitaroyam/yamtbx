@@ -26,6 +26,12 @@ def getEdgeResolution(DetectorSize, Distance, Wavelength):
        else:
           return 0.
 
+def getPixelSize(CCD_DETECTOR_SIZE, SIZE, x_or_y):
+    assert x_or_y in ("x", "y")
+    i = 0 if x_or_y == "x" else 1
+    return float(CCD_DETECTOR_SIZE.split()[i]) / float(SIZE)
+# getPixelSize()
+
 def endian(code):
     if code == 'big_endian': return '>'
     else: return '<'
@@ -44,8 +50,8 @@ class Interpreter:
     'BeamY':(['CCD_SPATIAL_BEAM_POSITION'], lambda x: float(x.split()[1])),
     'Distance':(['CCD_GONIO_VALUES'], lambda x: float(x.split()[-1])),
     'Wavelength':(['SCAN_WAVELENGTH'], float),
-    'PixelX':(['CCD_SPATIAL_DISTORTION_INFO'], lambda x: float(x.split()[-2])),
-    'PixelY':(['CCD_SPATIAL_DISTORTION_INFO'], lambda x: float(x.split()[-1])),
+    'PixelX':(['CCD_DETECTOR_SIZE', 'SIZE1'], lambda x,y: getPixelSize(x,y,"x")),
+    'PixelY':(['CCD_DETECTOR_SIZE', 'SIZE2'], lambda x,y: getPixelSize(x,y,"y")),
     'Width':(['SIZE1'], int),
     'Height':(['SIZE2'], int),
     'Message':(['COMMENT'], str),
