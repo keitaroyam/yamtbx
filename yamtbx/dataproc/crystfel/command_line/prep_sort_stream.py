@@ -3,6 +3,7 @@ import cPickle as pickle
 import math
 from yamtbx.dataproc import crystfel
 import iotbx.phil
+import iotbx.file_reader
 from cctbx.array_family import flex
 from cctbx import uctbx
 from mmtbx.scaling.absolute_scaling import ml_iso_absolute_scaling
@@ -29,7 +30,14 @@ n_residues = 308
  .type = int
  .help = used for Wilson B calculation
 
-stats = *reslimit *ioversigma *resnatsnr1 *pr *wilsonb *abdist
+hklref = None
+ .type = path
+hklref_label = None
+ .type = str
+d_min = None
+ .type = float
+
+stats = *reslimit *ioversigma *resnatsnr1 *pr *wilsonb *abdist ccref
  .type = choice(multi=True)
  .help = "statistics. reslimit: diffraction_resolution_limit reported by CrystFEL; ioversigma: <I/sigma(I)> in each pattern; resnatsnr1: resolution where <I/sigma(I)>_bin drops below 1; pr: profile_radius reported by CrystFEL; wilsonb: ML-estimate of Wilson B value; abdist: Andrews-Bernstein distance (unit cell dissimilarity)"
 """
@@ -47,22 +55,19 @@ def make_G6(uc):
     return [a, b, c, d, e, f]
 
 
-def set_chunk_stats(chunk, stats, stat_choice, n_residues=None, ref_cell=None, space_group=None):
+def set_chunk_stats(chunk, stats, stat_choice, n_residues=None, ref_cell=None, space_group=None, d_min=None, ref_data=None):
     if "reslimit" in stat_choice: stats["reslimit"].append(chunk.res_lim)
     else: stats["reslimit"].append(float("nan"))
 
     if "pr" in stat_choice: stats["pr"].append(chunk.profile_radius)
     else: stats["pr"].append(float("nan"))
 
-    if "ioversigma" in stat_choice or "resnatsnr1" in stat_choice:
+    stats["ccref"].append(float("nan"))
+
+    if set(["ioversigma","resnatsnr1","ccref"]).intersection(stat_choice):
         iobs = chunk.data_array(space_group, False)
         iobs = iobs.select(iobs.sigmas()>0).merge_equivalents(use_internal_variance=False).array()
         binner = iobs.setup_binner(auto_binning=True)
-
-        if "ioversigma" in stat_choice:
-            stats["ioversigma"].append(flex.mean(iobs.data()/iobs.sigmas()))
-        else:
-            stats["ioversigma"].append(float("nan"))
 
         if "resnatsnr1" in stat_choice:
             res = float("nan")
@@ -78,6 +83,18 @@ def set_chunk_stats(chunk, stats, stat_choice, n_residues=None, ref_cell=None, s
             stats["resnatsnr1"].append(res)
         else:
             stats["resnatsnr1"].append(float("nan"))
+
+        if d_min: iobs = iobs.resolution_filter(d_min=d_min)
+
+        if "ccref" in stat_choice:
+            corr = iobs.correlation(ref_data, assert_is_similar_symmetry=False)
+            if corr.is_well_defined(): stats["ccref"][-1] = corr.coefficient()
+
+        if "ioversigma" in stat_choice:
+            stats["ioversigma"].append(flex.mean(iobs.data()/iobs.sigmas()))
+        else:
+            stats["ioversigma"].append(float("nan"))
+
     else:
         stats["ioversigma"].append(float("nan"))
         stats["resnatsnr1"].append(float("nan"))
@@ -105,7 +122,22 @@ def run(params):
 
     ifs = open(params.streamin)
     ofs_dat = open(params.datout, "w")
-    ofs_dat.write("file event indexed_by reslimit ioversigma resnatsnr1 pr wilsonb abdist a b c al be ga\n")
+
+    ref_data = None
+    if params.hklref:
+        server = iotbx.file_reader.any_file(params.hklref, force_type="hkl").file_server
+        ref_data = server.get_xray_data(file_name=None,
+                                        labels=params.hklref_label,
+                                        ignore_all_zeros=True,
+                                        parameter_scope="",
+                                        prefer_anomalous=False,
+                                        prefer_amplitudes=False)
+        ofs_dat.write("#reference data: %s %s\n" % (params.hklref, ref_data.info().label_string()))
+        ref_data = ref_data.as_intensity_array()
+
+    ofs_dat.write("#d_min= %s\n" % params.d_min)
+    ofs_dat.write("#ref_cell= %s space_group= %s n_residues= %s\n" % (params.ref_cell, params.space_group, params.n_residues))
+    ofs_dat.write("file event indexed_by reslimit ioversigma resnatsnr1 pr wilsonb abdist ccref a b c al be ga\n")
 
     tell_p, tell_c = 0, 0
     read_flag = False
@@ -118,6 +150,7 @@ def run(params):
                  abdist=[],
                  pr=[],
                  wilsonb=[],
+                 ccref=[],
                  )
 
     while True:
@@ -138,9 +171,12 @@ def run(params):
                 set_chunk_stats(chunk, stats, params.stats,
                                 n_residues=params.n_residues,
                                 ref_cell=params.ref_cell,
-                                space_group=params.space_group)
-                ofs_dat.write("%s %s %s %.3f %.3f %.3f %.3e %.3f %.3f "%(chunk.filename, chunk.event, chunk.indexed_by, chunk.res_lim, 
-                                                                         stats["ioversigma"][-1], stats["resnatsnr1"][-1], stats["pr"][-1], stats["wilsonb"][-1], stats["abdist"][-1]))
+                                space_group=params.space_group,
+                                d_min=params.d_min,
+                                ref_data=ref_data)
+                ofs_dat.write("%s %s %s %.3f %.3f %.3f %.3e %.3f %.3f %.5f "%(chunk.filename, chunk.event, chunk.indexed_by, chunk.res_lim, 
+                                                                              stats["ioversigma"][-1], stats["resnatsnr1"][-1], stats["pr"][-1], stats["wilsonb"][-1], stats["abdist"][-1],
+                                                                              stats["ccref"][-1]))
                 ofs_dat.write("%.3f %.3f %.3f %.2f %.2f %.2f\n" % chunk.cell)
                 #ofs_dat.flush()
             else:
