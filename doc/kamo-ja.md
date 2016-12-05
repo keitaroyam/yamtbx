@@ -12,7 +12,7 @@ SPring-8でのオンラインデータ解析のために設計されています
 以下のプログラム・ライブラリを使用しています．
 
 * [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (動作上必須)
-* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/) (動作上必須)
+* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (動作上必須)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
 * [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
@@ -232,7 +232,12 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
    1. https://pypi.python.org/packages/source/n/networkx/networkx-1.11.tar.gz をダウンロード
    2. `tar xvf networkx-1.11.tar.gz`
    3. `cd networkx-1.11; phenix.python setup.py install`
-4. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
+4. scipyをphenix.pythonから使えるようにする
+   1. https://github.com/scipy/scipy/releases/download/v0.18.1/scipy-0.18.1.tar.gz をダウンロード
+   2. `tar xvf scipy-0.18.1.tar.gz`
+   3. `cd scipy-0.18.1; phenix.python setup.py install`
+   4. (blasあるいはlapackが無いと言われたら，パッケージマネージャ等を用いて導入のこと)
+5. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
 ```
 cd $HOME
 git clone https://github.com/keitaroyam/yamtbx.git
@@ -278,3 +283,8 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
  * 非SGE環境でkamo.multi_mergeが実行できないバグを修正
  * LCVとaLCVを実際にマージされた結晶の格子定数から計算するように変更
  * phenix.xtriageのログのパースを修正．Anisotropyをmax(B_cart)-min(B_cart)と定義．
+* 2016-12-06
+ * GUI: `exclude_ice_resolutions=`オプションを追加．プロットがMacで更新されないバグを修正
+ * XSCALE実行後の処理を高速化(ファイル名の置換)
+ * kamo.resolve_indexing_ambiguity: `reference_label=`が与えられてない場合にクラッシュするバグを修正
+ * kamo.test_installation: Adxvのチェックを追加

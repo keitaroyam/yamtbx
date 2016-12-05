@@ -12,7 +12,7 @@ This manual is for 2015-12-18.
 KAMO uses following programs and libraries.
 
 * [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (essential)
-* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/) (essential)
+* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (essential)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
 * [R](https://www.r-project.org/) (required for BLEND, CC-based clustering) with rjson
@@ -232,7 +232,12 @@ If this is too hard, there is much easier way:
    1. Download https://pypi.python.org/packages/source/n/networkx/networkx-1.11.tar.gz
    2. `tar xvf networkx-1.11.tar.gz`
    3. `cd networkx-1.11; phenix.python setup.py install`
-4. Run the following commands (yamtbx can be cloned anywhere you like)
+4. Install scipy to phenix.python
+   1. Download https://github.com/scipy/scipy/releases/download/v0.18.1/scipy-0.18.1.tar.gz
+   2. `tar xvf scipy-0.18.1.tar.gz`
+   3. `cd scipy-0.18.1; phenix.python setup.py install`
+   4. (Install blas-devel and lapack-devel if missing)
+5. Run the following commands (yamtbx can be cloned anywhere you like)
 ```
 cd $HOME
 git clone https://github.com/keitaroyam/yamtbx.git
@@ -277,4 +282,8 @@ Dates when the code became available on GitHub are shown
  * bug fix for non-sge environment (multi_merge)
  * calculate LCV & aLCV for actual set of parameters
  * bug fix on parsing xtriage. anisotropy is now max(B_cart)-min(B_cart)
-
+* 2016-12-06
+ * GUI: add `exclude_ice_resolutions=` option, fixed a bug that plots were not updated on Mac
+ * faster string (file name) replacement for XSCALE outputs
+ * kamo.resolve_indexing_ambiguity: fixed a bug when no reference_label was given
+ * kamo.test_installation: add Adxv test

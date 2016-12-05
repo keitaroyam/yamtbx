@@ -87,6 +87,18 @@ def tst_ccp4():
 #def tst_h5():
 #    print "Testing hdf5..",   
 
+def tst_adxv():
+    print "Testing Adxv.."
+
+    rcode, out, err = util.call("adxv", '-help')
+    if rcode != 0:
+        print "  Adxv is not avaiable. NG"
+        return False
+    
+    print "  OK"
+    return True
+# tst_R()
+
 def tst_scipy():
     print "Testing scipy.."
 
@@ -169,7 +181,7 @@ def run():
 
     failed = []
 
-    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_ccp4, tst_numpy,
+    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_ccp4, tst_adxv, tst_numpy,
               tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
         ret = f()
         if not ret: failed.append(f.func_name)

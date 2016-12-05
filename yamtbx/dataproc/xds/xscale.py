@@ -88,15 +88,28 @@ def run_xscale(xscale_inp, cbf_to_dat=False, use_tmpdir_if_available=False):
 
     # Replace file names if needed
     if len(ftable) > 0:
-        for f in "XSCALE.LP", outfile:
+        for i, f in enumerate(("XSCALE.LP", outfile)):
             f = os.path.join(wdir, f)
             if not os.path.isfile(f): continue
 
             os.rename(f, f+".org")
             ofs = open(f, "w")
-            for l in open(f+".org"):
-                for lfn in ftable: l = l.replace(lfn, ftable[lfn])
-                ofs.write(l)
+
+            if i == 0:
+                for l in open(f+".org"):
+                    if ".hkl" in l:
+                        for lfn in ftable: l = l.replace(lfn, ftable[lfn])
+                    ofs.write(l)
+            else:
+                ifs = open(f+".org")
+                while True:
+                    l = ifs.readline() 
+                    if ".hkl" in l:
+                        for lfn in ftable: l = l.replace(lfn, ftable[lfn])
+                    ofs.write(l)
+                    if l.startswith("!END_OF_HEADER"): break
+                shutil.copyfileobj(ifs, ofs)
+                
             ofs.close()
             os.remove(f+".org")
 

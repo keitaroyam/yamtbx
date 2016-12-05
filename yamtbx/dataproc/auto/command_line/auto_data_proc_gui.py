@@ -137,6 +137,9 @@ auto_frame_exclude_spot_based = false
  .type = bool
  .help = automatic frame exclusion from integration based on spot search result.
 
+exclude_ice_resolutions = false
+ .type = bool
+
 engine = *xds dials
  .type = choice(multi=False)
 
@@ -489,12 +492,29 @@ class BssJobs:
 
         # XXX need to update self.jobs (display on GUI)
 
+        exclude_resolution_ranges = []
+        if config.params.xds.exclude_resolution_range:
+            exclude_resolution_ranges = config.params.xds.exclude_resolution_range
+
+        if config.params.exclude_ice_resolutions:
+            exclude_resolution_ranges.extend([[3.93,3.87], 
+                                              [3.70,3.64], 
+                                              [3.47,3.41], 
+                                              [2.70,2.64], 
+                                              [2.28,2.22], 
+                                              [2.102,2.042], 
+                                              [1.978,1.918], 
+                                              [1.948,1.888], 
+                                              [1.913,1.853], 
+                                              [1.751,1.691], 
+                                              ])
+
         xdsinp_str = xds_inp.generate_xds_inp(img_files=img_files,
                                               inp_dir=os.path.abspath(workdir),
                                               reverse_phi=config.params.reverse_phi, anomalous=True,
                                               spot_range="all", minimum=False,
                                               integrate_nimages=None, minpk=config.params.xds.minpk,
-                                              exclude_resolution_range=config.params.xds.exclude_resolution_range,
+                                              exclude_resolution_range=exclude_resolution_ranges,
                                               orgx=overrides.get("orgx",None),
                                               orgy=overrides.get("orgy",None),
                                               distance=overrides.get("distance",None),
@@ -1444,18 +1464,18 @@ class ResultLeftPanel(wx.Panel):
 
 # class ResultLeftPanel
 
-class PlotPanel(wx.Panel):
-    def __init__(self, parent=None, id=wx.ID_ANY):
-        wx.Panel.__init__(self, parent=parent, id=id)
+class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be ScrolledPanel?? (On Mac, Panel is OK, but not works on Linux..)
+    def __init__(self, parent=None, id=wx.ID_ANY, nplots=4):
+        wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400,1200))
 
         vbox = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
-        self.p = []
-        self.lim = dict(x=[], y=[])
-        self.figure = matplotlib.figure.Figure(None)
-        self.subplot = self.figure.add_subplot(111)
+        self.figure = matplotlib.figure.Figure(tight_layout=True)
+        self.subplots = map(lambda i: self.figure.add_subplot(nplots,1,i+1), xrange(nplots))
+        self.p = map(lambda x:[], xrange(nplots))
+        self.lim = map(lambda i: dict(x=[], y=[]), xrange(nplots))
+        
         self.canvas = matplotlib.backends.backend_wxagg.FigureCanvasWxAgg(self, wx.ID_ANY, self.figure)
-
         vbox.Add(self.canvas, 1, flag=wx.ALL|wx.EXPAND)
     # __init__
 
@@ -1473,31 +1493,33 @@ class PlotPanel(wx.Panel):
     """
 
     def clear_plot(self):
-        for p in self.p:
-            for pp in p: pp.remove()
-        self.p = []
-        self.lim["x"], self.lim["y"] = [], []
+        for i in xrange(len(self.p)):
+            for p in self.p[i]:
+                for pp in p: pp.remove()
+            self.p[i] = []
+            self.lim[i]["x"], self.lim[i]["y"] = [], []
     # clear_plot()
 
-    def add_plot(self, x, y, label="", marker="o"):
-        p = self.subplot.plot(x, y, marker=marker, label=label)
-        self.p.append(p)
+    def add_plot(self, n, x, y, label="", marker="o", color="blue", show_legend=True):
+        p = self.subplots[n].plot(x, y, marker=marker, label=label, color=color)
+        self.p[n].append(p)
 
         # Define range
         for k, v in (("x",x), ("y", y)):
-            if self.lim[k] == []: self.lim[k] = [min(v), max(v)]
-            else: self.lim[k] = [min(min(v), self.lim[k][0]), max(max(v), self.lim[k][1])]
+            if self.lim[n][k] == []: self.lim[n][k] = [min(v), max(v)]
+            else: self.lim[n][k] = [min(min(v), self.lim[n][k][0]), max(max(v), self.lim[n][k][1])]
 
-        self.subplot.set_xlim(*self.lim["x"])
-        yrange = self.lim["y"][1] - self.lim["y"][0]
-        self.subplot.set_ylim(self.lim["y"][0]-0.2*yrange/2, self.lim["y"][0]+2.2*yrange/2) # 1-factor, 1+factor
+        self.subplots[n].set_xlim(*self.lim[n]["x"])
+        yrange = self.lim[n]["y"][1] - self.lim[n]["y"][0]
+        self.subplots[n].set_ylim(self.lim[n]["y"][0]-0.2*yrange/2, self.lim[n]["y"][0]+2.2*yrange/2) # 1-factor, 1+factor
+
+        if show_legend:
+            self.subplots[n].legend(loc='best').draggable(True)
     # plot()
 
-    def refresh(self): self.SetSize((self.Size[0],self.Size[1]))
-
-    def show_legend(self):
-        self.figure.gca().legend(loc='best').draggable(True)
-    # show_legend()
+    def refresh(self):
+        self.SetSize((self.Size[0],self.Size[1]))
+        self.canvas.draw()        
 
 # class PlotPanel
 
@@ -1523,10 +1545,8 @@ class ResultRightPanel(wx.Panel):
         # Panel for plots
         pvbox = wx.BoxSizer(wx.VERTICAL)
         self.plotsPanel.SetSizer(pvbox)
-        self.plots = []
-        for i in xrange(4):
-            self.plots.append(PlotPanel(self.plotsPanel))
-            pvbox.Add(self.plots[-1], 0, flag=wx.ALL|wx.EXPAND)
+        self.plots = PlotPanel(self.plotsPanel, nplots=4)
+        pvbox.Add(self.plots, 0, flag=wx.ALL|wx.EXPAND)
 
         # Panel for log files
         lvbox = wx.BoxSizer(wx.VERTICAL)
@@ -1555,7 +1575,7 @@ class ResultRightPanel(wx.Panel):
         i_plot = -1
 
         # Plot stuff
-        for p in self.plots: p.clear_plot()
+        self.plots.clear_plot()
 
         integrate_lp = os.path.join(wd, "INTEGRATE.LP")
         spot_xds = os.path.join(wd, "SPOT.XDS")
@@ -1564,20 +1584,15 @@ class ResultRightPanel(wx.Panel):
             sx = idxreflp.SpotXds(spot_xds)
             spots = sx.spots_by_frame()
             spots_f, spots_n = sorted(spots), map(lambda k: spots[k], sorted(spots))
-            i_plot += 1
-            self.plots[i_plot].add_plot(spots_f, spots_n, label=("Spots"))
-            self.plots[i_plot].show_legend()
+            self.plots.add_plot(0, spots_f, spots_n, label=("Spots"))
             
         if os.path.isfile(integrate_lp):
             lp = integratelp.IntegrateLp(integrate_lp)
 
             # SgimaR
-            i_plot += 1
-            self.plots[i_plot].add_plot(map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"))
-            self.plots[i_plot].show_legend()
+            self.plots.add_plot(1, map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"))
 
             # Rotations
-            i_plot += 1
             xs, ys = [], [[], [], []]
             for frames, v in lp.blockparams.items():
                 rots = map(float, v.get("rotation", ["nan"]*3))
@@ -1590,19 +1605,16 @@ class ResultRightPanel(wx.Panel):
                     for i in xrange(3): ys[i].append(rots[i])
 
             for i, y in enumerate(ys):
-                self.plots[i_plot].add_plot(xs, y, label=("rotx","roty","rotz")[i])
-            self.plots[i_plot].show_legend()
+                self.plots.add_plot(2, xs, y, label=("rotx","roty","rotz")[i], color=("red", "green", "blue")[i])
 
         if os.path.isfile(xdsstat_lp):
             lp = xdsstat.XdsstatLp(xdsstat_lp)
             if lp.by_frame:
                 # R-meas
-                i_plot += 1
-                self.plots[i_plot].add_plot(map(int,lp.by_frame["frame"]),
+                self.plots.add_plot(3, map(int,lp.by_frame["frame"]),
                                             map(float,lp.by_frame["rmeas"]), label=("R-meas"))
-                self.plots[i_plot].show_legend()
 
-        for p in self.plots: p.refresh()
+        self.plots.refresh()
 
         # Log file stuff
         prev_cmbLog_sel = self.cmbLog.GetValue()
@@ -1653,7 +1665,7 @@ class MainFrame(wx.Frame):
         self.splitter2.SetMinimumPaneSize(10)
         self.splitter.SplitHorizontally(self.ctrlPanel, self.splitter2)
         self.splitter.SetSashGravity(0.5)
-        self.splitter.SetSashPosition(300)
+        self.splitter.SetSashPosition(300) # want to delete this line for Mac, but then unhappy on linux..
         self.splitter.SetMinimumPaneSize(10)
 
         self.Bind(EVT_SHOW_PROC_RESULT, self.show_proc_result)

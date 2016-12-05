@@ -88,11 +88,11 @@ def run(params):
                 for array in ref_arrays:
                     if array.is_xray_intensity_array():
                         ref_array = array
-                        print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                        print >>log_out, "Using %s as reference data" % array.info().label_string()
                         break
                     elif array.is_xray_amplitude_array():
-                        self.ref_array = array.f_as_f_sq()
-                        print >>self.log_out, "Using %s as reference data" % array.info().label_string()
+                        ref_array = array.f_as_f_sq()
+                        print >>log_out, "Using %s as reference data" % array.info().label_string()
                         break
         elif ref_file.file_type == "pdb":
             import mmtbx.utils
