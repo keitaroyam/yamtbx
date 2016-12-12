@@ -51,7 +51,7 @@ def make_range_str(frames):
 # make_range_str()
 
 class MainFrame(wx.Frame):
-    def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204", eiger_api_ver="1.6.1", bl="BL32XU"):
+    def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204", eiger_api_ver="1.6.1", bl="BL32XU", monitor_interval=5.):
         wx.Frame.__init__(self, parent=parent, id=id, title="Adxv launcher for Eiger",
                           size=(500,500))
         self.adxv_proc = None # subprocess object
@@ -136,8 +136,12 @@ class MainFrame(wx.Frame):
         self.btnMonRefresh.Bind(wx.EVT_BUTTON, self.on_btnMonRefresh)
         self.btnMonStop = wx.Button(panel2, wx.ID_ANY, "Stop")
         self.btnMonStop.Bind(wx.EVT_BUTTON, lambda e: self.monitor_timer.Stop())
+        self.txtMonInterval = wx.TextCtrl(panel2, wx.ID_ANY, "%.1f"%monitor_interval, size=(50,25))
         hbox11.Add(self.btnMonRefresh, flag=wx.EXPAND|wx.RIGHT)
         hbox11.Add(self.btnMonStop, flag=wx.EXPAND|wx.RIGHT)
+        hbox11.Add(wx.StaticText(panel2, wx.ID_ANY, " interval: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox11.Add(self.txtMonInterval, flag=wx.EXPAND|wx.RIGHT)
+        hbox11.Add(wx.StaticText(panel2, wx.ID_ANY, " sec."), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         vbox1.Add(hbox11, flag=wx.EXPAND|wx.TOP, border=4)
 
         hbox12 = wx.BoxSizer(wx.HORIZONTAL)
@@ -192,7 +196,15 @@ class MainFrame(wx.Frame):
     def on_btnMonRefresh(self, ev):
         self.monitor_timer.Stop()
         self.on_monitor_timer(None)
-        self.monitor_timer.Start(5000)
+        try:
+            msec = float(self.txtMonInterval.GetValue()) * 1000
+            if msec <= 0 or msec != msec: raise ValueError
+        except ValueError:
+            wx.MessageDialog(None, "Invalid interval (%s)" % self.txtMonInterval.GetValue(),
+                             "Error", style=wx.OK).ShowModal()
+            return
+
+        self.monitor_timer.Start(msec)
     # on_btnMonRefresh()
 
     def open_hdf5(self, frameno, raise_window=True):
@@ -372,8 +384,8 @@ class MainFrame(wx.Frame):
         #pickle.dump(data, open("monitor.pkl","wb"), -1)
         #data = pickle.load(open("monitor.pkl"))
 
-        def request(query):
-            r = urllib.urlopen("http://%s/detector/api/%s/%s"%(self.txtEigerHost.GetValue(), self.txtEigerAPIver.GetValue(), query)).read()
+        def request(query, base="detector"):
+            r = urllib.urlopen("http://%s/%s/api/%s/%s"%(self.txtEigerHost.GetValue(), base, self.txtEigerAPIver.GetValue(), query)).read()
             return json.loads(r)
 
         nx = request("config/x_pixels_in_detector")["value"]
@@ -396,12 +408,14 @@ class MainFrame(wx.Frame):
 
         distance = request("config/detector_distance")
 
+        image_number = request("status/monitor_image_number", base="monitor")["value"]
+
         self.txtInfo.SetValue("""\
-%s: Downloaded (%d)
+%s: Downloaded (frame: %.6d)
     Wavelength: %.5f A
     Detector_distance: %.2f %s
     Beam_xy: %.2f, %.2f
-%s"""% (time.ctime(), data_size, wavelen, distance["value"], str(distance["unit"]), beamx, beamy, self.txtInfo.GetValue()))
+%s"""% (time.ctime(), image_number[1]+1, wavelen, distance["value"], str(distance["unit"]), beamx, beamy, self.txtInfo.GetValue()))
 
         from yamtbx.dataproc import cbf
         tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
@@ -432,6 +446,7 @@ def run(argv):
     parser.add_option("--bl", action="store", dest="bl", default="BL32XU", help="To look for ~/.bss_latest_file_<bl>.log")
     parser.add_option("--dcu-host", action="store", dest="dcu_host", default="192.168.163.204", help="Eiger DCU host (ip addr) for monitor mode")
     parser.add_option("--api-ver", action="store", dest="api_ver", default="1.6.1", help="Eiger API ver.")
+    parser.add_option("--monitor-interval", action="store", dest="monitor_interval", default=5, type=float, help="Monitoring interval time in seconds")
 
     opts, args = parser.parse_args(argv)
 
@@ -441,7 +456,7 @@ def run(argv):
     app.TopWindow = MainFrame(parent=None, id=wx.ID_ANY, 
                               h5in=h5in,
                               eiger_host=opts.dcu_host, eiger_api_ver=opts.api_ver,
-                              bl=opts.bl)
+                              bl=opts.bl, monitor_interval=opts.monitor_interval)
     app.MainLoop()
 
 if __name__ == "__main__":
