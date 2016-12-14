@@ -253,6 +253,12 @@ def cbf_to_dat(lpin):
         elif l.startswith(" NUMBER OF REFLECTIONS USED FOR DETERMINING"):
             nref = int(l.split()[-1]) # not used now
 
+            if "_***" in filename:
+                # reset
+                filename = None
+                params = {}
+                continue
+
             # open cbf
             data, ndimfast, ndimmid = cbf.load_minicbf_as_numpy(os.path.join(lpdir, filename))
             data = data.reshape(ndimmid, ndimfast)
