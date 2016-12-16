@@ -176,6 +176,9 @@ merging {
 
 reverse_phi = true
  .type = bool
+split_hdf_miniset = true
+ .type = bool
+ .help = Whether or not minisets in hdf5 are treated individually.
 log_root = None
  .type = path
  .help = debug log directory
@@ -411,7 +414,7 @@ class BssJobs:
         # XXX what if include_dir has sub directories..
 
         for rd in include_dir:
-            for ds in dataset.find_data_sets(rd, skip_0=True, skip_symlinks=False):
+            for ds in dataset.find_data_sets(rd, skip_0=True, skip_symlinks=False, split_hdf_miniset=config.params.split_hdf_miniset):
                 tmpl, nr = ds[0], tuple(ds[1:3])
                 prefix = tmpl[:tmpl.index("_?" if "_?" in tmpl else "?")]
                     

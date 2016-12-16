@@ -269,7 +269,7 @@ def takeout_datasets(img_template, min_frame, max_frame, _epsilon=1e-5,
 
 # takeout_datasets()
 
-def find_data_sets(wdir, skip_symlinks=True, skip_0=False):
+def find_data_sets(wdir, skip_symlinks=True, skip_0=False, split_hdf_miniset=True):
     """
     Find data sets in wdir
     """
@@ -293,6 +293,11 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False):
 
     for f in h5files:
         im = XIO.Image(f)
+
+        if not split_hdf_miniset:
+            ret.append([f.replace("_master.h5","_??????.h5"), 1, im.header["Nimages"]])
+            continue
+
         for i in xrange(im.header["Nimages"]//im.header["Nimages_each"]+1):
             nr0, nr1 = im.header["Nimages_each"]*i+1, im.header["Nimages_each"]*(i+1)
             if nr1 > im.header["Nimages"]: nr1 = im.header["Nimages"]
