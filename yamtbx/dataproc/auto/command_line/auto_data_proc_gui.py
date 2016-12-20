@@ -539,6 +539,7 @@ class BssJobs:
         # Start batch job
         job = batchjob.Job(workdir, "xds_auto.sh", nproc=config.params.batch.nproc_each)
         job_str = """\
+cd "%(wd)s" || exit 1
 "%(exe)s" - <<+
 from yamtbx.dataproc.auto.command_line.run_all_xds_simple import run_from_args
 run_from_args([%(args)s])
@@ -546,7 +547,8 @@ for i in xrange(%(repeat)d-1):
  run_from_args([%(args)s, "mode=recycle"])
 +
 """ % dict(exe=sys.executable, args=",".join(map(lambda x: '"%s"'%x, opts)),
-           repeat=config.params.xds.repeat)
+           repeat=config.params.xds.repeat,
+           wd=os.path.abspath(workdir))
         
         job.write_script(job_str+"\n")
         
@@ -569,7 +571,7 @@ for i in xrange(%(repeat)d-1):
             return
 
         nproc_str = "nproc=%d"%config.params.batch.nproc_each
-        job_str = ""
+        job_str = 'cd "%s" || exit 1\n' % os.path.abspath(workdir)
         job_str += "dials.import template=%s image_range=%d,%d\n" % (job.filename.replace("?","#"),
                                                                      nr[0], nr[1])
         job_str += "dials.find_spots datablock.json global_threshold=200 %s\n" % nproc_str
