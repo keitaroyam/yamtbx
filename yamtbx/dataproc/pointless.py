@@ -108,7 +108,7 @@ class Pointless:
         return filein+"\n", wdir
     # input_str()
 
-    def run_for_symm(self, hklin=None, xdsin=None, logout=None, tolerance=None, d_min=None):
+    def run_for_symm(self, hklin=None, xdsin=None, logout=None, tolerance=None, d_min=None, choose_laue=None):
         assert (hklin, xdsin).count(None) == 1
         filein, wdir = self.input_str(hklin, xdsin)
 
@@ -122,6 +122,8 @@ SETTING SYMMETRY-BASED
             stdin += "tolerance %f\n" % tolerance
         if d_min is not None:
             stdin += "resolution high %f\n" % d_min
+        if choose_laue is not None:
+            stdin += "choose lauegroup %s\n" % choose_laue
 
         exitcode, output, err = util.call(pointless_comm, 
                                           stdin=stdin, wdir=wdir)

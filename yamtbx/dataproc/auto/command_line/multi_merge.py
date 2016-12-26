@@ -21,6 +21,7 @@ from yamtbx.util import batchjob
 import iotbx.phil
 import libtbx.phil
 from libtbx.utils import multi_out
+from cctbx import sgtbx
 
 import os
 import sys
@@ -54,6 +55,9 @@ reject_method = delta_cc1/2 *framecc *lpstats
 reference_file = None
  .type = path
  .help = reference (for example, low resolution but complete) XDS_ASCII.HKL.
+space_group = None
+ .type = str
+ .help = Space group for merging
 nproc = 1
  .type = int
  .help = number of processors that can be used.
@@ -187,7 +191,7 @@ batch {
 }
 """
 
-def merge_datasets(params, workdir, xds_files, cells, batchjobs):
+def merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs):
     if not os.path.exists(workdir): os.makedirs(workdir)
     out = open(os.path.join(workdir, "merge.log"), "w")
 
@@ -199,6 +203,7 @@ def merge_datasets(params, workdir, xds_files, cells, batchjobs):
                                                    reject_params=params.rejection,
                                                    xscale_params=params.xscale,
                                                    reference_file=params.reference_file,
+                                                   space_group=space_group,
                                                    out=out, nproc=params.nproc,
                                                    nproc_each=params.batch.nproc_each,
                                                    batchjobs=batchjobs if "deltacchalf" in params.batch.par_run else None)
@@ -400,6 +405,17 @@ def run(params):
                 for f in laues[laue][sg]: print >>out, "  %s" % f
                 print >>out, ""
         return
+
+    space_group = None
+    if params.space_group is not None:
+        space_group = sgtbx.space_group_info(params.space_group).group()
+        laue_given = str(space_group.build_derived_reflection_intensity_group(False).info())
+        if laue_given != laues.keys()[0]:
+            print >>out, "ERROR! user-specified space group (space_group=%s) is not compatible with input files (%s)" % (params.space_group, laues.keys()[0])
+            return
+    else:
+        tmp = sgtbx.space_group_info(laues.values()[0].keys()[0]).group().build_derived_reflection_intensity_group(True)
+        print >>out, "Space group for merging:", tmp.info()
             
     try: html_report.add_cells_and_files(cells, laues.keys()[0])
     except: print >>out, traceback.format_exc()
@@ -533,9 +549,10 @@ def run(params):
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             if not os.path.exists(workdir): os.makedirs(workdir)
             shname = "merge_%s.sh" % os.path.relpath(workdir, params.workdir)
-            pickle.dump((params, os.path.abspath(workdir), xds_files, cells, batchjobs), open(os.path.join(workdir, "args.pkl"), "w"), -1)
+            pickle.dump((params, os.path.abspath(workdir), xds_files, cells, space_group, batchjobs), open(os.path.join(workdir, "args.pkl"), "w"), -1)
             job = batchjob.Job(workdir, shname, nproc=params.batch.nproc_each)
             job.write_script("""\
+cd "%s" || exit 1
 "%s" -c '\
 import pickle; \
 from yamtbx.dataproc.auto.command_line.multi_merge import merge_datasets; \
@@ -544,7 +561,7 @@ ofs = open("result.pkl","w"); \
 ret = merge_datasets(*args); \
 pickle.dump(ret, ofs); \
 '
-""" % sys.executable)
+""" % (os.path.abspath(workdir), sys.executable))
             batchjobs.submit(job)
             jobs.append(job)
 
@@ -572,7 +589,7 @@ pickle.dump(ret, ofs); \
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             print >>out, "Merging %s..." % os.path.relpath(workdir, params.workdir)
             out.flush()
-            results = merge_datasets(params, workdir, xds_files, cells, batchjobs)
+            results = merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs)
             
             if len(results) == 0:
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))

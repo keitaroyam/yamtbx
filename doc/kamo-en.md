@@ -272,6 +272,15 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2016-12-26
+ * kamo.multi_merge: add `space_group=` option (used in merging). use pointless result for mtz if not specified.
+ * kamo.multi_merge: add MULTIPLICITY column in mtz
+ * bug fix (change directory in qsub script)
+* 2016-12-06
+ * GUI: add `exclude_ice_resolutions=` option, fixed a bug that plots were not updated on Mac
+ * faster string (file name) replacement for XSCALE outputs
+ * kamo.resolve_indexing_ambiguity: fixed a bug when no reference_label was given
+ * kamo.test_installation: add Adxv test
 * 2016-10-05
  * added `auto_frame_exclude_spot_based=` option, which could be useful for processing data including non-spots images
 * 2016-07-18
@@ -282,8 +291,3 @@ Dates when the code became available on GitHub are shown
  * bug fix for non-sge environment (multi_merge)
  * calculate LCV & aLCV for actual set of parameters
  * bug fix on parsing xtriage. anisotropy is now max(B_cart)-min(B_cart)
-* 2016-12-06
- * GUI: add `exclude_ice_resolutions=` option, fixed a bug that plots were not updated on Mac
- * faster string (file name) replacement for XSCALE outputs
- * kamo.resolve_indexing_ambiguity: fixed a bug when no reference_label was given
- * kamo.test_installation: add Adxv test

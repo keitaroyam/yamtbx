@@ -273,6 +273,15 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 
 ## バージョン履歴
 日付はGitHub公開時
+* 2016-12-26
+ * kamo.multi_merge: `space_group=` オプションを追加(マージ時に使用)．指定がない場合Pointlessの結果をmtzに反映
+ * kamo.multi_merge: 出力MTZにMULTIPLICITYカラムを追加
+ * qsubするスクリプトの先頭でcdするように変更(bashrcなどでcdしている場合に，適切にcdされなかったバグを修正)
+* 2016-12-06
+ * GUI: `exclude_ice_resolutions=`オプションを追加．プロットがMacで更新されないバグを修正
+ * XSCALE実行後の処理を高速化(ファイル名の置換)
+ * kamo.resolve_indexing_ambiguity: `reference_label=`が与えられてない場合にクラッシュするバグを修正
+ * kamo.test_installation: Adxvのチェックを追加
 * 2016-10-05
  * `auto_frame_exclude_spot_based=`オプションを追加．最初と最後でセンタリングが外れているなど反射が写っていないフレームを含むデータに有効（かも）．
 * 2016-07-18
@@ -283,8 +292,3 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
  * 非SGE環境でkamo.multi_mergeが実行できないバグを修正
  * LCVとaLCVを実際にマージされた結晶の格子定数から計算するように変更
  * phenix.xtriageのログのパースを修正．Anisotropyをmax(B_cart)-min(B_cart)と定義．
-* 2016-12-06
- * GUI: `exclude_ice_resolutions=`オプションを追加．プロットがMacで更新されないバグを修正
- * XSCALE実行後の処理を高速化(ファイル名の置換)
- * kamo.resolve_indexing_ambiguity: `reference_label=`が与えられてない場合にクラッシュするバグを修正
- * kamo.test_installation: Adxvのチェックを追加

@@ -403,7 +403,34 @@ end
 
 # xds2mtz_anom()
 
-def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=False, dmin=None, dmax=None, force_anomalous=False):
+def add_multi(xds_file, workmtz, dmin=None, dmax=None, force_anomalous=False):
+    from yamtbx.dataproc.xds import xds_ascii
+    import iotbx.mtz
+
+    print "Adding multiplicity for each reflection"
+
+    xac = xds_ascii.XDS_ASCII(xds_file)
+    iobs = xac.i_obs(anomalous_flag=True if force_anomalous else None)
+    iobs = iobs.resolution_filter(d_min=float(dmin) if dmin is not None else None,
+                                  d_max=float(dmax) if dmax is not None else None)
+    iobs = iobs.select(iobs.sigmas() > 0).map_to_asu()
+    
+    merge = iobs.merge_equivalents(use_internal_variance=False)
+    array_merged = merge.array()
+    reject_sel = (array_merged.data() < -3*array_merged.sigmas())
+    #print " rejecting %d reflections (<<I>/sd(<I>)> < -3)" % reject_sel.count(True)
+    iobs = iobs.delete_indices(other=array_merged.select(reject_sel))
+    
+    # merge again after rejection
+    merge = iobs.merge_equivalents(use_internal_variance=False)
+
+    mtz_object = iotbx.mtz.object(workmtz)
+    crystals = mtz_object.crystals()
+    crystals[-1].datasets()[-1].add_miller_array(miller_array=merge.redundancies(), column_root_label="MULTIPLICITY")
+    mtz_object.write(file_name=workmtz)
+# generate_multi()
+
+def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=False, dmin=None, dmax=None, force_anomalous=False, with_multiplicity=False, sgnum=None):
     if hklout is None:
         hklout = os.path.splitext(os.path.basename(xds_file))[0] + ".mtz"
 
@@ -428,6 +455,9 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
 
     if force_anomalous:
         header["FRIEDEL'S_LAW"] = "FALSE"
+
+    if sgnum is not None:
+        header["SPACE_GROUP_NUMBER"] = str(sgnum)
 
     # make output directory
     if not os.path.isdir(dir_name):
@@ -466,6 +496,10 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
             print "Running xtriage.."
             run_xtriage_in_module_if_possible(args=[hklout], wdir=dir_name)
 
+        if with_multiplicity:
+            add_multi(xds_file, os.path.join(dir_name, hklout),
+                      dmin=dmin, dmax=dmax, force_anomalous=False)
+
     else:
         print xds_file, "is anomalous dataset."
         print
@@ -481,30 +515,11 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
             run_xtriage_in_module_if_possible(args=[hklout, 'input.xray_data.obs_labels="I(+),SIGI(+),I(-),SIGI(-)"'],
                         wdir=dir_name)
 
+        if with_multiplicity:
+            add_multi(xds_file, os.path.join(dir_name, hklout),
+                      dmin=dmin, dmax=dmax, force_anomalous=True)
+
 # xds2mtz()
-
-def xds2mtzmulti(xds_file, dir_name, hklout=None, dmin=None, dmax=None, force_anomalous=False):
-    if hklout is None:
-        hklout = os.path.splitext(os.path.basename(xds_file))[0] + "_multi.mtz"
-
-    # if output file already exists, exit.
-    if os.path.isfile(os.path.join(dir_name, hklout)):
-        raise Exception(os.path.join(dir_name, hklout), "already exists.")
-
-    from yamtbx.dataproc.xds import xds_ascii
-    from iotbx import merging_statistics
-
-    xac = xds_ascii.XDS_ASCII(xds_file)
-    iobs = xac.i_obs(anomalous_flag=True if force_anomalous else None)
-    iobs = iobs.resolution_filter(d_min=float(dmin) if dmin is not None else None, d_max=float(dmax) if dmax is not None else None)
-    iobs = iobs.select(iobs.sigmas() > 0)
-    merge = merging_statistics.filter_intensities_by_sigma(iobs, sigma_filtering="xds").merge
-
-    mtz_dataset = merge.array().as_mtz_dataset(column_root_label="I")
-    mtz_dataset.add_miller_array(miller_array=merge.redundancies(), column_root_label="MULT")
-    mtz_object = mtz_dataset.mtz_object()
-    mtz_object.write(file_name=os.path.join(dir_name,hklout))
-# xds2mtzmulti()
 
 if __name__ == "__main__":
     parser = optparse.OptionParser(usage="usage: %prog [options] [XDS_ASCII.HKL]")
@@ -513,7 +528,7 @@ if __name__ == "__main__":
                       help="output directory")
     parser.add_option("--xtriage","-x", action="store_true", dest="run_xtriage", help="run phenix.xtriage")
     parser.add_option("--truncate","-t", action="store_true", dest="run_ctruncate", help="use ctruncate to estimate F")
-    parser.add_option("--multiplicity","-m", action="store_true", dest="make_mtzmulti", help="Make extra mtz for multiplicity")
+    parser.add_option("--multiplicity","-m", action="store_true", dest="make_mtzmulti", help="Add multiplicity info")
     parser.add_option("--anomalous","-a", action="store_true", dest="anomalous", help="force anomalous")
     parser.add_option("--dmin", action="store", dest="dmin", help="high resolution cutoff") # as str
     parser.add_option("--dmax", action="store", dest="dmax", help="low resolution cutoff") # as str
@@ -535,8 +550,6 @@ if __name__ == "__main__":
 
     xds2mtz(xds_file, dir_name=opts.dir,
             run_xtriage=opts.run_xtriage, run_ctruncate=opts.run_ctruncate,
-            dmin=opts.dmin, dmax=opts.dmax, force_anomalous=opts.anomalous)
+            dmin=opts.dmin, dmax=opts.dmax, force_anomalous=opts.anomalous,
+            with_multiplicity=opts.make_mtzmulti)
 
-    if opts.make_mtzmulti:
-        xds2mtzmulti(xds_file, dir_name=opts.dir,
-                     dmin=opts.dmin, dmax=opts.dmax, force_anomalous=opts.anomalous)

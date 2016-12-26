@@ -8,6 +8,7 @@ from yamtbx.dataproc.xds import xscale
 from yamtbx.dataproc.xds import xscalelp
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.xds.command_line import xds2mtz
+from yamtbx.dataproc.pointless import Pointless
 from yamtbx.dataproc import blend_lcv
 from yamtbx import util
 import collections
@@ -23,7 +24,7 @@ xscale_comm = "xscale_par"
 class XscaleCycles:
     def __init__(self, workdir, anomalous_flag, d_min, d_max,
                  reject_method, reject_params, xscale_params,
-                 reference_file, out, nproc=1, nproc_each=None, batchjobs=None):
+                 reference_file, space_group, out, nproc=1, nproc_each=None, batchjobs=None):
         self.reference_file = None
         self._counter = 0
         self.workdir_org = workdir
@@ -33,6 +34,7 @@ class XscaleCycles:
         self.reject_params = reject_params
         self.xscale_params = xscale_params
         self.reference_choice = xscale_params.reference if not reference_file else None
+        self.space_group = space_group # sgtbx.space_group object. None when user not supplied.
         self.out = out
         self.nproc = nproc
         self.nproc_each = nproc_each
@@ -113,6 +115,9 @@ OUTPUT_FILE= xscale.hkl
                     cells.append(cell)
                     break
 
+        if self.space_group is not None:
+            sg = self.space_group.type().number()
+
         cells = numpy.array(cells)
         mean_cell = map(lambda i: cells[:,i].mean(), xrange(6))
         cell_std = map(lambda i: numpy.std(cells[:,i]), xrange(6))
@@ -140,10 +145,35 @@ OUTPUT_FILE= xscale.hkl
 
         for i in xrange(1, self.get_last_cycle_number()+1):
             wd = os.path.join(self.workdir_org, "run_%.2d"%i)
+            xscale_hkl = os.path.abspath(os.path.join(wd, "xscale.hkl"))
+            sgnum = None # Use user-specified one. Otherwise follow pointless.
             try:
-                xds2mtz.xds2mtz(xds_file=os.path.abspath(os.path.join(wd, "xscale.hkl")),
+                sg = XDS_ASCII(xscale_hkl, read_data=False).symm.space_group()
+                laue_symm_str = str(sg.build_derived_reflection_intensity_group(False).info())
+                worker = Pointless()
+                result = worker.run_for_symm(xdsin=xscale_hkl,
+                                             logout=os.path.join(wd, "pointless.log"),
+                                             choose_laue=laue_symm_str)
+                
+                if "symm" in result:
+                    print >>self.out, "Pointless suggestion (forcing %s symmetry):" % laue_symm_str
+                    result["symm"].show_summary(self.out, " ")
+                    sgnum = result["symm"].space_group_info().type().number()
+                else:
+                    print >>self.out, "Pointless failed."
+            except:
+                # Don't want to stop the program.
+                print >>self.out, traceback.format_exc()
+
+            if self.space_group is not None:
+                sgnum = self.space_group.type().number()
+
+            try:
+                xds2mtz.xds2mtz(xds_file=xscale_hkl,
                                 dir_name=os.path.join(wd, "ccp4"),
-                                run_xtriage=True, run_ctruncate=True)
+                                run_xtriage=True, run_ctruncate=True,
+                                with_multiplicity=True,
+                                sgnum=sgnum)
             except:
                 # Don't want to stop the program.
                 print >>self.out, traceback.format_exc()
