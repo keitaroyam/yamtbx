@@ -40,7 +40,7 @@ def get_angles(ib, a_axis, b_axis, c_axis, xs, ref_xs, filename):
         sg = xs.space_group()
         print "Reading %s (%s)" % (filename, sg.info())
 
-    laue = sg.build_derived_reflection_intensity_group(False)
+    laue = sg.build_derived_reflection_intensity_group(False).build_derived_point_group()
 
     astar, bstar, cstar = abc_convert_real_reciprocal(a,b,c)
     bstar_e = bstar / numpy.linalg.norm(bstar)
@@ -50,7 +50,6 @@ def get_angles(ib, a_axis, b_axis, c_axis, xs, ref_xs, filename):
     xyz = (numpy.dot(ib, a)/numpy.linalg.norm(a),
            numpy.dot(ib, b)/numpy.linalg.norm(b),
            numpy.dot(ib, c)/numpy.linalg.norm(c))
-
     angles = []
 
     #print "Replicating vectors using %2d operators" % len(laue.all_ops())

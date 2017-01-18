@@ -273,6 +273,8 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 
 ## バージョン履歴
 日付はGitHub公開時
+* 2017-01-18
+ * yamtbx.beam_direction_plot: 複合格子の場合におかしくなるバグを修正
 * 2016-12-26
  * kamo.multi_merge: `space_group=` オプションを追加(マージ時に使用)．指定がない場合Pointlessの結果をmtzに反映
  * kamo.multi_merge: 出力MTZにMULTIPLICITYカラムを追加

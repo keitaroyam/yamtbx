@@ -272,6 +272,8 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-01-18
+ * yamtbx.beam_direction_plot: fixed a bug in non-primitive space group case
 * 2016-12-26
  * kamo.multi_merge: add `space_group=` option (used in merging). use pointless result for mtz if not specified.
  * kamo.multi_merge: add MULTIPLICITY column in mtz
