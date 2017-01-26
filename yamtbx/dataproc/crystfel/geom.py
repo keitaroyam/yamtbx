@@ -1,5 +1,11 @@
+"""
+(c) RIKEN 2016. All rights reserved. 
+Author: Keitaro Yamashita
+This software is released under the new BSD License; see LICENSE.
+"""
 import re
 import numpy
+import sys
 
 #float_or_1 = lambda x: 1 if x == "" else float(x)
 float_or_1 = lambda x: (1,-1)[len(x)] if x == "" or x == "-" else float(x)
@@ -38,7 +44,7 @@ class Sensor:
             r_y = self.re_y.search(valstr)
             if r_x: self.ss[0] = float_or_1(r_x.group(1))
             if r_y: self.ss[1] = float_or_1(r_y.group(1))
-            if not r_x and not r_y: print "Wrong parameter value for ss:", valstr
+            if not r_x and not r_y: print >>sys.stderr, "Wrong parameter value for ss:", valstr
         elif key == "corner_x":
             self.corner_x = float(valstr)
         elif key == "corner_y":
@@ -50,7 +56,7 @@ class Sensor:
         elif key == "coffset":
             self.coffset = float(valstr)
         else:
-            print "Warning - Unknown paramter:", key
+            print >>sys.stderr, "Warning - Unknown paramter:", key
     # read_info()
 # class Sensor
 
@@ -87,7 +93,7 @@ class Geomfile:
                 elif "/" in lhs:
                     sp = lhs.split("/")
                     if len(sp) > 2:
-                        print "Warning: more than one / in left hand. Ignored:", l
+                        print >>sys.stderr, "Warning: more than one / in left hand. Ignored:", l
                         continue
 
                     sid, lhs2 = sp
