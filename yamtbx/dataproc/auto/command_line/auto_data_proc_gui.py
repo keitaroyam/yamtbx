@@ -74,10 +74,11 @@ adxv = None
 bl = 32xu 41xu 26b1 26b2 38b1 12b2 other
  .type = choice(multi=False)
  .help = Choose beamline where you start program
-blconfig = None
+blconfig = []
  .type = path
+ .multiple = true
 mode = zoo *normal
- .type = choice(multi=False)
+ .type = choice(multi=True)
  .help = When Zoo, specify mode=zoo
 
 date = "today"
@@ -242,10 +243,15 @@ class BssJobs:
 
         self._prev_job_finished = False
 
+        print "config.params.blconfig=", config.params.blconfig
+        bsslogs = []
         for dday in xrange(daystart, 1):
-            bsslog = os.path.join(config.params.blconfig, "log",
-                                  (date + datetime.timedelta(days=dday)).strftime("bss_%Y%m%d.log"))
-            if not os.path.isfile(bsslog): continue
+            for blconfig in config.params.blconfig:
+                bsslog = os.path.join(blconfig, "log",
+                                      (date + datetime.timedelta(days=dday)).strftime("bss_%Y%m%d.log"))
+                if os.path.isfile(bsslog): bsslogs.append(bsslog)
+
+        for bsslog in bsslogs:
             #print "reading", bsslog
 
             last_line = self.bsslogs_checked.get(bsslog, -1)
@@ -757,7 +763,7 @@ class WatchLogThread:
                     for prefix, nr in bssjobs.jobs:
                         bssjobs.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
                 else:
-                    if config.params.blconfig is not None:
+                    if config.params.blconfig:
                         #joblogs, prev_job_finished, job_is_running = bssjobs.check_bss_log(date, -config.params.checklog_daybefore)
                         bssjobs.update_jobs(date, -config.params.checklog_daybefore) #joblogs, prev_job_finished, job_is_running)
                     else:
@@ -1257,6 +1263,7 @@ use_ramdisk=true # set false if there is few memory or few space in /tmp
 kamo.multi_merge \\
         workdir=blend_${dmin}A_framecc_b \\
         lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
+        space_group=None reference.data=None \\
         program=xscale xscale.reference=bmin \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
@@ -1277,6 +1284,7 @@ use_ramdisk=true # set false if there is few memory or few space in /tmp
 kamo.multi_merge \\
         workdir=ccc_${dmin}A_framecc_b \\
         lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
+        space_group=None reference.data=None \\
         program=xscale xscale.reference=bmin \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
@@ -1802,10 +1810,10 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     else:
         raise "Unknown batch engine: %s" % config.params.batch.engine
 
-    if config.params.blconfig is None and config.params.bl != "other":
-        config.params.blconfig = "/isilon/blconfig/bl%s" % config.params.bl
-    if config.params.mode == "zoo":
-        config.params.blconfig = "/isilon/BL32XU/BLsoft/PPPP/10.Zoo/ZooConfig"
+    if "normal" in config.params.mode and config.params.bl != "other":
+        config.params.blconfig.append("/isilon/blconfig/bl%s" % config.params.bl)
+    if "zoo" in config.params.mode:
+        config.params.blconfig.append("/isilon/BL32XU/BLsoft/PPPP/10.Zoo/ZooConfig")
 
     if config.params.logwatch_once is None:
         config.params.logwatch_once = (config.params.bl == "other")

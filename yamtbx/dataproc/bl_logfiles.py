@@ -49,6 +49,7 @@ class ScanInfo:
         return re_tmpl.search(os.path.basename(filename))
     # get_file_number_based_on_template()
 
+    def get_prefix(self): return self.filename_template[:self.filename_template.index("?")]
 # class ScanInfo
 
 class BssDiffscanLog:
@@ -153,6 +154,11 @@ class BssDiffscanLog:
 
             if "FILE_NAME = " in l:
                 self.scans[-1].filename_template =  os.path.basename(l[l.index("FILE_NAME = ")+12:].strip())
+
+                # VERY DIRTY FIX!
+                # Explanation: if diffscan.log contains ".h5", we assume it's Eiger hdf5 and hit-finding is done by streaming mode.
+                if self.scans[-1].filename_template.endswith(".h5"):
+                    self.scans[-1].filename_template = self.scans[-1].filename_template[:-3] + ".img"
                 continue
 
             if "Vertical   scan" in l:

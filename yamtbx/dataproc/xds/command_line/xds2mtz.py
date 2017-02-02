@@ -24,6 +24,9 @@ import traceback
 from yamtbx.util import mtzutil
 from yamtbx.util import call
 from yamtbx.dataproc.xds import re_xds_kwd
+from yamtbx.dataproc.command_line import copy_free_R_flag
+from yamtbx.dataproc.command_line import create_free_R_flag
+import iotbx.mtz
 
 def run_xtriage_in_module_if_possible(args,  wdir):
     try:
@@ -405,7 +408,6 @@ end
 
 def add_multi(xds_file, workmtz, dmin=None, dmax=None, force_anomalous=False):
     from yamtbx.dataproc.xds import xds_ascii
-    import iotbx.mtz
 
     print "Adding multiplicity for each reflection"
 
@@ -430,7 +432,47 @@ def add_multi(xds_file, workmtz, dmin=None, dmax=None, force_anomalous=False):
     mtz_object.write(file_name=workmtz)
 # generate_multi()
 
-def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=False, dmin=None, dmax=None, force_anomalous=False, with_multiplicity=False, sgnum=None):
+def copy_test_flag(workmtz, flag_source, flag_name=None, flag_value=None, log_out=sys.stdout):
+    import iotbx.file_reader
+
+    f = iotbx.file_reader.any_file(flag_source, force_type="hkl", raise_sorry_if_errors=True)
+    flag_array, flag_name = copy_free_R_flag.get_flag_array(f.file_server.miller_arrays, flag_name, log_out=log_out)
+    print >>log_out, "Copying test flag from"
+    flag_array.show_summary(log_out, " ")
+
+    if flag_value is None:
+        flag_scores = copy_free_R_flag.get_r_free_flags_scores(miller_arrays=[flag_array],
+                                                               test_flag_value=flag_value)
+        flag_value = flag_scores.test_flag_values[0]
+        print >>log_out, " Guessing flag number:", flag_value
+
+    copy_free_R_flag.copy_flag_to_mtz(flag_array, flag_name, flag_value,
+                                      workmtz, workmtz, log_out)
+# copy_test_flag()
+
+def add_test_flag(workmtz, preferred_fraction=0.05, max_fraction=0.1, max_free=2000,
+                  ccp4_style=True, use_lattice_symmetry=True, log_out=sys.stdout):
+    print >>log_out, "Adding test flag to %s" % workmtz
+    mtz_object = iotbx.mtz.object(workmtz)
+
+    nref = mtz_object.n_reflections()
+    fraction = preferred_fraction
+    print >>log_out, " preferred fraction= %.4f" % preferred_fraction
+    print >>log_out, " total number of reflections= %d" % nref
+
+    if preferred_fraction*nref < 500:
+        fraction = min(500./nref, max_fraction)
+        print >>log_out, "As test reflections are too few (%d < 500), fraction changed to %.4f" % (preferred_fraction*nref, fraction)
+    elif preferred_fraction*nref > max_free:
+        fraction = max_free/float(nref)
+        print >>log_out, "As test reflections are too many (%d > 2000), fraction changed to %.4f" % (preferred_fraction*nref, fraction)
+
+    print >>log_out
+    create_free_R_flag.run(workmtz, workmtz, fraction, "FreeR_flag",
+                           ccp4=ccp4_style, use_lattice_symmetry=use_lattice_symmetry, log_out=log_out)
+# add_test_flag()
+
+def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=False, dmin=None, dmax=None, force_anomalous=False, with_multiplicity=False, sgnum=None, flag_source=None, add_flag=False):
     if hklout is None:
         hklout = os.path.splitext(os.path.basename(xds_file))[0] + ".mtz"
 
@@ -519,6 +561,11 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
             add_multi(xds_file, os.path.join(dir_name, hklout),
                       dmin=dmin, dmax=dmax, force_anomalous=True)
 
+    if flag_source is not None:
+        copy_test_flag(os.path.join(dir_name, hklout), flag_source, log_out=logout)
+    elif add_flag:
+        add_test_flag(os.path.join(dir_name, hklout), log_out=logout)
+
 # xds2mtz()
 
 if __name__ == "__main__":
@@ -532,6 +579,8 @@ if __name__ == "__main__":
     parser.add_option("--anomalous","-a", action="store_true", dest="anomalous", help="force anomalous")
     parser.add_option("--dmin", action="store", dest="dmin", help="high resolution cutoff") # as str
     parser.add_option("--dmax", action="store", dest="dmax", help="low resolution cutoff") # as str
+    parser.add_option("--copy-test-flag","-r", action="store", dest="flag_source", help="")
+    parser.add_option("--add-test-flag", action="store_true", dest="add_flag", help="")
 
     (opts, args) = parser.parse_args(sys.argv)
 
@@ -551,5 +600,6 @@ if __name__ == "__main__":
     xds2mtz(xds_file, dir_name=opts.dir,
             run_xtriage=opts.run_xtriage, run_ctruncate=opts.run_ctruncate,
             dmin=opts.dmin, dmax=opts.dmax, force_anomalous=opts.anomalous,
-            with_multiplicity=opts.make_mtzmulti)
+            with_multiplicity=opts.make_mtzmulti,
+            flag_source=opts.flag_source, add_flag=opts.add_flag)
 

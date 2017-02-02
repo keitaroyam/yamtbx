@@ -167,7 +167,7 @@ def reindex_with_specified_symm(topdir, reference_symm, dirs, out):
                                    ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
 
         if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
-            if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10):
+            if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10): # XXX Check unit cell consistency!!
                 print >>out,  "  Already scaled with specified symmetry"
                 os.rename(xac_file_org, xac_file) # rename back
                 cells[wd] = (numpy.array(xac.symm.unit_cell().parameters()), xac_file)

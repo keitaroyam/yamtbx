@@ -272,6 +272,10 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-02-02
+ * kamo.auto_multi_merge: automatic merging for multiple samples
+ * kamo.multi_merge: new options reference.data= (to copy test flags), resolution.estimate= (to automatically decide high resolution cutoff), use pointless to decide screws
+ * kamo: now blconfig= can be multiple and mode= can specify both (zoo+normal)
 * 2017-01-18
  * yamtbx.beam_direction_plot: fixed a bug in non-primitive space group case
 * 2016-12-26

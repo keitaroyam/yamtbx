@@ -648,7 +648,8 @@ svg.append("g")
   <th colspan="5">Outer shell</th>
   <th colspan="7">Inner shell</th>
   <th rowspan="2" title="ML estimate of isotropic Wilson B-factor by phenix.xtriage"><i>B</i><sub>Wilson</sub></th>
-  <th rowspan="2" title="Anisotropy defined in phenix.xtriage">Aniso</sub></th>
+  <th rowspan="2" title="Anisotropy defined in phenix.xtriage">Aniso</th>
+  <th rowspan="2" title="Resolution estimate"><i>d</i><sub>min</sub><br>est.</th>
  </tr>
  <tr>
   <th>Cmpl</th><th>Redun</th><th>I/&sigma;(I)</th><th><i>R</i><sub>meas</sub></th><th>CC<sub>1/2</sub></th>
@@ -661,7 +662,7 @@ svg.append("g")
     # _make_merge_table_framework()
 
     def _make_merge_plot_framework(self):
-        axis_opts = "ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso".split()
+        axis_opts = "ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso dmin.est".split()
 
         axis_opts_x, axis_opts_y = [], []
         for a in axis_opts:
@@ -729,10 +730,10 @@ svg.append("g")
     # _make_merge_plot_framework()
 
     def add_merge_result(self, workdir, clh, LCV, aLCV, xds_files, num_files, stats):
-        axis_opts = "cls ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso".split()
+        axis_opts = "cls ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso dmin.est".split()
 
         cls = os.path.relpath(workdir, self.params.workdir)
-        tmps = "%12s %5.2f %4.1f %4.1f %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %.1e"
+        tmps = "%12s %5.2f %4.1f %4.1f %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %.1e %.2f"
         tmps = tmps % (cls, clh, LCV, aLCV,
                        len(xds_files), num_files,
                        stats["cmpl"][0],
@@ -754,6 +755,7 @@ svg.append("g")
                        stats["cc_ano"][1],
                        stats["xtriage_log"].wilson_b,
                        stats["xtriage_log"].anisotropy,
+                       stats["dmin_est"],
                        )
 
         tmptmp = tmps.replace("nan",'"nan"').split()
@@ -768,7 +770,7 @@ svg.append("g")
         else:
             table_snip = ""
         tmps2 = """ <tr><td onClick="toggle_show2(this, 'merge-td-%d');" id="merge-td-mark-%d"">&#x25bc;</td>%s</tr>\n""" %(idno,idno,tmps)
-        tmps2 += """ <tr><td style="padding: 0px;"><td colspan="25" style="display:none;padding:0px;" id="merge-td-%d"><pre style="font-size: 1.1em;">%s</pre></td></tr>""" % (idno, table_snip)
+        tmps2 += """ <tr><td style="padding: 0px;"><td colspan="26" style="display:none;padding:0px;" id="merge-td-%d"><pre style="font-size: 1.1em;">%s</pre></td></tr>""" % (idno, table_snip)
 
         self.html_merge_results.append(tmps2)
         

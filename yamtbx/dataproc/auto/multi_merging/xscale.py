@@ -8,11 +8,15 @@ from yamtbx.dataproc.xds import xscale
 from yamtbx.dataproc.xds import xscalelp
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.xds.command_line import xds2mtz
+from yamtbx.dataproc.xds import modify_xdsinp
 from yamtbx.dataproc.pointless import Pointless
 from yamtbx.dataproc import blend_lcv
+from yamtbx.dataproc.auto.resolution_cutoff import estimate_resolution_based_on_cc_half
 from yamtbx import util
-import collections
+from yamtbx.util import batchjob
 
+import collections
+import shutil
 import os
 import glob
 import traceback
@@ -21,27 +25,39 @@ import numpy
 
 xscale_comm = "xscale_par"
 
+def make_bin_str(d_min, d_max, nbins=9):
+    step = ( 1./(d_min**2) - 1./(d_max**2) ) / float(nbins)
+    start = 1./(d_max**2)
+    rshells = " ".join(map(lambda i: "%.2f" % (start + i * step)**(-1./2), xrange(1, nbins+1)))
+    return "RESOLUTION_SHELLS= %s\n" % rshells
+# make_bin_str()
+
 class XscaleCycles:
     def __init__(self, workdir, anomalous_flag, d_min, d_max,
-                 reject_method, reject_params, xscale_params,
-                 reference_file, space_group, out, nproc=1, nproc_each=None, batchjobs=None):
+                 reject_method, reject_params, xscale_params, res_params,
+                 reference_file, space_group, ref_mtz, add_test_flag, out, batch_params, nproc=1):
         self.reference_file = None
         self._counter = 0
         self.workdir_org = workdir
         self.anomalous_flag = anomalous_flag
-        self.d_min = d_min
+        self.d_min = d_min # XXX when None..
         self.d_max = d_max
         self.reject_params = reject_params
         self.xscale_params = xscale_params
+        self.res_params = res_params
         self.reference_choice = xscale_params.reference if not reference_file else None
         self.space_group = space_group # sgtbx.space_group object. None when user not supplied.
+        self.ref_mtz = ref_mtz
+        self.add_flag = add_test_flag
         self.out = out
         self.nproc = nproc
-        self.nproc_each = nproc_each
-        self.batchjobs = batchjobs
+        self.nproc_each = batch_params.nproc_each
+        if batch_params.engine == "sge": self.batchjobs = batchjob.SGE(pe_name=batch_params.sge_pe_name)
+        elif batch_params.engine == "sh": self.batchjobs = batchjob.ExecLocal(max_parallel=batch_params.sh_max_jobs)
         self.all_data_root = None # the root directory for all data
         self.altfile = {} # Modified files
         self.cell_info_at_cycles = {}
+        self.dmin_est_at_cycles = {}
 
         if reject_params.delta_cchalf.bin == "total-then-outer":
             self.delta_cchalf_bin = "total"
@@ -69,11 +85,7 @@ OUTPUT_FILE= xscale.hkl
             self.xscale_inp_head += "FRIEDEL'S_LAW= %s\n" % ("FALSE" if self.anomalous_flag else "TRUE")
 
         if self.d_min is not None:
-            nbins = 9
-            step = ( 1./(self.d_min**2) - 1./(self.d_max**2) ) / float(nbins)
-            start = 1./(self.d_max**2)
-            rshells = " ".join(map(lambda i: "%.2f" % (start + i * step)**(-1./2), xrange(1, nbins+1)))
-            self.xscale_inp_head += "RESOLUTION_SHELLS= %s\n\n" % rshells
+            self.xscale_inp_head += make_bin_str(self.d_min, self.d_max) + "\n"
 
         if reference_file:
             self.reference_file = os.path.join(workdir, "reference.hkl")
@@ -133,6 +145,55 @@ OUTPUT_FILE= xscale.hkl
         return sg, mean_cell_str, lcv, alcv
     # average_cells()
 
+    def cut_resolution(self, cycle_number):
+        def est_resol(xscale_hkl, res_params, plt_out):
+            iobs = XDS_ASCII(xscale_hkl, i_only=True).i_obs()
+            est = estimate_resolution_based_on_cc_half(iobs, res_params.cc_one_half_min,
+                                                       res_params.cc_half_tol,
+                                                       res_params.n_bins, log_out=self.out)
+            est.show_plot(False, plt_out)
+            if None not in (est.d_min, est.cc_at_d_min):
+                self.out.write("Best resolution cutoff= %.2f A @CC1/2= %.4f\n" % (est.d_min, est.cc_at_d_min))
+            else:
+                self.out.write("Can't decide resolution cutoff. No reflections??\n")
+            return est.d_min
+        # est_resol()
+
+        print >>self.out, "**** Determining resolution cutoff in run_%.2d ****" % cycle_number
+        last_wd = os.path.join(self.workdir_org, "run_%.2d"%cycle_number)
+        xscale_hkl = os.path.abspath(os.path.join(last_wd, "xscale.hkl"))
+
+        tmpwd = os.path.join(self.workdir_org, "run_%.2d_tmp"%cycle_number)
+        os.mkdir(tmpwd)
+
+        for i, cc_cut in enumerate((self.res_params.cc_one_half_min*.7, self.res_params.cc_one_half_min)):
+            self.res_params.cc_one_half_min = cc_cut
+            d_min = est_resol(xscale_hkl, self.res_params,
+                              os.path.join(tmpwd, "ccfit_%d.pdf"%(i+1)))
+            if d_min is not None and d_min > self.d_min + 0.001:
+                for f in "XSCALE.INP", "XSCALE.LP": util.rotate_file(os.path.join(tmpwd, f))
+                inp_new = os.path.join(tmpwd, "XSCALE.INP")
+                shutil.copyfile(os.path.join(last_wd, "XSCALE.INP"), inp_new)
+                modify_xdsinp(inp_new, [make_bin_str(d_min, self.d_max).split("= ")])
+
+                try:
+                    xscale.run_xscale(inp_new, cbf_to_dat=True,
+                                      use_tmpdir_if_available=self.xscale_params.use_tmpdir_if_available)
+                except:
+                    print >>self.out, traceback.format_exc()
+
+                xscale_hkl = os.path.abspath(os.path.join(tmpwd, "xscale.hkl"))
+
+        if not os.path.isfile(os.path.join(tmpwd, "XSCALE.INP")):
+            for f in "XSCALE.INP", "XSCALE.LP", "xscale.hkl", "pointless.log", "ccp4":
+                os.symlink(os.path.relpath(os.path.join(last_wd, f), tmpwd),
+                           os.path.join(tmpwd, f))
+
+        if d_min is not None:
+            self.dmin_est_at_cycles[cycle_number] = d_min
+            os.rename(tmpwd, os.path.join(self.workdir_org, "run_%.2d_%.2fA"%(cycle_number, d_min)))
+    # cut_resolution()
+
     def run_cycles(self, xds_ascii_files):
         self.all_data_root = os.path.dirname(os.path.commonprefix(xds_ascii_files))
         self.removed_files = []
@@ -143,8 +204,11 @@ OUTPUT_FILE= xscale.hkl
         else:
             self.run_cycle(xds_ascii_files)
 
-        for i in xrange(1, self.get_last_cycle_number()+1):
-            wd = os.path.join(self.workdir_org, "run_%.2d"%i)
+        if self.res_params.estimate:
+            self.cut_resolution(self.get_last_cycle_number())
+
+        for wd in glob.glob(os.path.join(self.workdir_org, "run_*")):
+            if os.path.exists(os.path.join(wd, "ccp4")): continue
             xscale_hkl = os.path.abspath(os.path.join(wd, "xscale.hkl"))
             sgnum = None # Use user-specified one. Otherwise follow pointless.
             try:
@@ -173,7 +237,9 @@ OUTPUT_FILE= xscale.hkl
                                 dir_name=os.path.join(wd, "ccp4"),
                                 run_xtriage=True, run_ctruncate=True,
                                 with_multiplicity=True,
-                                sgnum=sgnum)
+                                sgnum=sgnum,
+                                flag_source=self.ref_mtz,
+                                add_flag=self.add_flag)
             except:
                 # Don't want to stop the program.
                 print >>self.out, traceback.format_exc()

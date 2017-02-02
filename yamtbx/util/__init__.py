@@ -6,6 +6,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 import os
 import sys
+import re
 import shutil
 import subprocess
 import commands
@@ -243,3 +244,7 @@ def get_temp_local_dir(prefix, min_kb=None, min_mb=None, min_gb=None):
 
     return None
 # get_temp_local_dir()
+
+def replace_forbidden_chars(filename, repl="-"):
+    return re.sub(r"[/><\*\\\?%:]", repl, filename)
+# replace_forbidden_chars()

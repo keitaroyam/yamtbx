@@ -126,6 +126,7 @@ def make_plot(angles, plot_out):
 
     ax.set_title("Beam direction plot", va='bottom')
     plt.savefig(plot_out, dpi=150)
+    plt.gcf().clear() # Required when plot more than once
     print
     print "Plot written. See %s" % plot_out
 # make_plot()

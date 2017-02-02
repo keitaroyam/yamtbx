@@ -20,6 +20,7 @@ from yamtbx.util import batchjob
 
 import iotbx.phil
 import libtbx.phil
+import iotbx.file_reader
 from libtbx.utils import multi_out
 from cctbx import sgtbx
 
@@ -58,6 +59,9 @@ reference_file = None
 space_group = None
  .type = str
  .help = Space group for merging
+add_test_flag = False
+ .type = bool
+ .help = "Add test flag (FreeR_flag) in MTZ (Currently not recommended since individually generated in each cluster)"
 nproc = 1
  .type = int
  .help = number of processors that can be used.
@@ -173,6 +177,30 @@ cc_clustering {
   .type = int
 }
 
+reference {
+ data = None
+  .type = path
+  .help = "Reference hkl data for space group and test flag transfer (optional). Reindexing must be done beforehand."
+ copy_test_flag = True
+  .type = bool
+  .help = Copy test flag when available
+}
+
+resolution {
+ estimate = False
+  .type = bool
+  .help = Automatically estimate resolution cutoff
+ n_bins = 9
+  .type = int
+  .help = "Number of shells"
+ cc_one_half_min = 0.5
+  .type = float
+  .help = "Minimum CC1/2 value at highest resolution shell"
+ cc_half_tol = 0.03
+  .type = float
+  .help = "CC1/2 value tolerance"
+}
+
 batch {
  par_run = *deltacchalf merging
   .type = choice(multi=True)
@@ -191,7 +219,7 @@ batch {
 }
 """
 
-def merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs):
+def merge_datasets(params, workdir, xds_files, cells, space_group):
     if not os.path.exists(workdir): os.makedirs(workdir)
     out = open(os.path.join(workdir, "merge.log"), "w")
 
@@ -202,11 +230,14 @@ def merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs):
                                                    reject_method=params.reject_method,
                                                    reject_params=params.rejection,
                                                    xscale_params=params.xscale,
+                                                   res_params=params.resolution,
                                                    reference_file=params.reference_file,
                                                    space_group=space_group,
+                                                   ref_mtz=params.reference.data if params.reference.copy_test_flag else None,
+                                                   add_test_flag=params.add_test_flag,
                                                    out=out, nproc=params.nproc,
-                                                   nproc_each=params.batch.nproc_each,
-                                                   batchjobs=batchjobs if "deltacchalf" in params.batch.par_run else None)
+                                                   batch_params=params.batch)
+
         unused_files, reasons = cycles.run_cycles(xds_files)
         used_files = set(xds_files).difference(set(unused_files))
 
@@ -259,7 +290,8 @@ def merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs):
                              lp=xscale_lp,
                              xtriage_log=xtriage.XtriageLogfile(xtriage_logfile),
                              lcv=cellinfo[1],
-                             alcv=cellinfo[2],)
+                             alcv=cellinfo[2],
+                             dmin_est=cycles.dmin_est_at_cycles.get(i, float("nan")))
                         ])
 
         xscale_lp = os.path.join(cycles.current_working_dir(), "XSCALE.LP")
@@ -290,7 +322,7 @@ def merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs):
                                                      batch_info=batch_info,
                                                      out=out, nproc=params.nproc,
                                                      nproc_each=params.batch.nproc_each,
-                                                     batchjobs=batchjobs if "deltacchalf" in params.batch.par_run else None)
+                                                     batchjobs=None) # FIXME batchjobs
         unused_files, reasons = cycles.run_cycles(xds_files)
         used_files = set(xds_files).difference(set(unused_files))
 
@@ -416,6 +448,26 @@ def run(params):
     else:
         tmp = sgtbx.space_group_info(laues.values()[0].keys()[0]).group().build_derived_reflection_intensity_group(True)
         print >>out, "Space group for merging:", tmp.info()
+
+    if params.reference.data is not None:
+        params.reference.data = os.path.abspath(params.reference.data)
+        print >>out, "Reading reference data file: %s" % params.reference.data
+
+        tmp = iotbx.file_reader.any_file(params.reference.data, force_type="hkl", raise_sorry_if_errors=True)
+        if params.reference.copy_test_flag:
+            from yamtbx.dataproc.command_line import copy_free_R_flag
+            if None in copy_free_R_flag.get_flag_array(tmp.file_server.miller_arrays, log_out=out):
+                print >>out, " Warning: not test flag found in reference file (%s)" % params.reference.data
+            else:
+                print >>out, " test flag will be transferred"
+
+        if space_group is not None:
+            if space_group != tmp.file_server.miller_arrays[0].space_group():
+                print >>out, " ERROR! space_group=(%s) and that of reference.data (%s) do not match." % (space_group.info(), tmp.file_server.miller_arrays[0].space_group_info())
+                return
+        else:
+            space_group = tmp.file_server.miller_arrays[0].space_group()
+            print >>out, " space group for merging: %s" % space_group.info()
             
     try: html_report.add_cells_and_files(cells, laues.keys()[0])
     except: print >>out, traceback.format_exc()
@@ -512,12 +564,12 @@ def run(params):
     ofs_summary = open(os.path.join(params.workdir, "cluster_summary.dat"), "w")
     ofs_summary.write("# d_min= %.3f A\n" % (params.d_min if params.d_min is not None else float("nan")))
     ofs_summary.write("# LCV and aLCV are values of all data\n")
-    ofs_summary.write("     cluster  ClH   LCV aLCV run ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso  \n")
+    ofs_summary.write("     cluster  ClH   LCV aLCV run ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso   dmin.est\n")
 
     out.flush()
 
     def write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats):
-        tmps = "%12s %5.2f %4.1f %4.1f %3d %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %7.1e\n"
+        tmps = "%12s %5.2f %4.1f %4.1f %3d %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %7.1e %.2f\n"
         ofs_summary.write(tmps % (os.path.relpath(workdir, params.workdir), clh, LCV, aLCV, cycle,
                                   len(xds_files), num_files,
                                   stats["cmpl"][0],
@@ -539,6 +591,7 @@ def run(params):
                                   stats["cc_ano"][1],
                                   stats["xtriage_log"].wilson_b,
                                   stats["xtriage_log"].anisotropy,
+                                  stats["dmin_est"],
                                   ))
         ofs_summary.flush()
     # write_ofs_summary()
@@ -549,7 +602,7 @@ def run(params):
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             if not os.path.exists(workdir): os.makedirs(workdir)
             shname = "merge_%s.sh" % os.path.relpath(workdir, params.workdir)
-            pickle.dump((params, os.path.abspath(workdir), xds_files, cells, space_group, batchjobs), open(os.path.join(workdir, "args.pkl"), "w"), -1)
+            pickle.dump((params, os.path.abspath(workdir), xds_files, cells, space_group), open(os.path.join(workdir, "args.pkl"), "w"), -1)
             job = batchjob.Job(workdir, shname, nproc=params.batch.nproc_each)
             job.write_script("""\
 cd "%s" || exit 1
@@ -557,9 +610,8 @@ cd "%s" || exit 1
 import pickle; \
 from yamtbx.dataproc.auto.command_line.multi_merge import merge_datasets; \
 args = pickle.load(open("args.pkl")); \
-ofs = open("result.pkl","w"); \
 ret = merge_datasets(*args); \
-pickle.dump(ret, ofs); \
+pickle.dump(ret, open("result.pkl","w")); \
 '
 """ % (os.path.abspath(workdir), sys.executable))
             batchjobs.submit(job)
@@ -589,7 +641,7 @@ pickle.dump(ret, ofs); \
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             print >>out, "Merging %s..." % os.path.relpath(workdir, params.workdir)
             out.flush()
-            results = merge_datasets(params, workdir, xds_files, cells, space_group, batchjobs)
+            results = merge_datasets(params, workdir, xds_files, cells, space_group)
             
             if len(results) == 0:
                 ofs_summary.write("#%s failed\n" % os.path.relpath(workdir, params.workdir))

@@ -273,6 +273,10 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 
 ## バージョン履歴
 日付はGitHub公開時
+* 2017-02-02
+ * kamo.auto_multi_mergeを追加（テスト中）．複数サンプルのデータを同時にマージ
+ * kamo.multi_merge reference.data= (test flagをコピー), resolution.estimate= (高分解能カットオフを自動決定)のオプションを追加．Pointlessを使用して螺旋を決定
+ * kamo: blconfig= を複数指定可に．mode=を両方(zoo+normal)指定可に．
 * 2017-01-18
  * yamtbx.beam_direction_plot: 複合格子の場合におかしくなるバグを修正
 * 2016-12-26
