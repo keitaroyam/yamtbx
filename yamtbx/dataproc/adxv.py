@@ -66,11 +66,11 @@ class Adxv:
         #sock.close()
     # open_image()
 
-    def open_hdf5(self, h5file, frameno, tmpdir="/dev/shm", raise_window=True, binning=1):
+    def open_hdf5(self, h5file, frameno_or_path, tmpdir="/dev/shm", raise_window=True, binning=1):
         from yamtbx.dataproc import eiger
 
         imgfile = os.path.join(tmpdir, "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
-        eiger.extract_to_minicbf(h5file, frameno, imgfile, binning=binning)
+        eiger.extract_to_minicbf(h5file, frameno_or_path, imgfile, binning=binning)
         self.open_image(imgfile, raise_window=raise_window)
     # open_hdf5()
 

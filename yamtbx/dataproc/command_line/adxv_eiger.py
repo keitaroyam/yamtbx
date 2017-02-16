@@ -20,6 +20,7 @@ import getpass
 import h5py
 import urllib
 import numpy
+import wx.lib.agw.pybusyinfo
 from yamtbx.dataproc import eiger
 from yamtbx.dataproc import adxv
 from yamtbx.dataproc.XIO.plugins import eiger_hdf5_interpreter
@@ -56,6 +57,7 @@ class MainFrame(wx.Frame):
                           size=(500,500))
         self.adxv_proc = None # subprocess object
         self.h5file = h5in
+        self.onlyhits_keys = []
         self.n_images = -1
         self.adxv = adxv.Adxv()
         self.last_monitor_image = None
@@ -88,7 +90,7 @@ class MainFrame(wx.Frame):
         self.cmbFrame = wx.ComboBox(panel1, wx.ID_ANY, size=(100,25), value="1")
         self.cmbFrame.Bind(wx.EVT_COMBOBOX, self.onTextEnter)
         self.cmbFrame.Bind(wx.EVT_TEXT_ENTER, self.onTextEnter)
-        hbox01.Add(self.cmbFrame, flag=wx.EXPAND|wx.RIGHT)
+        hbox01.Add(self.cmbFrame, 1, flag=wx.EXPAND|wx.RIGHT)
         self.llbtn = wx.Button(panel1, wx.ID_ANY, "<<")
         hbox01.Add(self.llbtn, flag=wx.EXPAND|wx.RIGHT)
         self.lbtn = wx.Button(panel1, wx.ID_ANY, "<")
@@ -209,6 +211,11 @@ class MainFrame(wx.Frame):
 
     def open_hdf5(self, frameno, raise_window=True):
         tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
+
+        busyinfo = wx.lib.agw.pybusyinfo.PyBusyInfo("Loading image..", title="Busy adxv_eiger")
+        try: wx.SafeYield()
+        except: pass
+
         try:
             self.adxv.open_hdf5(self.h5file, frameno, tmpdir=tmpdir,
                                 raise_window=raise_window,
@@ -217,22 +224,33 @@ class MainFrame(wx.Frame):
             self.txtInfo.SetValue("Error! %s\n\n%s" % (re.message, self.txtInfo.GetValue()))
         except:
             self.txtInfo.SetValue(traceback.format_exc() + "\n\n" + self.txtInfo.GetValue())
-            
+        finally:
+            busyinfo = None
+
     # open_hdf5()
 
     def change_frameno(self, frames):
-        if all(map(lambda x: x < 1, frames)): frames = [1]
-        if all(map(lambda x: x > self.n_images, frames)): frames = [self.n_images]
-        frames = filter(lambda x: 0 < x <= self.n_images, frames)
-        if not frames: frames = [1]
-        rstr = make_range_str(frames)
-        if rstr not in self.cmbFrame.GetItems(): self.cmbFrame.Append(rstr)
-        self.cmbFrame.SetStringSelection(rstr)
+        if self.onlyhits_keys:
+            self.cmbFrame.Select(frames[0]-1)
+            frames = "/entry/data/%s/data"%self.onlyhits_keys[frames[0]-1] # No support for summation
+        else:
+            if all(map(lambda x: x < 1, frames)): frames = [1]
+            if all(map(lambda x: x > self.n_images, frames)): frames = [self.n_images]
+            frames = filter(lambda x: 0 < x <= self.n_images, frames)
+            if not frames: frames = [1]
+            rstr = make_range_str(frames)
+            if rstr not in self.cmbFrame.GetItems(): self.cmbFrame.Append(rstr)
+            self.cmbFrame.SetStringSelection(rstr)
+
         self.open_hdf5(frames, raise_window=False)
     # change_frameno()
 
     def onTextEnter(self, ev):
-        frames = parse_range(self.cmbFrame.GetValue())
+        if self.onlyhits_keys:
+            frames = [self.cmbFrame.GetCurrentSelection()+1]
+        else:
+            frames = parse_range(self.cmbFrame.GetValue())
+
         self.change_frameno(frames)
     # onTextEnter()
 
@@ -248,7 +266,11 @@ class MainFrame(wx.Frame):
     # next_or_back()
 
     def go_rel(self, rel):
-        frames = parse_range(self.cmbFrame.GetValue())
+        if self.onlyhits_keys:
+            frames = [self.cmbFrame.GetCurrentSelection()+1]
+        else:
+            frames = parse_range(self.cmbFrame.GetValue())
+
         frames = map(lambda x: x+rel, frames)
         self.change_frameno(frames)
     # go_rel()
@@ -288,17 +310,20 @@ class MainFrame(wx.Frame):
             if os.path.exists(self.h5file): dfile = self.h5file
             else:
                 ddir = os.path.dirname(self.h5file)
-                if not os.path.exists(ddir): ddir = ""
+        else:
+            ddir = os.getcwd()
+
+        if not os.path.exists(ddir): ddir = ""
         
         dlg = wx.FileDialog(None, message="Choose a master.h5",
                             defaultFile=dfile, defaultDir=ddir,
-                            wildcard="Mater HDF5 (*_master.h5)|*.h5")
+                            wildcard="Mater HDF5 (*_master.h5 or *_onlyhits.h5)|*.h5")
 
         if dlg.ShowModal() == wx.ID_OK:
             tmp = dlg.GetPath()
-            if not tmp.endswith("_master.h5"):
+            if not tmp.endswith(("_master.h5", "_onlyhits.h5")):
                 dlg.Destroy()
-                wx.MessageDialog(None, "Choose master h5 file (*_master.h5)",
+                wx.MessageDialog(None, "Choose master h5 file (*_master.h5) or Hit-only h5 file (*_onlyhits.h5)",
                                  "Error", style=wx.OK).ShowModal()
                 return
 
@@ -336,9 +361,11 @@ class MainFrame(wx.Frame):
 
     def read_h5file(self):
         self.cmbInfile.Clear()
-        for f in sorted(glob.glob(os.path.join(os.path.dirname(self.h5file), "*_master.h5"))): self.cmbInfile.Append(f)
+        glob_f = lambda x: glob.glob(os.path.join(os.path.dirname(self.h5file), x))
+        for f in sorted(glob_f("*_master.h5")+glob_f("*_onlyhits.h5")): self.cmbInfile.Append(f)
         self.cmbInfile.SetStringSelection(self.h5file)
 
+        is_onlyhits = self.h5file.endswith("_onlyhits.h5")
         try:
             h5 = h5py.File(self.h5file, "r")
             h = eiger_hdf5_interpreter.Interpreter().getRawHeadDict(self.h5file)
@@ -361,8 +388,18 @@ class MainFrame(wx.Frame):
             self.txtInfo.SetValue(traceback.format_exc())
 
         self.cmbFrame.Clear()
-        values = filter(lambda x:x>0, sorted(set([1,] + map(lambda x: int(self.n_images*x), (3/4., 1/4.,1/2.,1)))))
-        for v in values: self.cmbFrame.Append(str(v))
+        if is_onlyhits:
+            self.onlyhits_keys = sorted(h5["/entry/data"].keys())
+            for v in self.onlyhits_keys:
+                nspots = h5["/entry/data"][v]["data"].attrs.get("n_spots")
+                nspots = " (%3d spots)" % nspots if nspots is not None else ""
+                self.cmbFrame.Append("%s%s"%(v, nspots))
+            self.cmbFrame.SetEditable(False)
+        else:
+            self.onlyhits_keys = []
+            values = filter(lambda x:x>0, sorted(set([1,] + map(lambda x: int(self.n_images*x), (3/4., 1/4.,1/2.,1)))))
+            for v in values: self.cmbFrame.Append(str(v))
+            self.cmbFrame.SetEditable(True)
 
         self.change_frameno([1])
     # read_h5file()

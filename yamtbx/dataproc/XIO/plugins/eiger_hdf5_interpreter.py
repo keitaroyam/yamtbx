@@ -71,7 +71,10 @@ class Interpreter:
         self.raw_head_dict["Nimages"] = 0
         for k in sorted(h5["entry/data"].keys()):
             try:
-                self.raw_head_dict["Nimages"] += h5["entry/data"][k].shape[0]
+                if hasattr(h5["entry/data"][k], "shape"):
+                    self.raw_head_dict["Nimages"] += h5["entry/data"][k].shape[0]
+                else:
+                    self.raw_head_dict["Nimages"] += 1 # *_onlyhits.h5
             except KeyError:
                 break
 

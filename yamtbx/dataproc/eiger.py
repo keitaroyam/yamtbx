@@ -61,23 +61,60 @@ def read_stream_data(frames, bss_job_mode=4):
     return header, data
 # read_stream_data()
 
-def extract_data(h5master, frameno, apply_pixel_mask=True):
+def extract_data(h5master, frameno, apply_pixel_mask=True, return_raw=False):
     h5 = h5py.File(h5master, "r")
-    i_seen = 0
     data = None
-    for k in sorted(h5["/entry/data"].keys()):
-        try:
-            for i in xrange(h5["/entry/data"][k].shape[0]):
-                i_seen += 1
-                if i_seen == frameno:
-                    data = h5["/entry/data"][k][i,]
-        except KeyError:
-            break
+
+    if 0:
+        i_seen = 0
+        for k in sorted(h5["/entry/data"].keys()):
+            try:
+                for i in xrange(h5["/entry/data"][k].shape[0]):
+                    i_seen += 1
+                    if i_seen == frameno:
+                        data = h5["/entry/data"][k][i,]
+            except KeyError:
+                break
+    else:
+        for k in sorted(h5["/entry/data"].keys()):
+            if not h5["/entry/data"].get(k): continue
+            image_nr_low = h5["/entry/data"][k].attrs["image_nr_low"]
+            image_nr_high = h5["/entry/data"][k].attrs["image_nr_high"]
+            if image_nr_low <= frameno <= image_nr_high:
+                idx = frameno - image_nr_low
+                data = h5["/entry/data"][k][idx,]
+                break
 
     if data is None:
         print "Data not found."
         return data
 
+    if return_raw:
+        return data
+
+    byte = data.dtype.itemsize
+    data = data.astype(numpy.int32)
+    data[data==2**(byte*8)-1] = -3 # To see pixels not masked by pixel mask.
+    if apply_pixel_mask and "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5:
+        mask = h5["/entry/instrument/detector/detectorSpecific/pixel_mask"][:]
+        data[mask==1] = -1
+        data[mask>1] = -2
+
+    return data
+# extract_data()
+
+def extract_data_path(h5master, path, apply_pixel_mask=True, return_raw=False):
+    h5 = h5py.File(h5master, "r")
+    data = h5.get(path)
+    print path
+    if data is None:
+        print "Data not found."
+        return data
+
+    if return_raw:
+        return data
+
+    data = data[:]
     byte = data.dtype.itemsize
     data = data.astype(numpy.int32)
     data[data==2**(byte*8)-1] = -3 # To see pixels not masked by pixel mask.
@@ -124,19 +161,23 @@ def extract_data_range_sum(h5master, frames):
     return data
 # extract_data()
 
-def extract_to_minicbf(h5master, frameno, cbfout, binning=1):
+def extract_to_minicbf(h5master, frameno_or_path, cbfout, binning=1):
     from yamtbx.dataproc import cbf
     from yamtbx.dataproc.XIO.plugins import eiger_hdf5_interpreter
 
-    if type(frameno) in (tuple, list):
-        data = extract_data_range_sum(h5master, frameno)
-        nframes = len(frameno)
-    else:
-        data = extract_data(h5master, frameno)
+    if type(frameno_or_path) in (tuple, list):
+        data = extract_data_range_sum(h5master, frameno_or_path)
+        nframes = len(frameno_or_path)
+    elif type(frameno_or_path) is int:
+        data = extract_data(h5master, frameno_or_path)
         nframes = 1
+    else:
+        data = extract_data_path(h5master, frameno_or_path)
+        nframes = 1
+        
 
     if data is None:
-        raise RuntimeError("Cannot extract frame %s from %s"%(frameno, h5master))
+        raise RuntimeError("Cannot extract frame %s from %s"%(frameno_or_path, h5master))
 
     h = eiger_hdf5_interpreter.Interpreter().getRawHeadDict(h5master)
     h5 = h5py.File(h5master, "r")
