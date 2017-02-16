@@ -101,13 +101,15 @@ def optimal_delphi_by_nproc(xdsinp=None, osc_width=None, nframes=None, nproc=Non
         from yamtbx import util
         nproc = util.get_number_of_processors()
 
-    # Need to check nframes%nproc
+    # TODO check nframes%nproc
+    # TODO check if frame chache works (limited to 2^31-1 pixels)
 
     delphi = nproc * osc_width
+    delphi_org = delphi
 
     fac = 2
     while delphi < min_delphi:
-        delphi = delphi * fac
+        delphi = delphi_org * fac
         fac += 1
 
     return delphi

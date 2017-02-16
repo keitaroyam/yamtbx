@@ -21,8 +21,11 @@ from yamtbx.util import batchjob
 import iotbx.phil
 import libtbx.phil
 import iotbx.file_reader
+import iotbx.mtz
 from libtbx.utils import multi_out
 from cctbx import sgtbx
+from cctbx import crystal
+from cctbx import miller
 
 import os
 import sys
@@ -31,6 +34,7 @@ import collections
 import StringIO
 import networkx as nx
 import traceback
+import numpy
 import cPickle as pickle
 
 master_params_str = """
@@ -61,7 +65,7 @@ space_group = None
  .help = Space group for merging
 add_test_flag = False
  .type = bool
- .help = "Add test flag (FreeR_flag) in MTZ (Currently not recommended since individually generated in each cluster)"
+ .help = "Add test flag (FreeR_flag) in MTZ"
 nproc = 1
  .type = int
  .help = number of processors that can be used.
@@ -234,7 +238,6 @@ def merge_datasets(params, workdir, xds_files, cells, space_group):
                                                    reference_file=params.reference_file,
                                                    space_group=space_group,
                                                    ref_mtz=params.reference.data if params.reference.copy_test_flag else None,
-                                                   add_test_flag=params.add_test_flag,
                                                    out=out, nproc=params.nproc,
                                                    batch_params=params.batch)
 
@@ -411,9 +414,11 @@ def run(params):
     try: html_report.add_params(params, master_params_str)
     except: print >>out, traceback.format_exc()
 
-    xds_ascii_files = map(lambda x: x[:(x.index("#") if "#" in x else None)].strip(), open(params.lstin))
-    xds_ascii_files = filter(lambda x: x!="" and os.path.isfile(x), xds_ascii_files)
-    xds_ascii_files = map(lambda x: os.path.abspath(x), xds_ascii_files)
+    xds_ascii_files = util.read_path_list(params.lstin, only_exists=True, as_abspath=True, err_out=out)
+
+    if not xds_ascii_files:
+        print >>out, "ERROR! Cannot find (existing) files in %s." % params.lstin
+        return
 
     cells = collections.OrderedDict()
     laues = {} # for check
@@ -449,6 +454,8 @@ def run(params):
         tmp = sgtbx.space_group_info(laues.values()[0].keys()[0]).group().build_derived_reflection_intensity_group(True)
         print >>out, "Space group for merging:", tmp.info()
 
+    test_flag_will_be_transferred = False
+
     if params.reference.data is not None:
         params.reference.data = os.path.abspath(params.reference.data)
         print >>out, "Reading reference data file: %s" % params.reference.data
@@ -457,8 +464,9 @@ def run(params):
         if params.reference.copy_test_flag:
             from yamtbx.dataproc.command_line import copy_free_R_flag
             if None in copy_free_R_flag.get_flag_array(tmp.file_server.miller_arrays, log_out=out):
-                print >>out, " Warning: not test flag found in reference file (%s)" % params.reference.data
+                print >>out, " Warning: no test flag found in reference file (%s)" % params.reference.data
             else:
+                test_flag_will_be_transferred = True
                 print >>out, " test flag will be transferred"
 
         if space_group is not None:
@@ -468,6 +476,37 @@ def run(params):
         else:
             space_group = tmp.file_server.miller_arrays[0].space_group()
             print >>out, " space group for merging: %s" % space_group.info()
+
+    if params.add_test_flag:
+        if test_flag_will_be_transferred:
+            print >>out, "Warning: add_test_flag=True was set, but the flag will be transferred from the reference file given."
+        else:
+            from cctbx import r_free_utils
+
+            med_cell = numpy.median(cells.values(), axis=0)
+            d_min = max(params.d_min-0.2, 1.0) if params.d_min is not None else 1.5 # to prevent infinite set
+            sg = space_group
+            if not sg: sg = sgtbx.space_group_info(laues.values()[0].keys()[0]).group().build_derived_reflection_intensity_group(True)
+            tmp = miller.build_set(crystal.symmetry(tuple(med_cell), space_group=sg), False,
+                                   d_min=d_min, d_max=None)
+            print >>out, "Generating test set using the reference symmetry:"
+            crystal.symmetry.show_summary(tmp, out, " ")
+            tmp = tmp.generate_r_free_flags(fraction=0.05,
+                                            max_free=None,
+                                            lattice_symmetry_max_delta=5.0,
+                                            use_lattice_symmetry=True,
+                                            n_shells=20)
+            tmp.show_r_free_flags_info(out=out, prefix=" ")
+            tmp = tmp.customized_copy(data=r_free_utils.export_r_free_flags_for_ccp4(flags=tmp.data(),
+                                                                                     test_flag_value=True))
+
+            mtz_object = tmp.as_mtz_dataset(column_root_label="FreeR_flag").mtz_object()
+            test_flag_mtz = os.path.abspath(os.path.join(params.workdir, "test_flag.mtz"))
+            mtz_object.write(file_name=test_flag_mtz)
+
+            # Override the parameters
+            params.reference.copy_test_flag = True
+            params.reference.data = test_flag_mtz
             
     try: html_report.add_cells_and_files(cells, laues.keys()[0])
     except: print >>out, traceback.format_exc()

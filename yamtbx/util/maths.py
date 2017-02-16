@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 import numpy
+import math
+from cctbx.array_family import flex
 
 vectors_angle = lambda x, y: abs(numpy.arccos(numpy.dot(x,y)/numpy.linalg.norm(x)/numpy.linalg.norm(y)))
     
@@ -54,3 +56,48 @@ def rotmat_to_axis_angle(R):
     
     #print "axis=", rotaxis, "angle= %.3f deg" % numpy.rad2deg(angle)
     return rotaxis, angle
+
+def rodrigues(u, theta):
+    # http://mathworld.wolfram.com/RodriguesRotationFormula.html
+
+    w = u / numpy.linalg.norm(u)
+    st = numpy.sin(theta)
+    ct = numpy.cos(theta)
+
+    rot = numpy.array([[ct + w[0]**2*(1.-ct),       w[0]*w[1]*(1.-ct)-w[2]*st, w[1]*st+w[0]*w[2]*(1.-ct)],
+                       [w[2]*st+w[0]*w[1]*(1.-ct),  ct+w[1]**2*(1.-ct),        -w[0]*st+w[1]*w[2]*(1.-ct)],
+                       [-w[1]*st+w[0]*w[2]*(1.-ct), w[0]*st+w[1]*w[2]*(1.-ct), ct+w[2]**2*(1.-ct)]])
+    return rot
+# rodrigues()
+
+def weighted_correlation_coefficient(x, y, w):
+    # may be computationally unstable?
+    if isinstance(x, numpy.ndarray):
+        assert isinstance(y, numpy.ndarray)
+        assert isinstance(w, numpy.ndarray)
+
+        m_x = numpy.average(x, weights=w)
+        m_y = numpy.average(y, weights=w)
+        # 1/sum_w is omitted
+        cov = numpy.sum(w*(x-m_x)*(y-m_y))
+        var_x = numpy.sum(w*(x-m_x)**2)
+        var_y = numpy.sum(w*(y-m_y)**2)
+
+        return cov/numpy.sqrt(var_x)/numpy.sqrt(var_y)
+    elif isinstance(x, flex.double):
+        assert isinstance(y, flex.double)
+        assert isinstance(w, flex.double)
+        
+        sum_w = flex.sum(w)
+        m_x = flex.sum(w*x)/sum_w
+        m_y = flex.sum(w*y)/sum_w
+
+        cov = flex.sum(w*(x-m_x)*(y-m_y))
+        var_x = flex.sum(w*flex.pow2(x-m_x))
+        var_y = flex.sum(w*flex.pow2(y-m_y))
+
+        return cov/math.sqrt(var_x)/math.sqrt(var_y)
+    else:
+        return weighted_correlation_coefficient(numpy.array(x), numpy.array(y), numpy.array(w))
+
+# weighted_correlation_coefficient()

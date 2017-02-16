@@ -272,6 +272,11 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-02-16
+ * yamtbx.xds_aniso_analysis: New program to perform anisotropy analysis (CC1/2 and I/sigma) for XDS unmerged data (executed in kamo.multi_merge)
+ * KAMO: Fixed a silly bug in nproc-based determination of DELPHI= in XDS.
+ * kamo.resolve_indexing_ambiguity: fixed a bug in selective-breeding (sometimes failed maybe when small number of files?)
+ * kamo.multi_merge: when add_test_flag=true, first generate test set and copy them to all
 * 2017-02-02
  * kamo.auto_multi_merge: automatic merging for multiple samples
  * kamo.multi_merge: new options reference.data= (to copy test flags), resolution.estimate= (to automatically decide high resolution cutoff), use pointless to decide screws

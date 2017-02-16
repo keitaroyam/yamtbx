@@ -273,6 +273,11 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 
 ## バージョン履歴
 日付はGitHub公開時
+* 2017-02-16
+ * yamtbx.xds_aniso_analysis: 強度の異方性分析のプログラムを追加．kamo.multi_merge内でも実行．
+ * KAMO: nprocからDELPHI=を決める際のバグを修正
+ * kamo.resolve_indexing_ambiguity: selective-breedingにおけるバグを修正(少数のファイルの時に失敗する場合があった)
+ * kamo.multi_merge: add_test_flag=trueのときに同一のテストセットを全結果に対して与えるように変更
 * 2017-02-02
  * kamo.auto_multi_mergeを追加（テスト中）．複数サンプルのデータを同時にマージ
  * kamo.multi_merge reference.data= (test flagをコピー), resolution.estimate= (高分解能カットオフを自動決定)のオプションを追加．Pointlessを使用して螺旋を決定

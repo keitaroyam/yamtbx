@@ -7,8 +7,10 @@ This software is released under the new BSD License; see LICENSE.
 import os
 import shutil
 import glob
+import traceback
 
 from yamtbx.dataproc.xds import xscalelp
+from yamtbx.dataproc.xds.command_line import xds_aniso_analysis
 from yamtbx.dataproc import xds
 from yamtbx import util
 from yamtbx.util import batchjob
@@ -36,7 +38,7 @@ def run_xscale(d_min=None, d_max=100, nbins=9, anomalous_flag=None, min_ios=None
         inp_out.write("SPACE_GROUP_NUMBER= %s\nUNIT_CELL_CONSTANTS= %s\n\n" % (sg, cell))
     """
 
-def run_xscale(xscale_inp, cbf_to_dat=False, use_tmpdir_if_available=False):
+def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if_available=False):
     ftable = {}
     outfile = None
     count = 0
@@ -124,6 +126,17 @@ def run_xscale(xscale_inp, cbf_to_dat=False, use_tmpdir_if_available=False):
         if len(cbfouts) > 0:
             xscalelp.cbf_to_dat(xscale_lp)
             for f in cbfouts: os.remove(f)
+
+    if aniso_analysis:
+        aniso_out = open(os.path.join(wdir, "aniso.log"), "w")
+        try:
+            xds_aniso_analysis.run(os.path.join(wdir, outfile),
+                                   cone_angle=20., n_bins=10,
+                                   log_out=aniso_out)
+        except:
+            aniso_out.write(traceback.format_exc())
+
+        aniso_out.close()
 
     # Move to original directory
     if tmpdir is not None:

@@ -35,7 +35,7 @@ def make_bin_str(d_min, d_max, nbins=9):
 class XscaleCycles:
     def __init__(self, workdir, anomalous_flag, d_min, d_max,
                  reject_method, reject_params, xscale_params, res_params,
-                 reference_file, space_group, ref_mtz, add_test_flag, out, batch_params, nproc=1):
+                 reference_file, space_group, ref_mtz, out, batch_params, nproc=1):
         self.reference_file = None
         self._counter = 0
         self.workdir_org = workdir
@@ -48,7 +48,6 @@ class XscaleCycles:
         self.reference_choice = xscale_params.reference if not reference_file else None
         self.space_group = space_group # sgtbx.space_group object. None when user not supplied.
         self.ref_mtz = ref_mtz
-        self.add_flag = add_test_flag
         self.out = out
         self.nproc = nproc
         self.nproc_each = batch_params.nproc_each
@@ -177,7 +176,7 @@ OUTPUT_FILE= xscale.hkl
                 modify_xdsinp(inp_new, [make_bin_str(d_min, self.d_max).split("= ")])
 
                 try:
-                    xscale.run_xscale(inp_new, cbf_to_dat=True,
+                    xscale.run_xscale(inp_new, cbf_to_dat=True, aniso_analysis=True,
                                       use_tmpdir_if_available=self.xscale_params.use_tmpdir_if_available)
                 except:
                     print >>self.out, traceback.format_exc()
@@ -238,8 +237,7 @@ OUTPUT_FILE= xscale.hkl
                                 run_xtriage=True, run_ctruncate=True,
                                 with_multiplicity=True,
                                 sgnum=sgnum,
-                                flag_source=self.ref_mtz,
-                                add_flag=self.add_flag)
+                                flag_source=self.ref_mtz)
             except:
                 # Don't want to stop the program.
                 print >>self.out, traceback.format_exc()
@@ -294,7 +292,7 @@ OUTPUT_FILE= xscale.hkl
 
         print >>self.out, "DEBUG:: running xscale with %3d files.." % len(xds_ascii_files)
         try:
-            xscale.run_xscale(xscale_inp, cbf_to_dat=True,
+            xscale.run_xscale(xscale_inp, cbf_to_dat=True, aniso_analysis=True,
                               use_tmpdir_if_available=self.xscale_params.use_tmpdir_if_available)
         except:
             print >>self.out, traceback.format_exc()

@@ -509,6 +509,8 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
     print >>logout, "xds2mtz.py running in %s" % os.getcwd()
     print >>logout, "output directory: %s" % dir_name
     print >>logout, "original file: %s" % xds_file
+    print >>logout, "flag_source: %s" % flag_source
+    print >>logout, "space group number specified: %s" % sgnum
 
     print "Header information read from", xds_file
 

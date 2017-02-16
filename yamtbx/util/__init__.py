@@ -182,7 +182,7 @@ def directory_included(path, topdir, include_dir=[], exclude_dir=[]):
         return True
 # directory_included()
 
-def read_path_list(lstin, comment_strs=["#"], only_exists=False, err_out=null_out()):
+def read_path_list(lstin, comment_strs=["#"], only_exists=False, as_abspath=False, err_out=null_out()):
     ret = []
 
     for l in open(lstin):
@@ -190,10 +190,11 @@ def read_path_list(lstin, comment_strs=["#"], only_exists=False, err_out=null_ou
             if c in l: l = l[:l.index(c)]
         
         l = l.strip()
+        if not l: continue
         if only_exists and not os.path.exists(l):
-            err_out.write("Error: file not found: %s"%l)
+            err_out.write("Error: file not found: %s\n"%l)
             continue
-        ret.append(l)
+        ret.append(os.path.abspath(l) if as_abspath else l)
 
     return ret
 # read_path_list()

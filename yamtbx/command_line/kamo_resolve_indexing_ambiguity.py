@@ -27,6 +27,9 @@ logfile = "reindexing.log"
 nproc = 1
  .type = int
  .help = number of processors
+dry_run = False
+ .type = bool
+ .help = If true, do not modify files
 
 d_min = 3
  .type = float
@@ -119,16 +122,19 @@ def run(params):
     else:
         rb.assign_operators()
 
-    out_prefix = os.path.splitext(os.path.basename(params.lstin))[0]
+    if params.dry_run:
+        print >>log_out, "This is dry-run. Exiting here."
+    else:
+        out_prefix = os.path.splitext(os.path.basename(params.lstin))[0]
 
-    ofs_cell = open(out_prefix+"_reindexed_cells.dat", "w")
-    new_files = rb.modify_xds_ascii_files(cells_dat_out=ofs_cell)
+        ofs_cell = open(out_prefix+"_reindexed_cells.dat", "w")
+        new_files = rb.modify_xds_ascii_files(cells_dat_out=ofs_cell)
 
-    lstout = out_prefix + "_reindexed.lst"
-    ofs = open(lstout, "w")
-    ofs.write("\n".join(new_files)+"\n")
-    ofs.close()
-    print >>log_out, "Reindexing done. For merging, use %s instead!" % lstout
+        lstout = out_prefix + "_reindexed.lst"
+        ofs = open(lstout, "w")
+        ofs.write("\n".join(new_files)+"\n")
+        ofs.close()
+        print >>log_out, "Reindexing done. For merging, use %s instead!" % lstout
 
     if params.method == "brehm_diederichs":
         print >>log_out, """

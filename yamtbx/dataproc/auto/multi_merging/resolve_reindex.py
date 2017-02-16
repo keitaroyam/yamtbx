@@ -139,7 +139,7 @@ class KabschSelectiveBreeding(ReindexResolver):
         new_ops = map(lambda x:0, xrange(len(arrays)))
 
         for ncycle in xrange(max_cycle):
-            new_ops = copy.copy(old_ops)
+            #new_ops = copy.copy(old_ops) # doesn't matter
             for i in xrange(len(arrays)):
                 cc_means = []
                 a = arrays[i]
@@ -156,10 +156,10 @@ class KabschSelectiveBreeding(ReindexResolver):
                         if ref==i: return None
 
                         if self.nproc > 1:
-                            tmp2 = reindexed_arrays[old_ops[ref]][ref]
+                            tmp2 = reindexed_arrays[new_ops[ref]][ref]
                         else:                                
-                            if reidx_ops[old_ops[ref]].is_identity_op(): tmp2 = arrays[ref]
-                            else: tmp2 = arrays[ref].customized_copy(indices=reidx_ops[old_ops[ref]].apply(arrays[ref].indices())).map_to_asu()
+                            if reidx_ops[new_ops[ref]].is_identity_op(): tmp2 = arrays[ref]
+                            else: tmp2 = arrays[ref].customized_copy(indices=reidx_ops[new_ops[ref]].apply(arrays[ref].indices())).map_to_asu()
 
                         cc = calc_cc(tmp, tmp2)
                         if cc==cc: return cc
@@ -173,6 +173,7 @@ class KabschSelectiveBreeding(ReindexResolver):
 
                     if len(cc_list) > 0:
                         cc_means.append((j, sum(cc_list)/len(cc_list)))
+                        #print  >>self.log_out, "DEBUG:", i, j, cc_list, cc_means[-1]
 
                 max_el = max(cc_means, key=lambda x:x[1])
                 print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_means)))
