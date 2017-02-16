@@ -17,6 +17,14 @@ from cctbx import uctbx
 class CellConstraints:
     def __init__(self, space_group):
         self.cs = space_group.crystal_system()
+
+        self.free_indices = [0] # index of free parameters
+        if not self.is_b_equal_a(): self.free_indices.append(1)
+        if not self.is_c_equal_a_b(): self.free_indices.append(2)
+        for i, an in enumerate(("alpha", "beta", "gamma")):
+            if not self.is_angle_constrained(an):
+                self.free_indices.append(i+3)
+
     # __init__()
 
     def is_b_equal_a(self): return self.cs in ("Tetragonal", "Hexagonal", "Trigonal", "Cubic")
@@ -29,6 +37,22 @@ class CellConstraints:
 
         return True
     # is_angle_constrained()
+
+    def get_label_for_free_params(self, short=True):
+        ret = ["a", "b", "c",
+               "al" if short else "alpha",
+               "be" if short else "beta",
+               "ga" if short else "gamma"]
+        ret = map(lambda x: ret[x], self.free_indices)
+        return " ".join(ret)
+    # get_label_for_free_params()
+
+    def format_free_params(self, uc, lfmt="%6.2f", afmt="%5.1f", sep=" "):
+        if hasattr(uc, "parameters"):
+            uc = uc.parameters()
+            
+        return sep.join(map(lambda x: (lfmt if x<3 else afmt)%uc[x], self.free_indices))
+    # format_free_params()
 # class CellConstraints
 
 def v6cell(cell):
