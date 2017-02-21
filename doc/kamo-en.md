@@ -157,7 +157,9 @@ Internally,
 2. Construct a graph where datasets with equivalent cells are connected, and datasets are grouped.
 3. For each group, the possible space group symmetries are listed based on its lattice symmetry.
 4. The frequency of actually deduced symmetry for wedges is listed as well.
-5. When a user chooses group number and symmetry, each result (XDS_ASCII.HKeL_noscale) is transformed to the selected symmetry (reindexing and change of unit cell parameters).
+5. When a user chooses group number and symmetry, each result (XDS_ASCII.HKL_noscale) is transformed to the selected symmetry (reindexing and change of unit cell parameters).
+ - Sometimes there are multiple candidates sharing the same space group (but different unit cell parameters). Decide using the frequencies and prior knowledge if any.
+ - XDS_ASCII.HKL_noscale files will be overwritten when reindexing. You cannot prepare multiple symmetry candidates at the same time (Sorry).
 6. Check and notify if index ambiguity exits.
 
 ### Merging of multiple wedges (kamo.multi_merge)
