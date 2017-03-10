@@ -162,9 +162,9 @@ class SGE(JobManager):
         wdir = j.wdir
 
         if j.nproc > 1:
-            cmd = "qsub -j y -V -pe %s %d %s" % (self.pe_name, j.nproc, script_name)
+            cmd = "qsub -j y -pe %s %d %s" % (self.pe_name, j.nproc, script_name)
         else:
-            cmd = "qsub -j y -V %s" % script_name
+            cmd = "qsub -j y %s" % script_name
 
         p = subprocess.Popen(cmd, shell=True, cwd=wdir, 
                              stdout=subprocess.PIPE)
@@ -251,17 +251,22 @@ class Job:
     ##
     # This class will be overridden
     #
-    def __init__(self, wdir, script_name, nproc=1):
+    def __init__(self, wdir, script_name, nproc=1, copy_environ=True):
         self.wdir = wdir
         self.state = STATE_WAITING
         self.script_name = script_name
         self.nproc = nproc
         self.expects_out = []
-
+        self.copy_environ = copy_environ
     # __init__()
 
     def write_script(self, script_text):
-        script = job_header + script_text + job_footer 
+        env = ""
+        if self.copy_environ:
+            for k in os.environ: env += 'export %s="%s"\n' % (k, os.environ[k].replace('"', r'\"'))
+            env += "\n"
+
+        script = job_header + env + script_text + job_footer 
         
         open(os.path.join(self.wdir, self.script_name), "w").write(script)
         os.chmod(os.path.join(self.wdir, self.script_name) , stat.S_IXUSR + stat.S_IWUSR + stat.S_IRUSR + stat.S_IRGRP + stat.S_IROTH)
