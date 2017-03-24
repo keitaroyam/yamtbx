@@ -1,14 +1,14 @@
-# Eigerデータフォーマットとデータ処理
+# EIGERデータフォーマットとデータ処理
 
-本稿ではBL32XUにおけるEiger X 9Mに関して記述します．
-本内容はEigerのfirmware更新などによって変更される可能性があります．
+本稿ではBL32XUにおけるEIGER X 9Mに関して記述します．
+本内容はEIGERのfirmware更新などによって変更される可能性があります．
 
-## Eiger HDF5について
+## EIGER HDF5について
 
 hdf5 (.h5)はこれまでのイメージフォーマット(.img, .cbf)と違い，複数のイメージを1つのファイルにまとめて保存することができます．
 HDF5はファイルシステムのような階層構造を持っており，それぞれの階層に任意のデータ（イメージデータや実験に関するパラメータなど）を持つことができます．
 
-Eigerの出力するhdf5は，masterとdataの2種類からなります．例えばprefixをsampleとしてデータを収集すると，
+EIGERの出力するhdf5は，masterとdataの2種類からなります．例えばprefixをsampleとしてデータを収集すると，
 
 * sample_master.h5 - 実験に関する情報（波長やビームセンターなど）の他，検出器の設定情報
 * sample_data_??????.h5 - 回折イメージ
@@ -21,8 +21,8 @@ sample_master.h5にはdata h5へのリンク(hdf5のExternalLinkという機能)
 
 ### 内部データの圧縮(filter)
 
-HDF5は内部的にデータを圧縮することができるようになっています('filter'と呼ばれる機能)．EigerのデータはLZ4アルゴリズムまたはbitshuffle+LZ4 (bslz4)によって圧縮されるようになっており，通常はbslz4です(bslz4はlz4に比べ30-50%ほど小さくなります)．
-master.h5は通常圧縮されていません(masterにはflatfieldやpixel maskなどそこそこ大きい情報が格納されています)が，BL32XUではbyteshuffle+gzipによって圧縮するようにしています．
+HDF5は内部的にデータを圧縮することができるようになっています('filter'と呼ばれる機能)．EIGERのデータはLZ4アルゴリズムまたはbitshuffle+LZ4 (bslz4)によって圧縮されるようになっており，通常はbslz4です(bslz4はlz4に比べ30-50%ほど小さくなります)．
+master.h5は通常圧縮されていません(masterにはflatfieldやpixel maskなどそこそこ大きい情報が格納されています)が，BL32XUではbyteshuffle+gzipによって圧縮するようにしています(2017A期より，bslz4での圧縮に変更)．
 
 データを読む際には，圧縮されていようがいまいが，同じように読むことができます（HDF5のライブラリが自動的に解凍処理を行います）．ただし非標準のFilter (bslz4も該当)の場合は，プラグインをインストールしなければ読めません．
 
@@ -75,6 +75,15 @@ cd ..
 デフォルトでは/usr/local/hdf5/lib/pluginにインストールされます．変更したい場合は`--h5plugin`の後に`--h5plugin-dir=`を付けてください．
 インストールした場所に，環境変数`HDF5_PLUGIN_PATH`を設定する必要があります(bashなら`export HDF5_PLUGIN_PATH=`をcshなら`setenv HDF5_PLUGIN_PATH `を使って設定してください)
 
+### Neggia plugin (XDSでpluginを使った処理を行いたい場合のみ)
+Pluginを使うと，H5ToXdsを使わず（すなわち一時ファイルとしてcbfファイルを出力せずに）直接h5ファイルを処理できるようになります．DECTRISの公式pluginであるNeggiaは以下の方法で入手できます．
+
+#### コンパイル済みのバイナリを入手する
+[DECTRISの公式サイト](https://www.dectris.com/neggia.html)からMac/Linux用のバイナリを入手できます．ただしユーザ登録が必要です．
+
+#### 自分でビルドする
+[dectris/neggia - Github](https://github.com/dectris/neggia)からコードを入手できます．
+
 
 ## イメージの表示
 eiger2cbfを用いてcbfに変換すれば，adxvやその他cbfをサポートするビューアで表示できます．
@@ -88,7 +97,7 @@ hdf5形式のまま表示するには，以下の方法があります．
 
 yamtbx.adxv_eigerは以下の方法で導入できます．[KAMO](kamo-ja.md#ローカル環境での使用方法)またはyamtbxを導入済みの場合は既に使えるようになっています．
 
-1. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
+1. [PHENIX](http://www.phenix-online.org/)-1.11以上をインストールする
 2. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
 ```
 cd $HOME
@@ -102,10 +111,10 @@ libtbx.configure yamtbx
 
 ## データ処理の方法
 
-Eigerのデータを処理するには，以下の2通りの方法があります．
+EIGERのデータを処理するには，以下の2通りの方法があります．
 
-1. hdf5のまま処理する (XDS, DIALS)
-2. cbfに変換して処理する (iMosflm, 他)
+1. hdf5のまま処理する (XDS, DIALS, HKL-2000)
+2. cbfに変換して処理する (iMosflm)
 
 ### XDS
 
@@ -114,17 +123,39 @@ generata\_XDS.INPには，直接master h5を与えてください．例えば以
 ```
 generate_XDS.INP ../sample_master.h5
 ```
-実際の処理にはH5ToXdsが必要です．上記の通り，eiger2cbfをH5ToXdsとして使用することを推奨します．
 
 手動でXDS.INPを用意する場合，`NAME_TEMPLATE_OF_DATA_FRAMES=`にmaster h5の'master'を'??????'に置き換えたものを指定します．上の例だと以下のようになります．
 ```
 NAME_TEMPLATE_OF_DATA_FRAMES= ../sample_??????.h5
 ```
 
-### DIALS
+実際の処理にはH5ToXdsまたはpluginが必要です．
 
-現在のところCCP4に含まれているバージョンは，BL32XUのEiger hdf5に対応していません．
-少なくともdev-652以降は対応していますので，[Nightly builds](http://cci.lbl.gov/dials/installers/)からdev-652または最新版をダウンロードしてインストールして下さい．
+#### H5ToXdsを使う方法
+H5ToXdsはXDSの補助プログラムで，cbfを中間ファイルとして使用するものです．上記の通り，eiger2cbfをH5ToXdsとして使用することを推奨します．
+
+#### pluginを使う方法
+pluginを使うと，中間ファイルを生成せずに直接h5から処理できるようになるため，特にI/O律速な環境では処理速度の向上(10%程度)が期待できます．
+XDS.INPにおいて
+```
+LIB= /where-you-installed/plugin-name.so
+```
+という形で，plugin (.soファイル)の場所を指定します．
+たとえば上記のNeggia pluginが使えます．
+
+Neggia pluginを使う場合，2016年にBL32XUで収集したデータを処理できません．これはNeggiaが非公式なHDF5再実装を行っていてGZIP+SHUFで内部データが圧縮されたh5ファイルを扱えないためです．
+処理したい場合，変換作業が必要です．yamtbxを導入済みの方は，
+```
+mv yours_master.h5 yours_master.h5.org
+yamtbx.eiger_reduce_master yours_master.h5.org h5out=yours_master.h5 compress=bslz4
+```
+として，master.h5を変換して下さい．
+yamtbxを導入されてない場合は，[こちらのスクリプト](https://github.com/keitaroyam/yamtbx/blob/master/yamtbx/dataproc/command_line/eiger_reduce_master.py)を`phenix.python` (ver. 1.11以降)から立ち上げて下さい．
+
+### DIALS
+ver. dev-652 (1.dev.193)以降はBL32XUのEIGER hdf5に対応しています．
+最新版か，少なくともCCP4 7.0 update 013以降，またはPHENIX-1.11以降に同梱されているバージョンをご利用下さい．
+最新版は[DIALS website](http://cci.lbl.gov/dials/installers/)からダウンロードできます．
 
 データ処理方法は[本家Tutorial](http://dials.lbl.gov/documentation/tutorials/index.html)をご覧ください．ただし，最初のdials.importでは
 ```
@@ -137,8 +168,12 @@ dials.import ../sample_master.h5
 cbfに変換することで処理できます．
 [eiger2cbf](#eiger2cbf-h5toxds互換)を用いてcbfに変換して下さい．
 
+### HKL-2000
+
+ver. 714 (Sep 2016)より，hdf5を直接読めるようになりました．それ以前のバージョンをお使いの場合はcbfへの変換が必要です．
+
 ## 参考
 * [EIGER X series (Dectris公式サイト)](https://www.dectris.com/EIGER_X_Detectors.html#main_head_navigation)
 * [Eiger - XDSwiki](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Eiger)
 * [HDF5 - The HDF Group](https://www.hdfgroup.org/HDF5/)
-* [NeXus](http://www.nexusformat.org/) 将来的にEiger hdf5もNeXus互換形式になります（現在は限定的）
+* [NeXus](http://www.nexusformat.org/) 将来的にEIGER hdf5もNeXus互換形式になります（現在は限定的）
