@@ -13,7 +13,7 @@ KAMO uses following programs and libraries.
 
 * [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (essential)
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (essential)
-* [XDS](http://xds.mpimf-heidelberg.mpg.de)
+* [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), H5ToXds (for EIGER data)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
 * [R](https://www.r-project.org/) (required for BLEND, CC-based clustering) with rjson
 * [DIALS](https://dials.github.io/) (not fully-supported yet)
@@ -229,16 +229,16 @@ Please use run_03/ccp4/xscale.mtz. If run_03/ is not there, run_\* with the larg
 If this is too hard, there is much easier way:
 
 1. Install CCP4, R with rjson package, XDS
+   * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
+   * If you will process EIGER data (h5 files), [H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換) is needed
 2. Install [PHENIX](http://www.phenix-online.org/)-1.10 or newer
 3. Install networkx to phenix.python
-   1. Download https://pypi.python.org/packages/source/n/networkx/networkx-1.11.tar.gz
-   2. `tar xvf networkx-1.11.tar.gz`
-   3. `cd networkx-1.11; phenix.python setup.py install`
+   1. `cd $PHENIX/build`
+   2. `./bin/libtbx.python -m easy_install networkx`
 4. Install scipy to phenix.python
-   1. Download https://github.com/scipy/scipy/releases/download/v0.18.1/scipy-0.18.1.tar.gz
-   2. `tar xvf scipy-0.18.1.tar.gz`
-   3. `cd scipy-0.18.1; phenix.python setup.py install`
-   4. (Install blas-devel and lapack-devel if missing)
+   1. If Mac, install [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS). If Linux, install blas-devel and lapack-devel using yum or something.
+   2. `cd $PHENIX/build`
+   3. `./bin/libtbx.python -m easy_install scipy`
 5. Run the following commands (yamtbx can be cloned anywhere you like)
 ```
 cd $HOME
@@ -246,7 +246,7 @@ git clone https://github.com/keitaroyam/yamtbx.git
 cd $PHENIX/modules
 ln -s ~/yamtbx/yamtbx .
 cd ../build
-libtbx.configure yamtbx
+./bin/libtbx.configure yamtbx
 ```
 
 After installation, run
@@ -254,6 +254,11 @@ After installation, run
 kamo.test_installation
 ```
 to check if dependencies are all installed.
+
+### How to update KAMO
+1. `cd` where-you-cloned-yamtbx
+2. `git pull`
+4. `$PHENIX/build/bin/libtbx.refresh`
 
 ### Launch
 Basically, the same as above, but like
@@ -274,33 +279,38 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-03-24
+   * kamo.test_installation: Fixed a problem on testing XDS. Add H5ToXds test.
+   * KAMO: When multi-merge strategy started, read unit cell in P1 from CORRECT.LP_noscale instead of CORRECT.LP.
+* 2017-03-10
+   * KAMO: Fixed a Mac (El Capitan or later) specific problem where script couldn't run in local computer.
 * 2017-02-16
- * yamtbx.xds_aniso_analysis: New program to perform anisotropy analysis (CC1/2 and I/sigma) for XDS unmerged data (executed in kamo.multi_merge)
- * KAMO: Fixed a silly bug in nproc-based determination of DELPHI= in XDS.
- * kamo.resolve_indexing_ambiguity: fixed a bug in selective-breeding (sometimes failed maybe when small number of files?)
- * kamo.multi_merge: when add_test_flag=true, first generate test set and copy them to all
+   * yamtbx.xds_aniso_analysis: New program to perform anisotropy analysis (CC1/2 and I/sigma) for XDS unmerged data (executed in kamo.multi_merge)
+   * KAMO: Fixed a silly bug in nproc-based determination of DELPHI= in XDS.
+   * kamo.resolve_indexing_ambiguity: fixed a bug in selective-breeding (sometimes failed maybe when small number of files?)
+   * kamo.multi_merge: when add_test_flag=true, first generate test set and copy them to all
 * 2017-02-02
- * kamo.auto_multi_merge: automatic merging for multiple samples
- * kamo.multi_merge: new options reference.data= (to copy test flags), resolution.estimate= (to automatically decide high resolution cutoff), use pointless to decide screws
- * kamo: now blconfig= can be multiple and mode= can specify both (zoo+normal)
+   * kamo.auto_multi_merge: automatic merging for multiple samples
+   * kamo.multi_merge: new options reference.data= (to copy test flags), resolution.estimate= (to automatically decide high resolution cutoff), use pointless to decide screws
+   * kamo: now blconfig= can be multiple and mode= can specify both (zoo+normal)
 * 2017-01-18
- * yamtbx.beam_direction_plot: fixed a bug in non-primitive space group case
+   * yamtbx.beam_direction_plot: fixed a bug in non-primitive space group case
 * 2016-12-26
- * kamo.multi_merge: add `space_group=` option (used in merging). use pointless result for mtz if not specified.
- * kamo.multi_merge: add MULTIPLICITY column in mtz
- * bug fix (change directory in qsub script)
+   * kamo.multi_merge: add `space_group=` option (used in merging). use pointless result for mtz if not specified.
+   * kamo.multi_merge: add MULTIPLICITY column in mtz
+   * bug fix (change directory in qsub script)
 * 2016-12-06
- * GUI: add `exclude_ice_resolutions=` option, fixed a bug that plots were not updated on Mac
- * faster string (file name) replacement for XSCALE outputs
- * kamo.resolve_indexing_ambiguity: fixed a bug when no reference_label was given
- * kamo.test_installation: add Adxv test
+   * GUI: add `exclude_ice_resolutions=` option, fixed a bug that plots were not updated on Mac
+   * faster string (file name) replacement for XSCALE outputs
+   * kamo.resolve_indexing_ambiguity: fixed a bug when no reference_label was given
+   * kamo.test_installation: add Adxv test
 * 2016-10-05
- * added `auto_frame_exclude_spot_based=` option, which could be useful for processing data including non-spots images
+   * added `auto_frame_exclude_spot_based=` option, which could be useful for processing data including non-spots images
 * 2016-07-18
- * use ramdisk/tmpdir for xds/xscale run
- * calculate frequency of crystal symmetry taking unit cell parameters into account
- * bug fix for OSX (with phenix-1.10.1?)
- * bug fix on html report making
- * bug fix for non-sge environment (multi_merge)
- * calculate LCV & aLCV for actual set of parameters
- * bug fix on parsing xtriage. anisotropy is now max(B_cart)-min(B_cart)
+   * use ramdisk/tmpdir for xds/xscale run
+   * calculate frequency of crystal symmetry taking unit cell parameters into account
+   * bug fix for OSX (with phenix-1.10.1?)
+   * bug fix on html report making
+   * bug fix for non-sge environment (multi_merge)
+   * calculate LCV & aLCV for actual set of parameters
+   * bug fix on parsing xtriage. anisotropy is now max(B_cart)-min(B_cart)

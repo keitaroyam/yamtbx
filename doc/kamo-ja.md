@@ -13,7 +13,7 @@ SPring-8でのオンラインデータ解析のために設計されています
 
 * [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (動作上必須)
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (動作上必須)
-* [XDS](http://xds.mpimf-heidelberg.mpg.de)
+* [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), [H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換) (EIGERの場合)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
 * [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
 * [DIALS](https://dials.github.io/) (完全には未対応)
@@ -229,16 +229,16 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 
 ### PHENIXを利用した環境構築
 1. CCP4, R (rjson packageも含め), XDSをインストールする
+   * XDS/XDSSTATのインストールは[XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)を参照
+   * EIGERデータを処理する場合は[H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換)も必要です
 2. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
 3. networkxをphenix.pythonから使えるようにする
-   1. https://pypi.python.org/packages/source/n/networkx/networkx-1.11.tar.gz をダウンロード
-   2. `tar xvf networkx-1.11.tar.gz`
-   3. `cd networkx-1.11; phenix.python setup.py install`
+   1. `cd $PHENIX/build`
+   2. `./bin/libtbx.python -m easy_install networkx`
 4. scipyをphenix.pythonから使えるようにする
-   1. https://github.com/scipy/scipy/releases/download/v0.18.1/scipy-0.18.1.tar.gz をダウンロード
-   2. `tar xvf scipy-0.18.1.tar.gz`
-   3. `cd scipy-0.18.1; phenix.python setup.py install`
-   4. (blasあるいはlapackが無いと言われたら，パッケージマネージャ等を用いて導入のこと)
+   1. Macの場合，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
+   2. `cd $PHENIX/build`
+   3. `./bin/libtbx.python -m easy_install scipy`
 5. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
 ```
 cd $HOME
@@ -246,7 +246,7 @@ git clone https://github.com/keitaroyam/yamtbx.git
 cd $PHENIX/modules
 ln -s ~/yamtbx/yamtbx .
 cd ../build
-libtbx.configure yamtbx
+./bin/libtbx.configure yamtbx
 ```
 
 KAMOセットアップ後，
@@ -255,6 +255,11 @@ kamo.test_installation
 ```
 を実行することで必要なパッケージがインストールされているかどうか確認できます．
 
+### KAMOのアップデート
+以下の手順で最新版にアップデートできます
+1. yamtbxをcloneした場所へ移動(`cd`)
+2. `git pull`
+4. `$PHENIX/build/bin/libtbx.refresh`
 
 ### 起動
 基本的には上記と一緒ですが，
@@ -275,33 +280,39 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 
 ## バージョン履歴
 日付はGitHub公開時
+
+* 2017-03-24
+   * kamo.test_installation: XDS.INPのある場所で実行すると走り出してしまう問題を回避．H5ToXdsのテストを追加．
+   * KAMO: Multi-merge strategy開始時にP1 cellをCORRECT.LP_noscaleから読むように変更
+* 2017-03-10
+   * KAMO: 新しいMac (El Capitan以降)でローカル実行できなかった問題を修正.
 * 2017-02-16
- * yamtbx.xds_aniso_analysis: 強度の異方性分析のプログラムを追加．kamo.multi_merge内でも実行．
- * KAMO: nprocからDELPHI=を決める際のバグを修正
- * kamo.resolve_indexing_ambiguity: selective-breedingにおけるバグを修正(少数のファイルの時に失敗する場合があった)
- * kamo.multi_merge: add_test_flag=trueのときに同一のテストセットを全結果に対して与えるように変更
+   * yamtbx.xds_aniso_analysis: 強度の異方性分析のプログラムを追加．kamo.multi_merge内でも実行．
+   * KAMO: nprocからDELPHI=を決める際のバグを修正
+   * kamo.resolve_indexing_ambiguity: selective-breedingにおけるバグを修正(少数のファイルの時に失敗する場合があった)
+   * kamo.multi_merge: add_test_flag=trueのときに同一のテストセットを全結果に対して与えるように変更
 * 2017-02-02
- * kamo.auto_multi_mergeを追加（テスト中）．複数サンプルのデータを同時にマージ
- * kamo.multi_merge reference.data= (test flagをコピー), resolution.estimate= (高分解能カットオフを自動決定)のオプションを追加．Pointlessを使用して螺旋を決定
- * kamo: blconfig= を複数指定可に．mode=を両方(zoo+normal)指定可に．
+   * kamo.auto_multi_mergeを追加（テスト中）．複数サンプルのデータを同時にマージ
+   * kamo.multi_merge reference.data= (test flagをコピー), resolution.estimate= (高分解能カットオフを自動決定)のオプションを追加．Pointlessを使用して螺旋を決定
+   * kamo: blconfig= を複数指定可に．mode=を両方(zoo+normal)指定可に．
 * 2017-01-18
- * yamtbx.beam_direction_plot: 複合格子の場合におかしくなるバグを修正
+   * yamtbx.beam_direction_plot: 複合格子の場合におかしくなるバグを修正
 * 2016-12-26
- * kamo.multi_merge: `space_group=` オプションを追加(マージ時に使用)．指定がない場合Pointlessの結果をmtzに反映
- * kamo.multi_merge: 出力MTZにMULTIPLICITYカラムを追加
- * qsubするスクリプトの先頭でcdするように変更(bashrcなどでcdしている場合に，適切にcdされなかったバグを修正)
+   * kamo.multi_merge: `space_group=` オプションを追加(マージ時に使用)．指定がない場合Pointlessの結果をmtzに反映
+   * kamo.multi_merge: 出力MTZにMULTIPLICITYカラムを追加
+   * qsubするスクリプトの先頭でcdするように変更(bashrcなどでcdしている場合に，適切にcdされなかったバグを修正)
 * 2016-12-06
- * GUI: `exclude_ice_resolutions=`オプションを追加．プロットがMacで更新されないバグを修正
- * XSCALE実行後の処理を高速化(ファイル名の置換)
- * kamo.resolve_indexing_ambiguity: `reference_label=`が与えられてない場合にクラッシュするバグを修正
- * kamo.test_installation: Adxvのチェックを追加
+   * GUI: `exclude_ice_resolutions=`オプションを追加．プロットがMacで更新されないバグを修正
+   * XSCALE実行後の処理を高速化(ファイル名の置換)
+   * kamo.resolve_indexing_ambiguity: `reference_label=`が与えられてない場合にクラッシュするバグを修正
+   * kamo.test_installation: Adxvのチェックを追加
 * 2016-10-05
- * `auto_frame_exclude_spot_based=`オプションを追加．最初と最後でセンタリングが外れているなど反射が写っていないフレームを含むデータに有効（かも）．
+   * `auto_frame_exclude_spot_based=`オプションを追加．最初と最後でセンタリングが外れているなど反射が写っていないフレームを含むデータに有効（かも）．
 * 2016-07-18
- * XDS/XSCALE実行時にRAMディスクまたは一時ディレクトリを使用するオプションを追加(デフォルト)
- * 対称性でグルーピングする際，頻度計算に格子定数も考慮するよう変更（同じ空間群で異なるa,b,cがある場合に区別される）
- * OSX (phenix-1.10.1環境下?)におけるバグ（Multi mergeでProceedしても先に進まない）を修正
- * KAMOのHTML report作成の軽微なバグを修正
- * 非SGE環境でkamo.multi_mergeが実行できないバグを修正
- * LCVとaLCVを実際にマージされた結晶の格子定数から計算するように変更
- * phenix.xtriageのログのパースを修正．Anisotropyをmax(B_cart)-min(B_cart)と定義．
+   * XDS/XSCALE実行時にRAMディスクまたは一時ディレクトリを使用するオプションを追加(デフォルト)
+   * 対称性でグルーピングする際，頻度計算に格子定数も考慮するよう変更（同じ空間群で異なるa,b,cがある場合に区別される）
+   * OSX (phenix-1.10.1環境下?)におけるバグ（Multi mergeでProceedしても先に進まない）を修正
+   * KAMOのHTML report作成の軽微なバグを修正
+   * 非SGE環境でkamo.multi_mergeが実行できないバグを修正
+   * LCVとaLCVを実際にマージされた結晶の格子定数から計算するように変更
+   * phenix.xtriageのログのパースを修正．Anisotropyをmax(B_cart)-min(B_cart)と定義．
