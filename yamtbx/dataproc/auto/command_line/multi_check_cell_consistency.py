@@ -64,7 +64,8 @@ class CheckMulti:
             print >>self.out, "%.3d"%idx,
             print >>self.out, os.path.relpath(root, self.topdir) if self.topdir is not None else root,
             gxparm_xds = os.path.join(root, "GXPARM.XDS")
-            p1cell = correctlp.get_P1_cell(os.path.join(root, "CORRECT.LP"), force_obtuse_angle=True)
+            correct_lp = filter(lambda x: os.path.isfile(x), map(lambda f: os.path.join(root, f), ("CORRECT.LP_noscale", "CORRECT.LP")))[0]
+            p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
             try:
                 xparm = XPARM(gxparm_xds)
             except ValueError:
