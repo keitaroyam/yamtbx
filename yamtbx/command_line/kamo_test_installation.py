@@ -9,6 +9,7 @@ This software is released under the new BSD License; see LICENSE.
 
 from yamtbx import util
 import os
+import shutil
 
 def tst_jsdir():
     print "Testing location.."
@@ -42,13 +43,28 @@ def tst_R():
 
 def tst_xds():
     print "Testing XDS.."
-    rcode, out, err = util.call("xds_par")
+    tmpdir = util.get_temp_local_dir("xdstest")
+    rcode, out, err = util.call("xds_par", wdir=tmpdir)
+    if tmpdir: shutil.rmtree(tmpdir) # just in case; xds shouldn't make any files
+
     if rcode != 0:
         print "  Not installed. NG"
         return False
 
     if "license expired" in out:
         print "  license expired. Get latest version. NG"
+        return False
+
+    print "  OK"
+    return True
+# tst_xds()
+
+def tst_h5toxds():
+    print "Testing H5ToXds.."
+    rcode, out, err = util.call("H5ToXds")
+
+    if rcode == 127:
+        print "  NG (You can ignore this if you don't process hdf5 files which usually mean Eiger data)"
         return False
 
     print "  OK"
@@ -181,7 +197,7 @@ def run():
 
     failed = []
 
-    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_ccp4, tst_adxv, tst_numpy,
+    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_h5toxds, tst_ccp4, tst_adxv, tst_numpy,
               tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
         ret = f()
         if not ret: failed.append(f.func_name)
