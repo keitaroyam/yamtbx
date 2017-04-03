@@ -141,9 +141,9 @@ XDS.INPにおいて
 LIB= /where-you-installed/plugin-name.so
 ```
 という形で，plugin (.soファイル)の場所を指定します．
-たとえば上記のNeggia pluginが使えます．
+たとえば上記の[Neggia plugin](#neggia-plugin-xdsでpluginを使った処理を行いたい場合のみ)が使えます．
 
-Neggia pluginを使う場合，2016年にBL32XUで収集したデータを処理できません．これはNeggiaが非公式なHDF5再実装を行っていてGZIP+SHUFで内部データが圧縮されたh5ファイルを扱えないためです．
+**注意！** Neggia pluginを使う場合，2016年にBL32XUで収集したデータを処理できません．これはNeggiaが非公式なHDF5再実装を行っていてGZIP+SHUFで内部データが圧縮されたh5ファイルを扱えないためです．
 処理したい場合，変換作業が必要です．yamtbxを導入済みの方は，
 ```
 mv yours_master.h5 yours_master.h5.org
@@ -155,7 +155,7 @@ yamtbxを導入されてない場合は，[こちらのスクリプト](https://
 ### DIALS
 ver. dev-652 (1.dev.193)以降はBL32XUのEIGER hdf5に対応しています．
 最新版か，少なくともCCP4 7.0 update 013以降，またはPHENIX-1.11以降に同梱されているバージョンをご利用下さい．
-最新版は[DIALS website](http://cci.lbl.gov/dials/installers/)からダウンロードできます．
+最新版は[DIALS website](http://dials.lbl.gov/installation.html)からダウンロードできます．
 
 データ処理方法は[本家Tutorial](http://dials.lbl.gov/documentation/tutorials/index.html)をご覧ください．ただし，最初のdials.importでは
 ```
