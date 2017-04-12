@@ -155,15 +155,15 @@ yamtbxを導入されてない場合は，[こちらのスクリプト](https://
 ### DIALS
 ver. dev-652 (1.dev.193)以降はBL32XUのEIGER hdf5に対応しています．
 最新版か，少なくともCCP4 7.0 update 013以降，またはPHENIX-1.11以降に同梱されているバージョンをご利用下さい．
-最新版は[DIALS website](http://dials.lbl.gov/installation.html)からダウンロードできます．
+最新版は[DIALS website](https://dials.github.io/installation.html)からダウンロードできます．
 
-データ処理方法は[本家Tutorial](http://dials.lbl.gov/documentation/tutorials/index.html)をご覧ください．ただし，最初のdials.importでは
+データ処理方法は[本家Tutorial](https://dials.github.io/documentation/tutorials/index.html)をご覧ください．ただし，最初のdials.importでは
 ```
 dials.import ../sample_master.h5
 ```
 といった形で，master.h5をimportして処理を始めます．
 
-**注意！** DIALSでEIGERのデータを処理すると，I(+),I(-)があべこべ，つまり異常分散差の符号が逆転する問題が起きています(ver. 1.4.5現在)．Bijvoet差を使用しない場合は問題ありませんが，異常分散差フーリエを見たりSAD/MAD/SIRAS/MIRAS法などで位相決定を行う場合，正しい結果が得られません．dials.import後，次の処理に進む前にdatablock.jsonを開き，
+**注意！** DIALS (ver. 1.5以前)でEIGERのデータを処理すると，I(+),I(-)があべこべ，つまり異常分散差の符号が逆転する問題が起きています(2017年4月リリースのver. 1.5で修正されました)．Bijvoet差を使用しない場合は問題ありませんが，異常分散差フーリエを見たりSAD/MAD/SIRAS/MIRAS法などで位相決定を行う場合，正しい結果が得られません．dials.import後，次の処理に進む前にdatablock.jsonを開き，
 ```json
         "panels": [
           {
