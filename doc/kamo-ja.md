@@ -281,6 +281,8 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-04-19
+   * KAMO: eiger2cbfで作成されたCBFファイルのサポートを追加．ビームラインでのオンライン処理時にEiger h5ファイルのダウンロードを待つように修正+minisetサポートを追加．
 * 2017-03-24
    * kamo.test_installation: XDS.INPのある場所で実行すると走り出してしまう問題を回避．H5ToXdsのテストを追加．
    * KAMO: Multi-merge strategy開始時にP1 cellをCORRECT.LP_noscaleから読むように変更

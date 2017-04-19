@@ -279,6 +279,8 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-04-19
+   * KAMO: Added support of eiger2cbf converted CBF files. For online processing at beamline, wait until all Eiger h5 files downloaded, and added support of miniset.
 * 2017-03-24
    * kamo.test_installation: Fixed a problem on testing XDS. Add H5ToXds test.
    * KAMO: When multi-merge strategy started, read unit cell in P1 from CORRECT.LP_noscale instead of CORRECT.LP.

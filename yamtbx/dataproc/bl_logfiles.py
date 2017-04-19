@@ -8,6 +8,7 @@ import re
 import os
 import datetime
 import math
+import traceback
 from collections import OrderedDict
 
 from yamtbx.dataproc.dataset import template_to_filenames, re_pref_num_ext
@@ -378,7 +379,7 @@ class JobInfo:
             setattr(self, s, None)
 
         self.advanced_centering = {}
-        self.images = []
+        self.images, self.scans = [], []
         self.beam_size = float("nan"), float("nan")
         self.status = None # Programmer can define
     # __init__()
@@ -450,6 +451,9 @@ class JobInfo:
                 self.advanced_centering.setdefault("centers", []).append(map(float, r.groups()[1:]))
         elif line.startswith(" IMAGE_STATUS"):
             self.images.append(ImageStatus(line))
+        elif line.startswith(" SCAN_STATUS"):
+            self.scans.append(ImageStatus(line))
+
     # parse_line()
 
     def get_frame_num_range(self):
@@ -460,12 +464,56 @@ class JobInfo:
 
         return (None, None)
 
+    def get_frame_num_ranges_for_h5(self):
+        """
+        Returns frame number ranges assuming h5 file (multiple frames in single file)
+        Not sure non-Eiger h5 file will follow this rule (Currently only Eiger writes h5 files)
+        """
+        if self.advanced_centering.get("mode", "") != "multiple_crystals":
+            return [(1, self.n_images)]
+        
+        ret = []
+        for i in xrange(len(self.advanced_centering.get("centers", []))):
+            ret.append((i*self.n_images+1, (i+1)*self.n_images))
+        return ret
+    # get_frame_num_ranges_for_h5()
+
     def get_master_h5_if_exists(self):
         if self.prefix is None: return None
         masterh5 = os.path.join(os.path.dirname(self.filename), self.prefix+"_master.h5")
         if os.path.isfile(masterh5): return masterh5
         return None
     # get_master_h5_if_exists()
+
+    def all_image_files_exist(self, debug=True):
+        from yamtbx.dataproc import eiger
+        import h5py
+        master_h5 = self.get_master_h5_if_exists()
+        if master_h5:
+            if debug: print "Checking if related files exist for %s" % master_h5
+            try:
+                files = eiger.get_masterh5_related_filenames(master_h5)
+            except:
+                if debug:
+                    print "Error when reading master h5 (%s)" % master_h5
+                    print traceback.format_exc()
+                return False
+
+            flag_ng = False
+            for f in files:
+                if os.path.isfile(f):
+                    try: h5py.File(f, "r")
+                    except:
+                        if debug: print " file incomplete or broken: %s" % f
+                        flag_ng = True
+                else:
+                    if debug: print " not exists: %s" % f
+                    flag_ng = True
+
+            return not flag_ng
+
+        else:
+            return True # FIXME check non-h5 files as well
 
 # class JobInfo
 
@@ -491,9 +539,11 @@ class BssJobLog:
     def annotate_overwritten_images(self, remove=False):
         del_indices = {} # {i: [j,...]}
         # Assume all files in the same directory and the common prefix is in single file. Is it true??
+        # Assume files in the same job are never overwritten. Only check inter-job files.
 
         filenames = [] # (i, j, filename)
         for i, job in enumerate(self.jobs):
+            this_job_filenames = []
             for j, img in enumerate(job.images):
                 fltr = filter(lambda x:x[2]==img.filename, filenames)
                 #assert len(fltr) in (0,1)
@@ -502,7 +552,8 @@ class BssJobLog:
                     del_indices.setdefault(fltr[-1][0], []).append(fltr[-1][1])
                     self.jobs[fltr[-1][0]].images[fltr[-1][1]].overwritten = True
 
-                filenames.append((i,j,img.filename))
+                this_job_filenames.append((i,j,img.filename))
+            filenames.extend(this_job_filenames)
 
         ow_flag = False
         if remove:

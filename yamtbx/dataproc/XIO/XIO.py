@@ -281,7 +281,7 @@ class Image:
 
         # Test to identify miniCIF (PILATUS)
         elif self.rawHead[0:7] == "###CBF:" and \
-                self.rawHead.count("PILATUS"):
+                (self.rawHead.count("PILATUS") or self.rawHead.count("Eiger")):
             self.type = "minicbf"
             return self.type
 

@@ -49,9 +49,9 @@ def DISTANCE(inp):
         return float(args[0])
 
 
-BEAMX = lambda x, y: float(x[x.find("(")+1:x.find(")")-1].split(",")[0])\
+BEAMX = lambda x, y: float(x[x.find("(")+1:x.find(")")].split(",")[0])\
                                                                *FLOAT2(y)
-BEAMY = lambda x, y: float(x[x.find("(")+1:x.find(")")-1].split(",")[1])\
+BEAMY = lambda x, y: float(x[x.find("(")+1:x.find(")")].split(",")[1])\
                                                                *FLOAT2(y)
 
 class Interpreter:
@@ -127,7 +127,8 @@ class Interpreter:
                                              if "Binary-" in val[0]]))
         # Add some default values
         self.raw_head_dict.update({'HEADER_SIZE': i_3})
-        self.raw_head_dict.update({'DATE': " ".join(lis[1])})
+        if "T" in lis[1][0] and lis[1][0].count(":")==2 and lis[1][0].count("-")==2: # looks like date and time
+            self.raw_head_dict.update({'DATE': " ".join(lis[1])})
         #self.raw_head_dict.update({'MESSAGE': '', 'TWO_THETA': '0',
         #                           'Beam_xy':"(1330.30, 1314.90)",
         #                           'Detector_distance': "0.4 m",

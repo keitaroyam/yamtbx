@@ -395,10 +395,17 @@ class BssJobs:
                     continue
 
                 master_h5 = job.get_master_h5_if_exists()
-                if master_h5 is not None: job.filename = master_h5.replace("_master.h5", "_??????.h5")
+                if master_h5 is not None:
+                    job.filename = master_h5.replace("_master.h5", "_??????.h5")
+                    for nr2 in job.get_frame_num_ranges_for_h5():
+                        self.jobs[(prefix, nr2)] = job
+                        self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
 
-                self.jobs[(prefix, nr)] = job
-                self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
+                else:
+                    # FIXME when multiple_crystals mode, what will filenames be?
+                    self.jobs[(prefix, nr)] = job
+                    self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
+
                 remove_idxes.append(i)
 
         remove_idxes = list(set(remove_idxes))
@@ -590,8 +597,8 @@ for i in xrange(%(repeat)d-1):
         
         job_str += "dials.integrate experiments.json indexed.pickle min_spots=30 %s\n" % nproc_str
         job_str += "dials.export_mtz integrated_experiments.json integrated.pickle\n"
-        job_str += "echo tolerance 10 | pointless hklout.mtz hklout pointless.mtz > pointless.log"
-        job_str += "touch dials_job_finished"
+        job_str += "echo tolerance 10 | pointless hklout.mtz hklout pointless.mtz > pointless.log\n"
+        job_str += "touch dials_job_finished\n"
         # TODO config.params.xds.exclude_resolution_range config.params.reverse_phi
 
         # Start batch job
@@ -773,9 +780,13 @@ class WatchLogThread:
                 if config.params.auto_mode:
                     for key in bssjobs.keys():
                         status = bssjobs.get_process_status(key)[0]
-                        if bssjobs.get_job(key).status == "finished" and status is None:
-                            mylog.info("Automatically starting processing %s" % str(key))
-                            bssjobs.process_data(key)
+                        job = bssjobs.get_job(key)
+                        if job.status == "finished" and status is None:
+                            if job.all_image_files_exist():
+                                mylog.info("Automatically starting processing %s" % str(key))
+                                bssjobs.process_data(key)
+                            else:
+                                mylog.info("Waiting for files: %s" % str(key))
 
             ev = EventLogsUpdated()
             wx.PostEvent(self.parent, ev)
@@ -1596,8 +1607,9 @@ class ResultRightPanel(wx.Panel):
         if os.path.isfile(spot_xds):
             sx = idxreflp.SpotXds(spot_xds)
             spots = sx.spots_by_frame()
-            spots_f, spots_n = sorted(spots), map(lambda k: spots[k], sorted(spots))
-            self.plots.add_plot(0, spots_f, spots_n, label=("Spots"))
+            if spots:
+                spots_f, spots_n = sorted(spots), map(lambda k: spots[k], sorted(spots))
+                self.plots.add_plot(0, spots_f, spots_n, label=("Spots"))
             
         if os.path.isfile(integrate_lp):
             lp = integratelp.IntegrateLp(integrate_lp)
