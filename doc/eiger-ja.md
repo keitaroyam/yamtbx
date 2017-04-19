@@ -1,5 +1,7 @@
 # EIGERデータフォーマットとデータ処理
 
+English version is [here](eiger-en.md).
+
 本稿ではBL32XUにおけるEIGER X 9Mに関して記述します．
 本内容はEIGERのfirmware更新などによって変更される可能性があります．
 
