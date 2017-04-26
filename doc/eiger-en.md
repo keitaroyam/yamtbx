@@ -3,6 +3,24 @@
 This document explains about EIGER X 9M at BL32XU.
 The contents may be updated by the upgrade of the firmware of EIGER.
 
+   * [EIGER HDF5](#eiger-hdf5)
+      * [Compression of internal data (filter)](#compression-of-internal-data-filter)
+   * [Installing software](#installing-software)
+      * [HDF5 software](#hdf5-software)
+      * [eiger2cbf (H5ToXds compatible)](#eiger2cbf-h5toxds-compatible)
+      * [bitshuffle plugin (advanced)](#bitshuffle-plugin-advanced)
+      * [Neggia plugin (only if you want to use plugin function in XDS)](#neggia-plugin-only-if-you-want-to-use-plugin-function-in-xds)
+   * [Viewing image](#viewing-image)
+   * [Data processing](#data-processing)
+      * [XDS](#xds)
+         * [Using H5ToXds](#using-h5toxds)
+         * [Using plugin](#using-plugin)
+      * [DIALS](#dials)
+      * [iMosflm](#imosflm)
+      * [HKL-2000](#hkl-2000)
+   * [References](#references)
+
+
 ## EIGER HDF5
 
 Unlike conventional image formats like .img or .cbf, single HDF5 (.h5) file can contain more than one image.

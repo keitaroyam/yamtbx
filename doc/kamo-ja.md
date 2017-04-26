@@ -1,4 +1,4 @@
-#KAMO
+# KAMO
 ## 概要
 *KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system*は，（高分子）単結晶X線回折データの自動処理＆マージのために開発中のプログラムです．
 基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能（になる予定）です．
@@ -7,6 +7,37 @@
 SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
 
 本マニュアルは2015-12-18現在のものです．
+
+   * [概要](#概要)
+      * [依存プログラム・ライブラリ](#依存プログラムライブラリ)
+      * [注意](#注意)
+   * [使用方法](#使用方法)
+      * [GUIの起動](#guiの起動)
+      * [GUIの説明](#guiの説明)
+      * [Small wedgeデータのマージ](#small-wedgeデータのマージ)
+      * [index ambiguityの解消 (kamo.resolve_indexing_ambiguity)](#index-ambiguityの解消-kamoresolve_indexing_ambiguity)
+   * [KAMOは内部で何をやるのか](#kamoは内部で何をやるのか)
+      * [データセットの検出](#データセットの検出)
+      * [各wedgeの処理 (kamo)](#各wedgeの処理-kamo)
+      * [マージの準備 (kamoの"Multi-merge strategy"ボタン)](#マージの準備-kamoのmulti-merge-strategyボタン)
+      * [複数結晶に由来するデータのマージ (kamo.multi_merge)](#複数結晶に由来するデータのマージ-kamomulti_merge)
+         * [データのクラスタリング](#データのクラスタリング)
+         * [bad frameの検出](#bad-frameの検出)
+         * [bad datasetの検出](#bad-datasetの検出)
+         * [scaling referenceの選定](#scaling-referenceの選定)
+   * [FAQ](#faq)
+      * [KAMO](#kamo)
+            * [チェックボックスを1つ1つチェックしていくのが面倒](#チェックボックスを1つ1つチェックしていくのが面倒)
+         * [格子定数が既知なのでそれを使って欲しい](#格子定数が既知なのでそれを使って欲しい)
+         * [ヘッダが間違っているので正しい値を与えたい](#ヘッダが間違っているので正しい値を与えたい)
+      * [kamo.multi_merge](#kamomulti_merge)
+         * [精密化に使うためのデータはどこ？](#精密化に使うためのデータはどこ)
+   * [ローカル環境での使用方法](#ローカル環境での使用方法)
+      * [PHENIXを利用した環境構築](#phenixを利用した環境構築)
+      * [KAMOのアップデート](#kamoのアップデート)
+      * [起動](#起動)
+   * [バージョン履歴](#バージョン履歴)
+
 
 ### 依存プログラム・ライブラリ
 以下のプログラム・ライブラリを使用しています．

@@ -1,4 +1,13 @@
-#SHIKAマニュアル for BL32XU/BL41XU
+# SHIKAマニュアル for BL32XU/BL41XU
+
+   * [SHIKAは何をするソフトか](#shikaは何をするソフトか)
+   * [起動方法](#起動方法)
+      * [最も一般的な使い方](#最も一般的な使い方)
+   * [結果の見方](#結果の見方)
+   * [adxvでの表示、KUMAとの連携](#adxvでの表示kumaとの連携)
+   * [レポートHTMLについて](#レポートhtmlについて)
+   * [バージョン履歴](#バージョン履歴)
+
 ## SHIKAは何をするソフトか
 * BSSのDiffraction scanによって得られたイメージからスポットを拾い、結晶の位置を決めるためのプログラム (Spot wo Hirotte Ichiwo Kimeru Application)
 * DISTL ([Sauter et al. 2013](http://dx.doi.org/10.1107/S0907444913000863))をベースに開発中（XDSも使用可能）

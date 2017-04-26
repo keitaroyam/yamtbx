@@ -1,4 +1,4 @@
-#KAMO
+# KAMO
 ## Overview
 *KAMO (in Japanese: Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru; to process thoroughly-collected data in better way than manually and give back to user) system* is the program for automated processing and merging of (MX) crystal diffraction data.
 Basically KAMO uses [XDS package](http://xds.mpimf-heidelberg.mpg.de), but it will support [DIALS](https://dials.github.io/) and [Aimless](http://www.ccp4.ac.uk/html/aimless.html) optionally.
@@ -7,6 +7,37 @@ Currently, the development is focused on processing and merging of small wedge d
 KAMO is designed for online analysis for SPring-8 MX beamlines; however, it can be used offline for local data. Please let me know if you need support for your beamline/detector.
 
 This manual is for 2015-12-18.
+
+   * [Overview](#overview)
+      * [Dependencies](#dependencies)
+      * [Warning](#warning)
+   * [Usage](#usage)
+      * [GUI](#gui)
+      * [GUI explanations](#gui-explanations)
+      * [Merging small wedge data](#merging-small-wedge-data)
+      * [Resolution of index ambiguity (kamo.resolve_indexing_ambiguity)](#resolution-of-index-ambiguity-kamoresolve_indexing_ambiguity)
+   * [What KAMO does internally](#what-kamo-does-internally)
+      * [Dataset detection](#dataset-detection)
+      * [wedge data processing (kamo)](#wedge-data-processing-kamo)
+      * [Preparing for merging (kamo's "Multi-merge strategy" button)](#preparing-for-merging-kamos-multi-merge-strategy-button)
+      * [Merging of multiple wedges (kamo.multi_merge)](#merging-of-multiple-wedges-kamomulti_merge)
+         * [Clustering](#clustering)
+         * [Bad frame detection](#bad-frame-detection)
+         * [Bad dataset detection](#bad-dataset-detection)
+         * [Choice of scaling reference](#choice-of-scaling-reference)
+   * [FAQ](#faq)
+      * [KAMO](#kamo)
+            * [I'm too lazy to click all checkboxes](#im-too-lazy-to-click-all-checkboxes)
+         * [I want to use prior unit cell information](#i-want-to-use-prior-unit-cell-information)
+         * [I want to give the correct experimental parameters as image header is wrong](#i-want-to-give-the-correct-experimental-parameters-as-image-header-is-wrong)
+      * [kamo.multi_merge](#kamomulti_merge)
+         * [Where is the data for structural refinement?](#where-is-the-data-for-structural-refinement)
+   * [How can I use KAMO at home?](#how-can-i-use-kamo-at-home)
+      * [Installation](#installation)
+      * [How to update KAMO](#how-to-update-kamo)
+      * [Launch](#launch)
+   * [Version hisotry](#version-hisotry)
+
 
 ### Dependencies
 KAMO uses following programs and libraries.

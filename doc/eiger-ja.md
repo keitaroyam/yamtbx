@@ -5,6 +5,25 @@ English version is [here](eiger-en.md).
 本稿ではBL32XUにおけるEIGER X 9Mに関して記述します．
 本内容はEIGERのfirmware更新などによって変更される可能性があります．
 
+  * [EIGER HDF5について](#eiger-hdf5について) 
+     * [内部データの圧縮(filter)](#内部データの圧縮filter)
+  * [ソフトウェアの導入](#ソフトウェアの導入) 
+     * [HDF5 software](#hdf5-software)
+     * [eiger2cbf (H5ToXds互換)](#eiger2cbf-h5toxds互換) 
+     * [bitshuffle plugin (少し上級編)](#bitshuffle-plugin-少し上級編) 
+     * [Neggia plugin (XDSでpluginを使った処理を行いたい場合のみ)](#neggia-plugin-xdsでpluginを使った処理を行いたい場合のみ) 
+        * [コンパイル済みのバイナリを入手する](#コンパイル済みのバイナリを入手する) 
+        * [自分でビルドする](#自分でビルドする) 
+  * [イメージの表示](#イメージの表示) 
+  * [データ処理の方法](#データ処理の方法) 
+     * [XDS](#xds)
+        * [H5ToXdsを使う方法](#h5toxdsを使う方法) 
+        * [pluginを使う方法](#pluginを使う方法) 
+     * [DIALS](#dials)
+     * [iMosflm](#imosflm)
+     * [HKL-2000](#hkl-2000)
+  * [参考](#参考) 
+
 ## EIGER HDF5について
 
 hdf5 (.h5)はこれまでのイメージフォーマット(.img, .cbf)と違い，複数のイメージを1つのファイルにまとめて保存することができます．
