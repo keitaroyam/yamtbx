@@ -76,6 +76,10 @@ class HtmlReportMulti:
 </script>
 
 <style>
+pre {
+    font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+}
+
 .cells_table {
     font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
     width: 100%%;

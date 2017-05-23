@@ -15,6 +15,7 @@ from yamtbx import util
 
 import iotbx.phil
 import libtbx.phil
+from libtbx import easy_mp
 from libtbx.utils import multi_out
 from cctbx.crystal import reindex
 from cctbx import crystal
@@ -22,9 +23,12 @@ from cctbx import sgtbx
 from cctbx.array_family import flex
 
 import os
+import time
 import sys
 import shutil
 import numpy
+import traceback
+from cStringIO import StringIO
 
 master_params_str = """
 topdir = None
@@ -44,7 +48,104 @@ reference_for_reindex = None
  .help = Reference reflection data for resolving indexing ambiguity
 """
 
-def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_symm=None):
+def prepare_dials_files(wd, out, space_group=None, reindex_op=None):
+    try:
+        from yamtbx.dataproc.dials.command_line import import_xds_for_refine
+        import_xds_for_refine.run(xds_inp=os.path.join(wd, "XDS.INP"),
+                                  xparm=os.path.join(wd, "XPARM.XDS"),
+                                  integrate_lp=os.path.join(wd, "INTEGRATE.LP"),
+                                  integrate_hkl=os.path.join(wd, "INTEGRATE.HKL"),
+                                  spot_xds=os.path.join(wd, "SPOT.XDS"),
+                                  space_group=space_group, reindex_op=reindex_op,
+                                  out_dir=wd)
+    except:
+        print >>out, "Error in generation of dials files in %s" % wd
+        print >>out, traceback.format_exc()
+# prepare_dials_files()
+
+def rescale_with_specified_symm_worker(sym_wd, topdir, log_out, reference_symm, sgnum, sgnum_laue, prep_dials_files=False):
+    sym, wd = sym_wd
+    out = StringIO()
+    print >>out,  os.path.relpath(wd, topdir),
+
+    # Find appropriate data # XXX not works for DIALS data!!
+    xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
+                                             "XDS_ASCII_fullres.HKL.org", "XDS_ASCII_fullres.HKL",
+                                             "XDS_ASCII.HKL.org", "XDS_ASCII.HKL"),
+                                            wd=wd)
+    if xac_file is None:
+        print >>out, "Can't find XDS_ASCII file in %s" % wd
+        log_out.write(out.getvalue())
+        log_out.flush()
+        return (wd, None)
+
+    xac = XDS_ASCII(xac_file, read_data=False)
+    print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
+                                 ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
+
+    if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
+        if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10):
+            print >>out,  "  Already scaled with specified symmetry"
+            log_out.write(out.getvalue())
+            log_out.flush()
+
+            if prep_dials_files: prepare_dials_files(wd, out)
+            return (wd, (numpy.array(xac.symm.unit_cell().parameters()), xac_file))
+
+    xdsinp = os.path.join(wd, "XDS.INP")
+    cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
+
+    if len(cosets.combined_cb_ops())==0:
+        print >>out, "Can't find operator:"
+        sym.show_summary(out, " ")
+        reference_symm.show_summary(out, " ")
+        log_out.write(out.getvalue())
+        log_out.flush()
+        return (wd, None)
+
+    newcell = reference_symm.space_group().average_unit_cell(xac.symm.change_basis(cosets.combined_cb_ops()[0]).unit_cell())
+    newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
+    print >>out,  "Scaling with transformed cell:", newcell
+
+    #for f in xds_files.generated_by_CORRECT:
+    #    util.rotate_file(os.path.join(wd, f))
+    bk_prefix = make_backup(xds_files.generated_by_CORRECT, wdir=wd, quiet=True)
+
+    modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
+                                      ("SPACE_GROUP_NUMBER", "%d"%sgnum),
+                                      ("UNIT_CELL_CONSTANTS", newcell),
+                                      ("INCLUDE_RESOLUTION_RANGE", "50 0"),
+                                      ("CORRECTIONS", ""),
+                                      ("NBATCH", "1"),
+                                      ("MINIMUM_I/SIGMA", None), # use default
+                                      ("REFINE(CORRECT)", None), # use default
+                                      ])
+    run_xds(wd)
+    for f in ("XDS.INP", "CORRECT.LP", "XDS_ASCII.HKL", "GXPARM.XDS"):
+        if os.path.exists(os.path.join(wd, f)):
+            shutil.copyfile(os.path.join(wd, f), os.path.join(wd, f+"_rescale"))
+
+    revert_files(xds_files.generated_by_CORRECT, bk_prefix, wdir=wd, quiet=True)
+
+    new_xac = os.path.join(wd, "XDS_ASCII.HKL_rescale")
+    new_gxparm = os.path.join(wd, "GXPARM.XDS_rescale")
+
+    if prep_dials_files:
+        prepare_dials_files(wd, out,
+                            space_group=reference_symm.space_group(),
+                            reindex_op=cosets.combined_cb_ops()[0])
+
+    ret = None
+    if os.path.isfile(new_xac) and os.path.isfile(new_gxparm):
+        ret = (XPARM(new_gxparm).unit_cell, new_xac)
+        print >>out, " OK:", ret[0]
+    else:
+        print >>out, "Error: rescaling failed (Can't find XDS_ASCII.HKL)"
+
+    return (wd, ret)
+# rescale_with_specified_symm_worker()
+
+def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_symm=None, nproc=1, prep_dials_files=False):
     assert (sgnum, reference_symm).count(None) == 1
 
     if sgnum is not None:
@@ -64,130 +165,103 @@ def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_
     print >>out,  " reference cell:", reference_symm.unit_cell()
     print >>out
     print >>out
+    st_time = time.time()
 
-    cells = {} # cell and file
-    for sym, wd in zip(symms, dirs):
-        print >>out,  os.path.relpath(wd, topdir),
-
-        # Find appropriate data
-        xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
-                                                 "XDS_ASCII_fullres.HKL.org", "XDS_ASCII_fullres.HKL",
-                                                 "XDS_ASCII.HKL.org", "XDS_ASCII.HKL"),
-                                                wd=wd)
-        if xac_file is None:
-            print >>out, "Can't find XDS_ASCII file in %s" % wd
-            continue
-
-        xac = XDS_ASCII(xac_file, read_data=False)
-        print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
-                                     ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
-
-        if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
-            if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10):
-                print >>out,  "  Already scaled with specified symmetry"
-                cells[wd] = (numpy.array(xac.symm.unit_cell().parameters()), xac_file)
-                continue
-
-        xdsinp = os.path.join(wd, "XDS.INP")
-        cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
-
-        if len(cosets.combined_cb_ops())==0:
-            print >>out, "Can't find operator:"
-            sym.show_summary(out, " ")
-            reference_symm.show_summary(out, " ")
-            continue
-
-        newcell = reference_symm.space_group().average_unit_cell(xac.symm.change_basis(cosets.combined_cb_ops()[0]).unit_cell())
-        newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
-        print >>out,  "Scaling with transformed cell:", newcell
-
-        #for f in xds_files.generated_by_CORRECT:
-        #    util.rotate_file(os.path.join(wd, f))
-        bk_prefix = make_backup(xds_files.generated_by_CORRECT, wdir=wd, quiet=True)
-
-        modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
-                                          ("SPACE_GROUP_NUMBER", "%d"%sgnum),
-                                          ("UNIT_CELL_CONSTANTS", newcell),
-                                          ("INCLUDE_RESOLUTION_RANGE", "50 0"),
-                                          ("CORRECTIONS", ""),
-                                          ("NBATCH", "1"),
-                                          ("MINIMUM_I/SIGMA", None), # use default
-                                          ("REFINE(CORRECT)", None), # use default
-                                          ])
-        run_xds(wd)
-        for f in ("XDS.INP", "CORRECT.LP", "XDS_ASCII.HKL", "GXPARM.XDS"):
-            if os.path.exists(os.path.join(wd, f)):
-                shutil.copyfile(os.path.join(wd, f), os.path.join(wd, f+"_rescale"))
-
-        revert_files(xds_files.generated_by_CORRECT, bk_prefix, wdir=wd, quiet=True)
-
-        new_xac = os.path.join(wd, "XDS_ASCII.HKL_rescale")
-        new_gxparm = os.path.join(wd, "GXPARM.XDS_rescale")
-        if os.path.isfile(new_xac) and os.path.isfile(new_gxparm):
-            cells[wd] = (XPARM(new_gxparm).unit_cell, new_xac)
-            print "OK:", cells[wd][0]
-        else:
-            print >>out, "Error: rescaling failed (Can't find XDS_ASCII.HKL)"
-            continue
-
+    ret = easy_mp.pool_map(fixed_func=lambda x: rescale_with_specified_symm_worker(x, topdir, out, reference_symm, sgnum, sgnum_laue, prep_dials_files),
+                           args=zip(symms, dirs), processes=nproc)
+    cells = dict(filter(lambda x: x[1] is not None, ret)) # cell and file
+    print >>out, "\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc)
     return cells, reference_symm
 # rescale_with_specified_symm()
 
-def reindex_with_specified_symm(topdir, reference_symm, dirs, out):
+def reindex_with_specified_symm_worker(wd, topdir, log_out, reference_symm, sgnum_laue, prep_dials_files=False):
+    out = StringIO()
+    print >>out, "%s:" % os.path.relpath(wd, topdir),
+    
+    # Find appropriate data
+    xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
+                                             "XDS_ASCII_fullres.HKL.org", "XDS_ASCII_fullres.HKL",
+                                             "XDS_ASCII.HKL.org", "XDS_ASCII.HKL", "DIALS.HKL.org", "DIALS.HKL"),
+                                            wd=wd)
+    if xac_file is None:
+        print >>out, "Can't find XDS_ASCII file in %s" % wd
+        log_out.write(out.getvalue())
+        log_out.flush()
+        return (wd, None)
+
+    if xac_file.endswith(".org"): xac_file_org, xac_file = xac_file, xac_file[:-4]
+    else: xac_file_org = xac_file+".org"
+
+    if not os.path.isfile(xac_file_org):
+        os.rename(xac_file, xac_file_org)
+
+    xac = XDS_ASCII(xac_file_org, read_data=False)
+    print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
+                               ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
+
+    if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
+        if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10): # XXX Check unit cell consistency!!
+            print >>out,  "  Already scaled with specified symmetry"
+            os.rename(xac_file_org, xac_file) # rename back
+            log_out.write(out.getvalue())
+            log_out.flush()
+
+            if prep_dials_files and not xac_file.endswith("DIALS.HKL"):
+                prepare_dials_files(wd, out)
+
+            return (wd, (numpy.array(xac.symm.unit_cell().parameters()), xac_file))
+            
+
+    cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
+
+    if len(cosets.combined_cb_ops())==0:
+        print >>out, "Can't find operator:"
+        xac.symm.show_summary(out, " ")
+        reference_symm.show_summary(out, " ")
+        log_out.write(out.getvalue())
+        log_out.flush()
+        return (wd, None)
+
+    newcell = xac.write_reindexed(op=cosets.combined_cb_ops()[0],
+                                  space_group=reference_symm.space_group(),
+                                  hklout=xac_file)
+    ret = (numpy.array(newcell.parameters()), xac_file)
+
+    if "DIALS.HKL" in os.path.basename(xac_file):
+        for f in ("experiments.json", "indexed.pickle"):
+            if not os.path.isfile(os.path.join(os.path.dirname(xac_file), f)): continue
+            util.call('dials.reindex %s change_of_basis_op=%s space_group="%s" '%(f, 
+                                                                                  cosets.combined_cb_ops()[0].as_abc(), 
+                                                                                  reference_symm.space_group_info()),
+                      wdir=os.path.dirname(xac_file))
+    elif prep_dials_files:
+        prepare_dials_files(wd, out,
+                            space_group=reference_symm.space_group(),
+                            reindex_op=cosets.combined_cb_ops()[0])
+
+    newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
+    print >>out,  "  Reindexed to transformed cell: %s with %s" % (newcell, cosets.combined_cb_ops()[0].as_hkl())
+    log_out.write(out.getvalue())
+    log_out.flush()
+    return (wd, ret)
+# reindex_with_specified_symm_worker()
+
+def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, prep_dials_files=False):
     print >>out
     print >>out,  "Re-index to specified symmetry:"
     reference_symm.show_summary(out, "  ")
     print >>out
     print >>out
 
-    cells = {} # cell and file
+    st_time = time.time()
 
     sgnum_laue = reference_symm.space_group().build_derived_reflection_intensity_group(False).type().number()
 
-    for wd in dirs:
-        print >>out, "%s:" % os.path.relpath(wd, topdir),
+    ret = easy_mp.pool_map(fixed_func=lambda wd: reindex_with_specified_symm_worker(wd, topdir, out, reference_symm, sgnum_laue, prep_dials_files),
+                           args=dirs, processes=nproc)
+    cells = dict(filter(lambda x: x[1] is not None, ret)) # cell and file
 
-        # Find appropriate data
-        xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
-                                                 "XDS_ASCII_fullres.HKL.org", "XDS_ASCII_fullres.HKL",
-                                                 "XDS_ASCII.HKL.org", "XDS_ASCII.HKL"),
-                                                wd=wd)
-        if xac_file is None:
-            print >>out, "Can't find XDS_ASCII file in %s" % wd
-            continue
-
-        if xac_file.endswith(".org"): xac_file_org, xac_file = xac_file, xac_file[:-4]
-        else: xac_file_org = xac_file+".org"
-
-        if not os.path.isfile(xac_file_org):
-            os.rename(xac_file, xac_file_org)
-
-        xac = XDS_ASCII(xac_file_org, read_data=False)
-        print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
-                                   ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
-
-        if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
-            if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10): # XXX Check unit cell consistency!!
-                print >>out,  "  Already scaled with specified symmetry"
-                os.rename(xac_file_org, xac_file) # rename back
-                cells[wd] = (numpy.array(xac.symm.unit_cell().parameters()), xac_file)
-                continue
-
-        cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
-
-        if len(cosets.combined_cb_ops())==0:
-            print >>out, "Can't find operator:"
-            xac.symm.show_summary(out, " ")
-            reference_symm.show_summary(out, " ")
-            continue
-
-        newcell = xac.write_reindexed(op=cosets.combined_cb_ops()[0],
-                                      space_group=reference_symm.space_group(),
-                                      hklout=xac_file)
-        cells[wd] = (numpy.array(newcell.parameters()), xac_file)
-
-        newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
-        print >>out,  "  Reindexed to transformed cell: %s with %s" % (newcell, cosets.combined_cb_ops()[0].as_hkl())
+    print >>out, "\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc)
 
     return cells
 # reindex_with_specified_symm()

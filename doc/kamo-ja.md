@@ -1,7 +1,7 @@
 # KAMO
 ## 概要
 *KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system*は，（高分子）単結晶X線回折データの自動処理＆マージのために開発中のプログラムです．
-基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能（になる予定）です．
+基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能です．
 現在のところ，small wedgeデータ(5-10°/結晶)の自動処理・マージを主眼に開発しています．
 
 SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
@@ -27,13 +27,13 @@ SPring-8でのオンラインデータ解析のために設計されています
          * [scaling referenceの選定](#scaling-referenceの選定)
    * [FAQ](#faq)
       * [KAMO](#kamo)
-            * [チェックボックスを1つ1つチェックしていくのが面倒](#チェックボックスを1つ1つチェックしていくのが面倒)
+         * [チェックボックスを1つ1つチェックしていくのが面倒](#チェックボックスを1つ1つチェックしていくのが面倒)
          * [格子定数が既知なのでそれを使って欲しい](#格子定数が既知なのでそれを使って欲しい)
          * [ヘッダが間違っているので正しい値を与えたい](#ヘッダが間違っているので正しい値を与えたい)
       * [kamo.multi_merge](#kamomulti_merge)
          * [精密化に使うためのデータはどこ？](#精密化に使うためのデータはどこ)
    * [ローカル環境での使用方法](#ローカル環境での使用方法)
-      * [PHENIXを利用した環境構築](#phenixを利用した環境構築)
+      * [DIALSを利用した環境構築](#dialsを利用した環境構築)
       * [KAMOのアップデート](#kamoのアップデート)
       * [起動](#起動)
    * [バージョン履歴](#バージョン履歴)
@@ -258,23 +258,25 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 
 次に，[INSTALL.md](../INSTALL.md)に従って環境構築を行いますが，難しければ，以下のPHENIXを使った方法が簡単です．
 
-### PHENIXを利用した環境構築
+### DIALSを利用した環境構築
+注: これまでPHENIXの環境を利用することを推奨していましたが，最新機能の一部がDIALSのモジュールを利用するようになったため，今後はDIALSを利用することを推奨します．基本的にはPHENIX環境でも動かせます(以下のDIALSをPHENIXに読み替えてください)．
+
 1. CCP4, R (rjson packageも含め), XDSをインストールする
    * XDS/XDSSTATのインストールは[XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)を参照
    * EIGERデータを処理する場合は[H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換)も必要です
-2. [PHENIX](http://www.phenix-online.org/)-1.10以上をインストールする
-3. networkxをphenix.pythonから使えるようにする
-   1. `cd $PHENIX/build`
+2. [DIALS](https://dials.github.io/installation.html)-1.5以上をインストールする
+3. networkxをdials.pythonから使えるようにする
+   1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx`
-4. scipyをphenix.pythonから使えるようにする
+4. scipyをdials.pythonから使えるようにする
    1. Macの場合，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
-   2. `cd $PHENIX/build`
+   2. `cd $DIALS/build`
    3. `./bin/libtbx.python -m easy_install scipy`
 5. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
 ```
 cd $HOME
 git clone https://github.com/keitaroyam/yamtbx.git
-cd $PHENIX/modules
+cd $DIALS/modules
 ln -s ~/yamtbx/yamtbx .
 cd ../build
 ./bin/libtbx.configure yamtbx
@@ -290,7 +292,7 @@ kamo.test_installation
 以下の手順で最新版にアップデートできます
 1. yamtbxをcloneした場所へ移動(`cd`)
 2. `git pull`
-4. `$PHENIX/build/bin/libtbx.refresh`
+4. `$DIALS/build/bin/libtbx.refresh`
 
 ### 起動
 基本的には上記と一緒ですが，
@@ -312,6 +314,10 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-05-23
+   * KAMO: DIALSのサポート(`engine=dials`)
+   * KAMO: multi-merge準備作業の並列化，DIALSでjoint refinementを行うためのファイル出力オプションを追加(DIALS環境へ組み込まれていることが必要)．
+   * kamo.multi_merge: 異方性分析のバグ修正
 * 2017-04-19
    * KAMO: eiger2cbfで作成されたCBFファイルのサポートを追加．ビームラインでのオンライン処理時にEiger h5ファイルのダウンロードを待つように修正+minisetサポートを追加．
 * 2017-03-24

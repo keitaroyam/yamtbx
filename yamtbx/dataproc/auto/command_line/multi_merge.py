@@ -420,6 +420,11 @@ def run(params):
         print >>out, "ERROR! Cannot find (existing) files in %s." % params.lstin
         return
 
+    if len(xds_ascii_files) < 2:
+        print >>out, "ERROR! Only one file in %s." % params.lstin
+        print >>out, "       Give at least two files for merging."
+        return        
+
     cells = collections.OrderedDict()
     laues = {} # for check
     for xac in xds_ascii_files:
@@ -544,7 +549,14 @@ def run(params):
             print >>out, "Only first %d (/%d) clusters will be merged (as specified by max_clusters=)" % (params.max_clusters, len(clusters))
             clusters = clusters[:params.max_clusters]
 
-        print >>out, "With specified conditions, following %d clusters will be merged:" % len(clusters)
+        if clusters:
+            print >>out, "With specified conditions, following %d clusters will be merged:" % len(clusters)
+        else:
+            print >>out, "\nERROR: No clusters satisfied the specified conditions for merging!"
+            print >>out, "Please change criteria of completeness or redundancy"
+            print >>out, "Here is the table of completeness and redundancy for each cluster:\n"
+            print >>out, open(summary_out).read()
+
         for clno, IDs, clh, cmpl, redun, acmpl, aredun, LCV, aLCV in clusters: # process largest first
             print >>out, " Cluster_%.4d NumDS= %4d CLh= %5.1f Cmpl= %6.2f Redun= %4.1f ACmpl=%6.2f ARedun=%4.1f LCV= %5.1f aLCV=%5.1f" % (clno, len(IDs), clh, cmpl, redun, acmpl, aredun, LCV, aLCV)
             data_for_merge.append((os.path.join(params.workdir, "cluster_%.4d"%clno),
@@ -585,7 +597,14 @@ def run(params):
             print >>out, "Only first %d (/%d) clusters will be merged (as specified by max_clusters=)" % (params.max_clusters, len(clusters))
             clusters = clusters[:params.max_clusters]
 
-        print >>out, "With specified conditions, following %d clusters will be merged:" % len(clusters)
+        if clusters:
+            print >>out, "With specified conditions, following %d clusters will be merged:" % len(clusters)
+        else:
+            print >>out, "\nERROR: No clusters satisfied the specified conditions for merging!"
+            print >>out, "Please change criteria of completeness or redundancy"
+            print >>out, "Here is the table of completeness and redundancy for each cluster:\n"
+            print >>out, open(summary_out).read()
+
         for clno, IDs, clh, cmpl, redun, acmpl, aredun in clusters: # process largest first
             print >>out, " Cluster_%.4d NumDS= %4d CLh= %5.1f Cmpl= %6.2f Redun= %4.1f ACmpl=%6.2f ARedun=%4.1f" % (clno, len(IDs), clh, cmpl, redun, acmpl, aredun)
             data_for_merge.append((os.path.join(params.workdir, "cluster_%.4d"%clno),

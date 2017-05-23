@@ -175,10 +175,7 @@ class XPARM:
         print 
 # class XPARM
 
-
-def get_xparm_from_integrate_lp(lpfile, frame):
-    assert 0 < frame
-
+def prep_xparm_objects_from_integrate_lp(lpfile, xparm_ref=None):
     keys = {"beam direction": "DIRECT BEAM COORDINATES (REC. ANGSTROEM)",
             "beam center": "DETECTOR ORIGIN (PIXELS) AT",
             "distance": "CRYSTAL TO DETECTOR DISTANCE (mm)",
@@ -189,45 +186,52 @@ def get_xparm_from_integrate_lp(lpfile, frame):
             "cell": "UNIT CELL PARAMETERS",
             "spacegroup": "SPACE GROUP NUMBER"
             }
-    data = {}
-    
+    all_data = []
+
     flag_read = False
     for l in open(lpfile):
         if "PROCESSING OF IMAGES" in l:
             flag_read = False
             l = l.strip()
-            first, last = map(lambda x:int(x.strip()), l[l.index("PROCESSING OF IMAGES")+len("PROCESSING OF IMAGES"):].split("..."))
-            if first <= frame <= last:
-                flag_read = True
-
-        if flag_read:
+            range_current = map(lambda x:int(x.strip()),
+                                l[l.index("PROCESSING OF IMAGES")+len("PROCESSING OF IMAGES"):].split("..."))
+            
+            flag_read = True
+            all_data.append([tuple(range_current), {}])
+        elif "STANDARD DEVIATIONS OF BEAM DIVERGENCE AND REFLECTING RANGE OBTAINED" in l:
+            flag_read = False
+        elif flag_read:
             for key, s in keys.items():
                 if s in l:
                     l = l.strip()
                     val = map(lambda x:float(x.strip()), l[l.index(s)+len(s):].split())
-                    data[key] = val
+                    all_data[-1][1][key] = val
 
-    beam = data["beam direction"]
-    rotaxis = data["rotation axis"]
-    distance = data["distance"][0]
-    orgx, orgy = data["beam center"]
-    spacegroup = data["spacegroup"][0]
-    a, b, c, alpha, beta, gamma = data["cell"]
-    aaxis = data["a axis"]
-    baxis = data["b axis"]
-    caxis = data["c axis"]
+    ret = []
 
-    xp = XPARM(os.path.join(os.path.dirname(lpfile), "XPARM.XDS"))
+    for r, data in all_data:
+        xp = XPARM(xparm_ref)
+        
+        if "rotation axis" in data: xp.rotation_axis = numpy.array(data["rotation axis"])
+        if "beam direction" in data: xp.incident_beam = numpy.array(data["beam direction"])
+        if "spacegroup" in data: xp.spacegroup = int(data["spacegroup"][0])
+        if "cell" in data: xp.unit_cell = numpy.array(data["cell"])
+        if "a axis" in data: xp.a_axis = numpy.array(data["a axis"])
+        if "b axis" in data: xp.b_axis = numpy.array(data["b axis"])
+        if "c axis" in data: xp.c_axis = numpy.array(data["c axis"])
+        if "beam center" in data: xp.origin = numpy.array(data["beam center"])
+        if "distance" in data: xp.distance = data["distance"][0]
 
-    xp.rotation_axis = numpy.array(rotaxis)
-    xp.incident_beam = numpy.array(beam)
-    xp.spacegroup = spacegroup
-    xp.unit_cell = numpy.array((a, b, c, alpha, beta, gamma))
-    xp.a_axis = numpy.array(aaxis)
-    xp.b_axis = numpy.array(baxis)
-    xp.c_axis = numpy.array(caxis)
-    xp.origin = numpy.array((orgx, orgy))
-    xp.distance = distance
+        ret.append((r, xp))
+
+    return ret
+# prep_xparm_objects_from_integrate_lp()
+
+def get_xparm_from_integrate_lp(lpfile, frame):
+    assert 0 < frame
+
+    xparm_objs = prep_xparm_objects_from_integrate_lp(lpfile)
+    xp = filter(lambda x: x[0][0] <= frame <= x[0][1], xparm_objs)[0][1]
 
     return xp.xparm_str()
 # get_xparm_from_integrate_lp()

@@ -100,6 +100,31 @@ def tst_ccp4():
     return True
 # tst_ccp4()
 
+def tst_dials():
+    print "Testing dials (package).."
+    rcode, out, err = util.call("dials.version")
+
+    if rcode != 0:
+        print "  Not installed. NG"
+        return False
+
+    print "\n".join(map(lambda x: "  "+x, out.splitlines()))
+    print "  OK"
+    return True
+# tst_dials()
+
+def tst_dials_module():
+    print "Testing dials (module).."
+
+    try:
+        from dials.util.version import dials_version
+        print "  %s installed. OK" % dials_version()
+        return True
+    except ImportError:
+        print "  Not installed. NG"
+        return False
+# tst_dials_module()
+
 #def tst_h5():
 #    print "Testing hdf5..",   
 
@@ -197,8 +222,8 @@ def run():
 
     failed = []
 
-    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_h5toxds, tst_ccp4, tst_adxv, tst_numpy,
-              tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
+    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_h5toxds, tst_ccp4, tst_dials, tst_dials_module,
+              tst_adxv, tst_numpy, tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
         ret = f()
         if not ret: failed.append(f.func_name)
 

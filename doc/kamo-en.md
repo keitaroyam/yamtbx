@@ -1,7 +1,7 @@
 # KAMO
 ## Overview
 *KAMO (in Japanese: Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru; to process thoroughly-collected data in better way than manually and give back to user) system* is the program for automated processing and merging of (MX) crystal diffraction data.
-Basically KAMO uses [XDS package](http://xds.mpimf-heidelberg.mpg.de), but it will support [DIALS](https://dials.github.io/) and [Aimless](http://www.ccp4.ac.uk/html/aimless.html) optionally.
+Basically KAMO uses [XDS package](http://xds.mpimf-heidelberg.mpg.de), but it supports [DIALS](https://dials.github.io/) and [Aimless](http://www.ccp4.ac.uk/html/aimless.html) optionally.
 Currently, the development is focused on processing and merging of small wedge data (5-10°/crystal).
 
 KAMO is designed for online analysis for SPring-8 MX beamlines; however, it can be used offline for local data. Please let me know if you need support for your beamline/detector.
@@ -27,7 +27,7 @@ This manual is for 2015-12-18.
          * [Choice of scaling reference](#choice-of-scaling-reference)
    * [FAQ](#faq)
       * [KAMO](#kamo)
-            * [I'm too lazy to click all checkboxes](#im-too-lazy-to-click-all-checkboxes)
+         * [I'm too lazy to click all checkboxes](#im-too-lazy-to-click-all-checkboxes)
          * [I want to use prior unit cell information](#i-want-to-use-prior-unit-cell-information)
          * [I want to give the correct experimental parameters as image header is wrong](#i-want-to-give-the-correct-experimental-parameters-as-image-header-is-wrong)
       * [kamo.multi_merge](#kamomulti_merge)
@@ -261,20 +261,20 @@ If this is too hard, there is much easier way:
 
 1. Install CCP4, R with rjson package, XDS
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
-   * If you will process EIGER data (h5 files), [H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換) is needed
-2. Install [PHENIX](http://www.phenix-online.org/)-1.10 or newer
-3. Install networkx to phenix.python
-   1. `cd $PHENIX/build`
+   * If you will process EIGER data (h5 files), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) is needed
+2. Install [DIALS](https://dials.github.io/installation.html)-1.5 or newer
+3. Install networkx to dials.python
+   1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx`
-4. Install scipy to phenix.python
+4. Install scipy to dials.python
    1. If Mac, install [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS). If Linux, install blas-devel and lapack-devel using yum or something.
-   2. `cd $PHENIX/build`
+   2. `cd $DIALS/build`
    3. `./bin/libtbx.python -m easy_install scipy`
 5. Run the following commands (yamtbx can be cloned anywhere you like)
 ```
 cd $HOME
 git clone https://github.com/keitaroyam/yamtbx.git
-cd $PHENIX/modules
+cd $DIALS/modules
 ln -s ~/yamtbx/yamtbx .
 cd ../build
 ./bin/libtbx.configure yamtbx
@@ -289,7 +289,7 @@ to check if dependencies are all installed.
 ### How to update KAMO
 1. `cd` where-you-cloned-yamtbx
 2. `git pull`
-4. `$PHENIX/build/bin/libtbx.refresh`
+4. `$DIALS/build/bin/libtbx.refresh`
 
 ### Launch
 Basically, the same as above, but like
@@ -310,6 +310,10 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-05-23
+   * KAMO: Add DIALS support (`engine=dials`).
+   * KAMO: Multiprocessing of preparation of multi-merge. New option to prepare files for joint refinement using DIALS (requires KAMO built on DIALS environment)
+   * kamo.multi_merge: bug fix in anisotropy analysis.
 * 2017-04-19
    * KAMO: Added support of eiger2cbf converted CBF files. For online processing at beamline, wait until all Eiger h5 files downloaded, and added support of miniset.
 * 2017-03-24

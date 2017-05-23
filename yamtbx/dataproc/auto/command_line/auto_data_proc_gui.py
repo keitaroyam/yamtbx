@@ -24,6 +24,7 @@ from yamtbx.util.xtal import format_unit_cell
 import iotbx.phil
 import libtbx.phil
 from libtbx.utils import multi_out
+import libtbx.easy_mp
 from cctbx import sgtbx
 from cctbx.crystal import reindex
 
@@ -141,6 +142,9 @@ auto_frame_exclude_spot_based = false
 exclude_ice_resolutions = false
  .type = bool
 
+anomalous = true
+ .type = bool
+
 engine = *xds dials
  .type = choice(multi=False)
 
@@ -158,6 +162,13 @@ xds {
   .multiple = true
   .help = extra keywords for XDS.INP
  override {
+  geometry_reference = None
+   .type = path
+   .help = "XDS.INP or json file of dials"
+  fix_geometry_when_reference_provided = False
+   .type = bool
+   .help = "Don't refine geometric parameters when geometry_reference= specified."
+
   rotation_axis = None
    .type = floats(size=3)
    .help = "override ROTATION_AXIS= "
@@ -180,6 +191,9 @@ reverse_phi = true
 split_hdf_miniset = true
  .type = bool
  .help = Whether or not minisets in hdf5 are treated individually.
+split_data_by_deg = None
+ .type = float
+ .help = Split data with specified degrees. Currently only works with bl=other.
 log_root = None
  .type = path
  .help = debug log directory
@@ -228,8 +242,22 @@ class BssJobs:
         self._current_prefix = None
         self._joblogs = []
         self._chaches = {} # chache logfile objects. {filename: [timestamp, objects..]
+
+        self.xds_inp_overrides = []
     # __init__()
 
+    def load_override_geometry(self, ref_file):
+        import json
+        try:
+            json.load(open(ref_file)) # if success..
+            self.xds_inp_overrides = xds_inp.import_geometry(dials_json=ref_file)
+        except:
+            self.xds_inp_overrides = xds_inp.import_geometry(xds_inp=ref_file)
+
+        if self.xds_inp_overrides:
+            mylog.info("Geometry reference loaded from %s" % ref_file)
+            mylog.debug("Loaded geometry: %s" % self.xds_inp_overrides)
+            
     def get_job(self, key): return self.jobs.get(key, None)
     def keys(self): return self.jobs.keys()
     def get_xds_workdir(self, key):
@@ -243,7 +271,6 @@ class BssJobs:
 
         self._prev_job_finished = False
 
-        print "config.params.blconfig=", config.params.blconfig
         bsslogs = []
         for dday in xrange(daystart, 1):
             for blconfig in config.params.blconfig:
@@ -468,9 +495,18 @@ class BssJobs:
                     print "This job don't look like osc data set:",  tmpl
                     continue
                     
-                self.jobs[(prefix, nr)] = job
-                self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
-                    
+                if config.params.split_data_by_deg is None or job.osc_step==0:
+                    self.jobs[(prefix, nr)] = job
+                    self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
+                else:
+                    n_per_sp = int(config.params.split_data_by_deg/job.osc_step+.5)
+                    for i in xrange(nr[1]//n_per_sp+1):
+                        if (i+1)*n_per_sp < nr[0]: continue
+                        if nr[1] < i*n_per_sp+1: continue
+                        nr2 = (max(i*n_per_sp+1, nr[0]), min((i+1)*n_per_sp, nr[1]))
+                        self.jobs[(prefix, nr2)] = job # This will share the same job object.. any problem??
+                        self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
+
         # Dump jobs
         pickle.dump(self.jobs, open(os.path.join(config.params.workdir, "jobs.pkl"), "wb"), 2)
     # update_jobs_from_files()
@@ -527,7 +563,8 @@ class BssJobs:
 
         xdsinp_str = xds_inp.generate_xds_inp(img_files=img_files,
                                               inp_dir=os.path.abspath(workdir),
-                                              reverse_phi=config.params.reverse_phi, anomalous=True,
+                                              reverse_phi=config.params.reverse_phi,
+                                              anomalous=config.params.anomalous,
                                               spot_range="all", minimum=False,
                                               integrate_nimages=None, minpk=config.params.xds.minpk,
                                               exclude_resolution_range=exclude_resolution_ranges,
@@ -538,7 +575,9 @@ class BssJobs:
                                               osc_range=overrides.get("osc_range",None),
                                               rotation_axis=overrides.get("rotation_axis",None),
                                               fstart=nr[0], fend=nr[1],
-                                              extra_kwds=config.params.xds.ex)
+                                              extra_kwds=config.params.xds.ex,
+                                              overrides=self.xds_inp_overrides,
+                                              fix_geometry_when_overridden=config.params.xds.override.fix_geometry_when_reference_provided)
         open(os.path.join(workdir, "XDS.INP"), "w").write(xdsinp_str)
 
         opts = ["multiproc=false", "topdir=.", "nproc=%d"%config.params.batch.nproc_each, "tryhard=true",
@@ -570,40 +609,43 @@ for i in xrange(%(repeat)d-1):
     # process_data_xds()
 
     def process_data_dials(self, key):
-        job = self.jobs[key]
+        bssjob = self.jobs[key]
         prefix, nr = key
 
         workdir = self.get_xds_workdir(key)
         if not os.path.exists(workdir): os.makedirs(workdir)
         
         # Prepare
-        img_files = find_existing_files_in_template(job.filename, nr[0], nr[1],
+        img_files = find_existing_files_in_template(bssjob.filename, nr[0], nr[1],
                                                     datadir=os.path.dirname(prefix), check_compressed=True)
         if len(img_files) == 0:
-            mylog.error("No files found for %s %s" % (job.filename, nr))
+            mylog.error("No files found for %s %s" % (bssjob.filename, nr))
             return
 
-        nproc_str = "nproc=%d"%config.params.batch.nproc_each
-        job_str = 'cd "%s" || exit 1\n' % os.path.abspath(workdir)
-        job_str += "dials.import template=%s image_range=%d,%d\n" % (job.filename.replace("?","#"),
-                                                                     nr[0], nr[1])
-        job_str += "dials.find_spots datablock.json global_threshold=200 %s\n" % nproc_str
-        job_str += "dials.index datablock.json strong.pickle indexing.method=fft3d index_assignment.method=local "
-        if None not in (config.params.known.space_group, config.params.known.unit_cell):
-            job_str += "unit_cell=%s space_group=%d\n" % (",".join(map(lambda x: "%.3f"%x, config.params.known.unit_cell)),
-                                                          sgtbx.space_group_info(config.params.known.space_group).group().type().number())
-        else:
-            job_str += "\n"
-        
-        job_str += "dials.integrate experiments.json indexed.pickle min_spots=30 %s\n" % nproc_str
-        job_str += "dials.export_mtz integrated_experiments.json integrated.pickle\n"
-        job_str += "echo tolerance 10 | pointless hklout.mtz hklout pointless.mtz > pointless.log\n"
-        job_str += "touch dials_job_finished\n"
-        # TODO config.params.xds.exclude_resolution_range config.params.reverse_phi
+        overrides = read_override_config(os.path.dirname(bssjob.filename))
 
         # Start batch job
         job = batchjob.Job(workdir, "dials_auto.sh", nproc=config.params.batch.nproc_each)
-        job.write_script(job_str)
+        job_str = """\
+cd "%(wd)s" || exit 1
+"%(exe)s" - <<+
+from yamtbx.dataproc.dials.command_line import run_dials_auto
+import pickle
+run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
++
+""" % dict(exe=sys.executable, #nproc=config.params.batch.nproc_each,
+           #filename=bssjob.filename, prefix=prefix, nr=nr,
+           wd=os.path.abspath(workdir))
+#filename_template="%(filename)s", prefix="%(prefix)s", nr_range=%(nr)s, wdir=".", nproc=%(nproc)d)
+
+        job.write_script(job_str+"\n")
+        pickle.dump(dict(filename_template=bssjob.filename,
+                         prefix=prefix,
+                         nr_range=nr, wdir=".",
+                         known=config.params.known,
+                         overrides=overrides,
+                         nproc=config.params.batch.nproc_each),
+                    open(os.path.join(workdir, "args.pkl"), "w"), -1)
         
         batchjobs.submit(job)
         self.procjobs[key] = job
@@ -626,14 +668,12 @@ for i in xrange(%(repeat)d-1):
         prefix, nr = key
         workdir = self.get_xds_workdir(key)
 
-        spot_xds = os.path.join(workdir, "SPOT.XDS")
-        xparm_xds = os.path.join(workdir, "XPARM.XDS")
-        correct_lp = os.path.join(workdir, "CORRECT.LP")
-
         state = None
         cmpl, sg, resn = None, None, None
 
         if config.params.engine == "xds":
+            correct_lp = os.path.join(workdir, "CORRECT.LP")
+
             if key not in self.procjobs: 
                 if os.path.exists(os.path.join(workdir, "decision.log")):
                     state = batchjob.STATE_FINISHED
@@ -661,8 +701,10 @@ for i in xrange(%(repeat)d-1):
                     state = "giveup"
 
         elif config.params.engine == "dials":
+            summary_pkl = os.path.join(workdir, "kamo_dials.pkl")
+
             if key not in self.procjobs: 
-                if os.path.exists(os.path.join(workdir, "dials_job_finished")):
+                if os.path.exists(os.path.join(workdir, "dials_sequence.log")):
                     state = batchjob.STATE_FINISHED
             else:
                 job = self.procjobs[key]
@@ -670,11 +712,22 @@ for i in xrange(%(repeat)d-1):
                 state = job.state
 
             if state == batchjob.STATE_FINISHED:
-                resn = float("nan")
-                sg = "?"
-                cmpl = float("nan")
+                if os.path.isfile(summary_pkl):
+                    pkl = self._load_if_chached("summary_pkl", summary_pkl)
+                    if pkl is None:
+                        pkl = pickle.load(open(summary_pkl))
+                        self._save_chache("summary_pkl", summary_pkl, pkl)
 
-                if not os.path.isfile(os.path.join(workdir, "hklout.mtz")):
+                    try: resn = float(pkl.get("d_min"))
+                    except: resn = float("nan")
+
+                    try: sg = str(pkl["symm"].space_group_info())
+                    except: sg = "?"
+                    try: 
+                        cmpl = pkl["stats"].overall.completeness*100
+                    except: cmpl = float("nan")
+
+                if not os.path.isfile(os.path.join(workdir, "DIALS.HKL")):
                     state = "giveup"
 
         return state, (cmpl, sg, resn)
@@ -686,36 +739,66 @@ for i in xrange(%(repeat)d-1):
 
         ret = {}
         ret["workdir"] = workdir
+        ret["exclude_data_ranges"] = ()
 
-        xds_inp = os.path.join(workdir, "XDS.INP")
-        correct_lp = os.path.join(workdir, "CORRECT.LP")
-        gxparm_xds = os.path.join(workdir, "GXPARM.XDS")
-        stats_pkl = os.path.join(workdir, "merging_stats.pkl")
+        if config.params.engine == "xds":
+            xds_inp = os.path.join(workdir, "XDS.INP")
+            correct_lp = os.path.join(workdir, "CORRECT.LP")
+            gxparm_xds = os.path.join(workdir, "GXPARM.XDS")
+            stats_pkl = os.path.join(workdir, "merging_stats.pkl")
 
-        if os.path.isfile(correct_lp):
-            lp = correctlp.CorrectLp(correct_lp)
-            ret["ISa"] = lp.get_ISa() if lp.is_ISa_valid() else float("nan")
-            ret["resn"] = lp.resolution_based_on_ios_of_error_table(min_ios=1.)
-            ret["sg"] = lp.space_group_str()
-            ret["cmpl"] = float(lp.table["all"]["cmpl"][-1]) if "all" in lp.table else float("nan")
-            if lp.unit_cell is not None:
-                ret["cell"] = lp.unit_cell
-            elif os.path.isfile(gxparm_xds):
-                xp = xparm.XPARM(gxparm_xds)
-                ret["cell"] = list(xp.unit_cell)
-                ret["sg"] = xp.space_group_str()
+            if os.path.isfile(correct_lp):
+                lp = correctlp.CorrectLp(correct_lp)
+                ret["ISa"] = lp.get_ISa() if lp.is_ISa_valid() else float("nan")
+                ret["resn"] = lp.resolution_based_on_ios_of_error_table(min_ios=1.)
+                ret["sg"] = lp.space_group_str()
+                ret["cmpl"] = float(lp.table["all"]["cmpl"][-1]) if "all" in lp.table else float("nan")
+                if lp.unit_cell is not None:
+                    ret["cell"] = lp.unit_cell
+                elif os.path.isfile(gxparm_xds):
+                    xp = xparm.XPARM(gxparm_xds)
+                    ret["cell"] = list(xp.unit_cell)
+                    ret["sg"] = xp.space_group_str()
 
-        if os.path.isfile(stats_pkl):
-            sio = StringIO.StringIO()
-            pickle.load(open(stats_pkl))["stats"].show(out=sio, header=False)
-            lines = sio.getvalue().replace("<","&lt;").replace(">","&gt;").splitlines()
-            i_table_begin = filter(lambda x: "Statistics by resolution bin:" in x[1], enumerate(lines))
-            if len(i_table_begin) == 1:
-                ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])
+            if os.path.isfile(stats_pkl):
+                sio = StringIO.StringIO()
+                pickle.load(open(stats_pkl))["stats"].show(out=sio, header=False)
+                lines = sio.getvalue().replace("<","&lt;").replace(">","&gt;").splitlines()
+                i_table_begin = filter(lambda x: "Statistics by resolution bin:" in x[1], enumerate(lines))
+                if len(i_table_begin) == 1:
+                    ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])
 
-        exc_frames = filter(lambda x: x[0]=="EXCLUDE_DATA_RANGE", get_xdsinp_keyword(xds_inp))
-        ret["exclude_data_ranges"] = map(lambda x: map(int, x[1].split()), exc_frames)
+            exc_frames = filter(lambda x: x[0]=="EXCLUDE_DATA_RANGE", get_xdsinp_keyword(xds_inp))
+            ret["exclude_data_ranges"] = map(lambda x: map(int, x[1].split()), exc_frames)
 
+        elif config.params.engine == "dials":
+            summary_pkl = os.path.join(workdir, "kamo_dials.pkl")
+            print summary_pkl
+            if os.path.isfile(summary_pkl):
+                pkl = pickle.load(open(summary_pkl))
+                try: ret["resn"] = float(pkl.get("d_min"))
+                except: ret["resn"] = float("nan")
+                
+                try:
+                    ret["sg"] = str(pkl["symm"].space_group_info())
+                    ret["cell"] = pkl["symm"].unit_cell().parameters()
+                except: ret["sg"] = "?"
+
+                try: 
+                    ret["cmpl"] = pkl["stats"].overall.completeness*100
+                except: ret["cmpl"] = float("nan")
+
+                if "stats" in pkl:
+                    sio = StringIO.StringIO()
+                    pkl["stats"].show(out=sio, header=False)
+                    lines = sio.getvalue().replace("<","&lt;").replace(">","&gt;").splitlines()
+                    i_table_begin = filter(lambda x: "Statistics by resolution bin:" in x[1], enumerate(lines))
+                    print                     i_table_begin
+                    if len(i_table_begin) == 1:
+                        ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])
+
+
+        print ret
         return ret
     # get_process_result()
         
@@ -791,7 +874,7 @@ class WatchLogThread:
             ev = EventLogsUpdated()
             wx.PostEvent(self.parent, ev)
 
-            # Make html report
+            # Make html report # TODO Add DIALS support
             html_report.make_kamo_report(bssjobs, 
                                          topdir=config.params.topdir,
                                          htmlout=os.path.join(config.params.workdir, "report.html"))
@@ -936,11 +1019,20 @@ class MultiPrepDialog(wx.Dialog):
         self.rbReindex = wx.RadioButton(mpanel, wx.ID_ANY, "reindexing only", style=wx.RB_GROUP)
         self.rbReindex.SetValue(True)
         self.rbPostref = wx.RadioButton(mpanel, wx.ID_ANY, "post-refinement")
-        hbox2.Add(self.rbReindex)
-        hbox2.Add(self.rbPostref)
+        hbox2.Add(self.rbReindex, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox2.Add(self.rbPostref, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, " using "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.txtNproc = wx.TextCtrl(mpanel, wx.ID_ANY, size=(40,25))
+        hbox2.Add(self.txtNproc, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, " CPU cores "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.chkPrepDials = wx.CheckBox(mpanel, wx.ID_ANY, "Prepare files for joint refinement by dials")
+        hbox2.Add(self.chkPrepDials, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
         vbox.Add(hbox2)
 
-        self.selected = (None, None, None, None)
+        try: import dials
+        except ImportError: self.chkPrepDials.Disable()
+
+        self.selected = (None, None, None, None, None, None)
         self.cm = cm
         self._set_default_input()
     # __init__()
@@ -993,12 +1085,20 @@ class MultiPrepDialog(wx.Dialog):
                              "Error", style=wx.OK).ShowModal()
             return
 
-        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine"
+        try:
+            nproc = int(self.txtNproc.GetValue())
+        except ValueError:
+            wx.MessageDialog(None, "Invalid core number",
+                             "Error", style=wx.OK).ShowModal()
+            return
+
+        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine", nproc, self.chkPrepDials.GetValue()
         self.EndModal(wx.OK)
     # btnProceed_click()
 
     def ask(self, txt):
         self.txtCM.SetValue(txt)
+        self.txtNproc.SetValue("%s"%libtbx.easy_mp.get_processes(libtbx.Auto))
         self.ShowModal()
         return self.selected
     # ask()
@@ -1195,7 +1295,7 @@ class ControlPanel(wx.Panel):
             return
         
         mpd = MultiPrepDialog(cm=cm)
-        group, symmidx, workdir, cell_method = mpd.ask(sio.getvalue())
+        group, symmidx, workdir, cell_method, nproc, prep_dials_files = mpd.ask(sio.getvalue())
         mpd.Destroy()
 
         if None in (group,symmidx):
@@ -1223,9 +1323,9 @@ class ControlPanel(wx.Panel):
                                                                    format_unit_cell(reference_symm.unit_cell())))
 
         if cell_method == "reindex":
-            cell_and_files = reindex_with_specified_symm(topdir, reference_symm, dirs, out=prep_log_out)
+            cell_and_files = reindex_with_specified_symm(topdir, reference_symm, dirs, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files)
         elif cell_method == "postrefine":
-            cell_and_files, reference_symm = rescale_with_specified_symm(topdir, dirs, symms, reference_symm=reference_symm, out=prep_log_out)
+            cell_and_files, reference_symm = rescale_with_specified_symm(topdir, dirs, symms, reference_symm=reference_symm, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files)
         else:
             raise "Don't know this choice: %s" % cell_method
 
@@ -1309,6 +1409,28 @@ kamo.multi_merge \\
 cells <- read.table("cells.dat", h=T)
 good <- subset(cells, abs(a-median(a))<IQR(a)*2.5 & abs(b-median(b))<IQR(b)*2.5 & abs(c-median(c))<IQR(c)*2.5)
 write.table(good$file, "formerge_goodcell.lst", quote=F, row.names=F, col.names=F)
+""")
+
+        if prep_dials_files:
+            wd_jref = os.path.join(workdir, "dials_joint_refine")
+            os.mkdir(wd_jref)
+
+            ofs_phil = open(os.path.join(wd_jref, "experiments_and_reflections.phil"), "w")
+            ofs_phil.write("input {\n")
+            for wd in cell_and_files:
+                fe = os.path.join(wd, "experiments.json")
+                fp = os.path.join(wd, "integrate_hkl.pickle")
+                if os.path.isfile(fe) and os.path.isfile(fp):
+                    ofs_phil.write(' experiments = "%s"\n' % fe)
+                    ofs_phil.write(' reflections = "%s"\n' % fp)
+            ofs_phil.write("}\n")
+            ofs_phil.close()
+
+            open(os.path.join(wd_jref, "joint_refine.sh"), "w").write("""\
+#!/bin/sh
+
+dials.combine_experiments experiments_and_reflections.phil reference_from_experiment.beam=0 reference_from_experiment.goniometer=0 average_detector=true compare_models=false
+dials.refine combined_experiments.json combined_reflections.pickle auto_reduction.action=remove verbosity=9
 """)
 
         print "\nFrom here, Do It Yourself!!\n"
@@ -1468,17 +1590,13 @@ class ResultLeftPanel(wx.Panel):
         exc_ranges = ", ".join(exc_ranges_strs)
         if not exc_ranges_strs: exc_ranges = "(none)"
 
-        if "ISa" not in result:
-            html_str += "</table>"
-        else:
-            ISa = result["ISa"]
-            print "cell=",result["cell"]
-            cell_str = ", ".join(map(lambda x: "%.2f"%x,result["cell"]))
-            sg = result["sg"]
-            table = result.get("table_html", "empty")
+        ISa = "%.2f"%result["ISa"] if "ISa" in result else "n/a"
+        cell_str = ", ".join(map(lambda x: "%.2f"%x,result["cell"])) if "cell" in result else "?"
+        sg = result.get("sg", "?")
+        table = result.get("table_html", "empty")
 
-            html_str += """\
-<tr align="left"><th>ISa</th><td>%(ISa).2f</td></tr>
+        html_str += """\
+<tr align="left"><th>ISa</th><td>%(ISa)s</td></tr>
 <tr align="left"><th>Symmetry</th><td>%(sg)s :  %(cell_str)s</td></tr>
 </table>
 <pre>%(table)s</pre>
@@ -1601,52 +1719,67 @@ class ResultRightPanel(wx.Panel):
         # Plot stuff
         self.plots.clear_plot()
 
-        integrate_lp = os.path.join(wd, "INTEGRATE.LP")
         spot_xds = os.path.join(wd, "SPOT.XDS")
-        xdsstat_lp = os.path.join(wd, "XDSSTAT.LP")
         if os.path.isfile(spot_xds):
             sx = idxreflp.SpotXds(spot_xds)
-            spots = sx.spots_by_frame()
+            spots = sx.indexed_and_unindexed_by_frame()
             if spots:
-                spots_f, spots_n = sorted(spots), map(lambda k: spots[k], sorted(spots))
-                self.plots.add_plot(0, spots_f, spots_n, label=("Spots"))
-            
-        if os.path.isfile(integrate_lp):
-            lp = integratelp.IntegrateLp(integrate_lp)
+                spots_f = map(lambda x: x[0], spots)
+                spots_n = map(lambda x: x[1][0]+x[1][1], spots)
+                self.plots.add_plot(0, spots_f, spots_n, label="Spots", color="blue")
+                spots_n = map(lambda x: x[1][0], spots)
+                if sum(spots_n) > 0:
+                    self.plots.add_plot(0, spots_f, spots_n, label="Indexed", color="green")
 
-            # SgimaR
-            self.plots.add_plot(1, map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"))
+        if config.params.engine == "xds":
+            integrate_lp = os.path.join(wd, "INTEGRATE.LP")
+            xdsstat_lp = os.path.join(wd, "XDSSTAT.LP")
 
-            # Rotations
-            xs, ys = [], [[], [], []]
-            for frames, v in lp.blockparams.items():
-                rots = map(float, v.get("rotation", ["nan"]*3))
-                assert len(rots) == 3
-                if len(frames) > 1:
-                    xs.extend([frames[0], frames[-1]])
-                    for i in xrange(3): ys[i].extend([rots[i],rots[i]])
-                else:
-                    xs.append(frames[0])
-                    for i in xrange(3): ys[i].append(rots[i])
+            if os.path.isfile(integrate_lp):
+                lp = integratelp.IntegrateLp(integrate_lp)
 
-            for i, y in enumerate(ys):
-                self.plots.add_plot(2, xs, y, label=("rotx","roty","rotz")[i], color=("red", "green", "blue")[i])
+                # SgimaR
+                self.plots.add_plot(1, map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"))
 
-        if os.path.isfile(xdsstat_lp):
-            lp = xdsstat.XdsstatLp(xdsstat_lp)
-            if lp.by_frame:
-                # R-meas
-                self.plots.add_plot(3, map(int,lp.by_frame["frame"]),
-                                            map(float,lp.by_frame["rmeas"]), label=("R-meas"))
+                # Rotations
+                xs, ys = [], [[], [], []]
+                for frames, v in lp.blockparams.items():
+                    rots = map(float, v.get("rotation", ["nan"]*3))
+                    assert len(rots) == 3
+                    if len(frames) > 1:
+                        xs.extend([frames[0], frames[-1]])
+                        for i in xrange(3): ys[i].extend([rots[i],rots[i]])
+                    else:
+                        xs.append(frames[0])
+                        for i in xrange(3): ys[i].append(rots[i])
+
+                for i, y in enumerate(ys):
+                    self.plots.add_plot(2, xs, y, label=("rotx","roty","rotz")[i], color=("red", "green", "blue")[i])
+
+            if os.path.isfile(xdsstat_lp):
+                lp = xdsstat.XdsstatLp(xdsstat_lp)
+                if lp.by_frame:
+                    # R-meas
+                    self.plots.add_plot(3, map(int,lp.by_frame["frame"]),
+                                                map(float,lp.by_frame["rmeas"]), label=("R-meas"))
+
+        elif config.params.engine == "dials":
+            pass
 
         self.plots.refresh()
 
         # Log file stuff
         prev_cmbLog_sel = self.cmbLog.GetValue()
         to_append = []
-        for j in ("XYCORR", "INIT", "COLSPOT", "IDXREF", "DEFPIX", "XPLAN", "INTEGRATE", "CORRECT"):
-            for f in glob.glob(os.path.join(wd, "%s*.LP"%j)):
-                to_append.append(os.path.basename(f))
+
+        if config.params.engine == "xds":
+            for j in ("XYCORR", "INIT", "COLSPOT", "IDXREF", "DEFPIX", "XPLAN", "INTEGRATE", "CORRECT"):
+                for f in glob.glob(os.path.join(wd, "%s*.LP"%j)):
+                    to_append.append(os.path.basename(f))
+        elif config.params.engine == "dials":
+            for j in ("import", "find_spots", "index", "integrate", "export"):
+                f = os.path.join(wd, "dials.%s.debug.log"%j)
+                if os.path.isfile(f): to_append.append(os.path.basename(f))
 
         self.cmbLog.Clear()
         self.cmbLog.AppendItems(to_append)
@@ -1728,6 +1861,7 @@ def run_from_args(argv):
 
     global batchjobs
     global mainFrame
+    global bssjobs
 
     print """
 KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system is an automated data processing system for SPring-8 beamlines.
@@ -1829,6 +1963,9 @@ This is an alpha-version. If you found something wrong, please let staff know! W
 
     if config.params.logwatch_once is None:
         config.params.logwatch_once = (config.params.bl == "other")
+
+    if config.params.xds.override.geometry_reference:
+        bssjobs.load_override_geometry(config.params.xds.override.geometry_reference)
 
     app = wx.App()
     mainFrame = MainFrame(parent=None, id=wx.ID_ANY)

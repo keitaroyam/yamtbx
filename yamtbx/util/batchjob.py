@@ -7,7 +7,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 
 import os, subprocess, re, threading, time, stat
-
+import shlex
 
 # JobState
 #  0: previous job is not finished.
@@ -263,7 +263,18 @@ class Job:
     def write_script(self, script_text):
         env = ""
         if self.copy_environ:
-            for k in os.environ: env += 'export %s="%s"\n' % (k, os.environ[k].replace('"', r'\"'))
+            for k in os.environ:
+                # h5lib seems to fail when invalid directory included in HDF5_PLUGIN_PATH...
+                if k == "HDF5_PLUGIN_PATH":
+                    sh = shlex.shlex(os.environ[k])
+                    sh.whitespace=":"
+                    sh.whitespace_split = True
+                    env += 'export %s='%k
+                    env += ":".join(map(lambda x: '"%s"'%x, filter(lambda x: os.path.isdir(x), sh)))
+                    env += "\n"
+                else:
+                    env += 'export %s="%s"\n' % (k, os.environ[k].replace('"', r'\"'))
+                
             env += "\n"
 
         script = job_header + env + script_text + job_footer 

@@ -8,15 +8,19 @@ import re, os, glob, shutil, random, string
 
 re_xds_kwd = re.compile("([^ =]+)= *((?:(?! [^ =]+=).)*)")
 
-def get_xdsinp_keyword(xdsinp):
+def get_xdsinp_keyword(xdsinp=None, inp_str=None):
+    assert (xdsinp, inp_str).count(None) == 1
     ##
     # Return the list of tuple (keyword, value) in XDS.INP
     #
 
     #    re_kwd = re.compile("([^ =]+)=(.*)(?: [^ =]+=)")
     #    re_kwd = re.compile("([^ =]+)=(.*)[^ =]+=")
+
+    itr = open(xdsinp) if xdsinp else inp_str.splitlines()
+
     res = []
-    for l in open(xdsinp):
+    for l in itr:
         l = l[:l.find("!")] # Remove comment
         r = re_xds_kwd.findall(l)
         res.extend(r)

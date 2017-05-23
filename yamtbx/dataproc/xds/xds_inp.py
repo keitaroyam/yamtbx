@@ -6,9 +6,12 @@ This software is released under the new BSD License; see LICENSE.
 """
 
 import os
+import json
 from yamtbx.dataproc import XIO
 from yamtbx.dataproc import cbf
 from yamtbx.dataproc.dataset import group_img_files_template
+from yamtbx.dataproc.xds import get_xdsinp_keyword
+import cStringIO
 
 def sensor_thickness_from_minicbf(img):
     header = cbf.get_pilatus_header(img)
@@ -19,13 +22,53 @@ def sensor_thickness_from_minicbf(img):
     return float(thick) * 1.e3
 # sensor_thickness_from_minicbf()
 
+def import_geometry(xds_inp=None, dials_json=None):
+    assert (xds_inp, dials_json).count(None) == 1
+
+    geom_kwds = set(["DIRECTION_OF_DETECTOR_X-AXIS", "DIRECTION_OF_DETECTOR_Y-AXIS",
+                     "DETECTOR_DISTANCE", "ORGX", "ORGY", "ROTATION_AXIS", # "X-RAY_WAVELENGTH",
+                     "INCIDENT_BEAM_DIRECTION", "SEGMENT", "DIRECTION_OF_SEGMENT_X-AXIS",
+                     "DIRECTION_OF_SEGMENT_Y-AXIS", "SEGMENT_DISTANCE",
+                     "SEGMENT_ORGX", "SEGMENT_ORGY"])
+
+    # FIXME in case of multi-segment detector..
+
+    if xds_inp:
+        inp = get_xdsinp_keyword(xds_inp)
+        inp = filter(lambda x: x[0] in geom_kwds, inp)
+        return map(lambda x: "%s= %s"%x, inp)
+    elif dials_json:
+        import dxtbx.imageset
+        from dxtbx.serialize.load import _decode_dict
+        from dxtbx.model import BeamFactory
+        from dxtbx.model import DetectorFactory
+        from dxtbx.model import GoniometerFactory
+        from dxtbx.model import ScanFactory
+        from dxtbx.serialize.xds import to_xds
+        j = json.loads(open(dials_json).read(), object_hook=_decode_dict)
+        # dummy
+        sweep = dxtbx.imageset.ImageSetFactory.from_template("####",
+                                                             image_range=[1,1],check_format=False)[0]
+        sweep.set_detector(DetectorFactory.from_dict(j["detector"][0]))
+        sweep.set_beam(BeamFactory.from_dict(j["beam"][0]))
+        sweep.set_goniometer(GoniometerFactory.from_dict(j["goniometer"][0]))
+        sweep.set_scan(ScanFactory.make_scan(image_range=[1,1], exposure_times=[1], oscillation=[1,2], epochs=[0])) # dummy
+        sio = cStringIO.StringIO()
+        to_xds(sweep).XDS_INP(sio)
+        inp = get_xdsinp_keyword(inp_str=sio.getvalue())
+        inp = filter(lambda x: x[0] in geom_kwds, inp)
+        return map(lambda x: "%s= %s"%x, inp)
+
+    return []
+# import_geometry()
+
 # Reference: http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP
 def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None, minimum=False,
                      crystal_symmetry=None, integrate_nimages=None,
                      osc_range=None, orgx=None, orgy=None, rotation_axis=None, distance=None,
                      wavelength=None,
                      minpk=None, exclude_resolution_range=[],
-                     fstart=None, fend=None, extra_kwds=[]):
+                     fstart=None, fend=None, extra_kwds=[], overrides=[], fix_geometry_when_overridden=False):
     is_eiger_hdf5 = (len(img_files) == 1 and "_master.h5" in img_files[0])
 
     if is_eiger_hdf5:
@@ -264,5 +307,13 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
  UNTRUSTED_RECTANGLE= 0 3110 2166 2206
  UNTRUSTED_RECTANGLE= 0 3110 2717 2757
 """
+
+    if overrides:
+        inp_str += "\n! Overriding parameters:\n"
+        inp_str += "\n".join(overrides)+"\n"
+
+        if fix_geometry_when_overridden:
+            inp_str += " REFINE(IDXREF)= CELL ORIENTATION ! BEAM AXIS DISTANCE POSITION\n"
+            inp_str += " REFINE(INTEGRATE)= CELL ORIENTATION ! DISTANCE POSITION BEAM AXIS\n"
 
     return inp_str

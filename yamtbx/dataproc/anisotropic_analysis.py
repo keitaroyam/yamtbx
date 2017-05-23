@@ -132,7 +132,7 @@ def calc_stats_along_axes(miller_array, vstars, binner, angle=20, kind="cchalf")
         if kind == "cchalf":
             overall = calc_weighted_cc_half(in_cone, vstar, cos_limit)
         else:
-            overall = flex.mean(in_cone.data()/in_cone.sigmas())
+            overall = flex.mean(in_cone.data()/in_cone.sigmas()) if in_cone.size() > 0 else float("nan")
 
         ret.append([vstar, label, plane_normal, overall, [], []]) # nref, stat
         for i_bin in binner.range_used():
@@ -142,7 +142,7 @@ def calc_stats_along_axes(miller_array, vstars, binner, angle=20, kind="cchalf")
             if kind == "cchalf":
                 val = calc_weighted_cc_half(a_sel, vstar, cos_limit)
             else:
-                val = flex.mean(a_sel.data()/a_sel.sigmas())
+                val = flex.mean(a_sel.data()/a_sel.sigmas()) if a_sel.size() > 0 else float("nan")
 
             ret[-1][-1].append(val)
             ret[-1][-2].append(a_sel.size())

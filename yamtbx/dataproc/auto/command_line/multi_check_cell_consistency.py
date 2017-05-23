@@ -11,8 +11,10 @@ from cctbx import crystal
 from cctbx.crystal import reindex
 from cctbx.sgtbx import pointgroup_tools
 from yamtbx.dataproc.xds.xparm import XPARM
-from yamtbx.dataproc.pointless import Pointless
+from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
+from yamtbx.dataproc import pointless
 from yamtbx.dataproc.xds import correctlp
+from yamtbx.dataproc.dials.command_line import run_dials_auto
 
 import os
 import sys
@@ -53,9 +55,9 @@ class CheckMulti:
 
     def get_symms_from_xds_results(self):
         if self.xdsdirs is not None:
-            xdsdirs = filter(lambda x: os.path.isfile(os.path.join(x, "GXPARM.XDS")), self.xdsdirs)
+            xdsdirs = filter(lambda x: os.path.isfile(os.path.join(x, "GXPARM.XDS")) or os.path.isfile(os.path.join(x, "DIALS.HKL")), self.xdsdirs)
         else:
-            xdsdirs = map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2], os.walk(self.topdir)))
+            xdsdirs = map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2] or "DIALS.HKL" in x[2], os.walk(self.topdir)))
 
         symms = []
         print >>self.out, "Idx Dir Cell P1Cell"
@@ -64,14 +66,31 @@ class CheckMulti:
             print >>self.out, "%.3d"%idx,
             print >>self.out, os.path.relpath(root, self.topdir) if self.topdir is not None else root,
             gxparm_xds = os.path.join(root, "GXPARM.XDS")
-            correct_lp = filter(lambda x: os.path.isfile(x), map(lambda f: os.path.join(root, f), ("CORRECT.LP_noscale", "CORRECT.LP")))[0]
-            p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
-            try:
-                xparm = XPARM(gxparm_xds)
-            except ValueError:
-                print >>self.out, "Invalid xparm format:", gxparm_xds
-                continue
-            xs = xparm.crystal_symmetry()
+            if os.path.isfile(gxparm_xds):
+                correct_lp = filter(lambda x: os.path.isfile(x), map(lambda f: os.path.join(root, f), ("CORRECT.LP_noscale", "CORRECT.LP")))[0]
+                p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
+                try:
+                    xparm = XPARM(gxparm_xds)
+                except ValueError:
+                    print >>self.out, "Invalid xparm format:", gxparm_xds
+                    continue
+                xs = xparm.crystal_symmetry()
+            else: # DIALS
+                xs = run_dials_auto.get_most_possible_symmetry(root)
+                if xs is None:
+                    print >>self.out, "Cannot get crystal symmetry:", root
+                    continue
+
+                p1cell = list(xs.niggli_cell().unit_cell().parameters())
+                # force obtuse angle
+                tmp = map(lambda x: (x[0]+3,abs(90.-x[1])), enumerate(p1cell[3:])) # Index and difference from 90 deg
+                tmp.sort(key=lambda x: x[1], reverse=True)
+                if p1cell[tmp[0][0]] < 90:
+                    tmp = map(lambda x: (x[0]+3,90.-x[1]), enumerate(p1cell[3:])) # Index and 90-val.
+                    tmp.sort(key=lambda x: x[1], reverse=True)
+                    for i,v in tmp[:2]: p1cell[i] = 180.-p1cell[i]
+
+                p1cell = uctbx.unit_cell(p1cell)
 
             self.dirs.append(root)
             self.p1cells.append(p1cell)
@@ -279,7 +298,7 @@ def run(params, out=sys.stdout):
         print >>out, "%10s ISa=%5.2f Cmpl=%5.1f " % (sg, ISa, cmpl)
 
     if params.do_pointless:
-        worker = Pointless()
+        worker = pointless.Pointless()
         files = map(lambda x: os.path.join(x, "INTEGRATE.HKL"), ret[0])
         #print files
         files = filter(lambda x: os.path.isfile(x), files)
