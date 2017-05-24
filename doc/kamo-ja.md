@@ -314,6 +314,8 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-05-24
+   * 2017-03-10の修正に含まれていたバグを修正(batchjob実行時の環境変数コピー)
 * 2017-05-23
    * KAMO: DIALSのサポート(`engine=dials`)
    * KAMO: multi-merge準備作業の並列化，DIALSでjoint refinementを行うためのファイル出力オプションを追加(DIALS環境へ組み込まれていることが必要)．

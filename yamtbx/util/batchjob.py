@@ -262,6 +262,8 @@ class Job:
 
     def write_script(self, script_text):
         env = ""
+        re_allowed_env = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+
         if self.copy_environ:
             for k in os.environ:
                 # h5lib seems to fail when invalid directory included in HDF5_PLUGIN_PATH...
@@ -273,7 +275,8 @@ class Job:
                     env += ":".join(map(lambda x: '"%s"'%x, filter(lambda x: os.path.isdir(x), sh)))
                     env += "\n"
                 else:
-                    env += 'export %s="%s"\n' % (k, os.environ[k].replace('"', r'\"'))
+                    if re_allowed_env.match(k):
+                        env += 'export %s="%s"\n' % (k, os.environ[k].replace('"', r'\"'))
                 
             env += "\n"
 

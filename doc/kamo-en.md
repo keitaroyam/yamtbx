@@ -310,6 +310,8 @@ NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-05-24
+   * Fixed a bug introduced on 2017-03-10 (avoid failure in copying environment variables).
 * 2017-05-23
    * KAMO: Add DIALS support (`engine=dials`).
    * KAMO: Multiprocessing of preparation of multi-merge. New option to prepare files for joint refinement using DIALS (requires KAMO built on DIALS environment)
