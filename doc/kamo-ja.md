@@ -1,4 +1,7 @@
 # KAMO
+
+English version is [here](kamo-en.md).
+
 ## 概要
 *KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system*は，（高分子）単結晶X線回折データの自動処理＆マージのために開発中のプログラムです．
 基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能です．

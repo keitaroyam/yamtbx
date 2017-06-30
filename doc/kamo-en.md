@@ -1,4 +1,7 @@
 # KAMO
+
+Japanese version is [here](kamo-ja.md).
+
 ## Overview
 *KAMO (in Japanese: Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru; to process thoroughly-collected data in better way than manually and give back to user) system* is the program for automated processing and merging of (MX) crystal diffraction data.
 Basically KAMO uses [XDS package](http://xds.mpimf-heidelberg.mpg.de), but it supports [DIALS](https://dials.github.io/) and [Aimless](http://www.ccp4.ac.uk/html/aimless.html) optionally.
