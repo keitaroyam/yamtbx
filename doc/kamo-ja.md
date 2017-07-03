@@ -39,6 +39,9 @@ SPring-8でのオンラインデータ解析のために設計されています
       * [DIALSを利用した環境構築](#dialsを利用した環境構築)
       * [KAMOのアップデート](#kamoのアップデート)
       * [起動](#起動)
+   * [文献](#文献)
+      * [KAMOの引用](#kamoの引用)
+      * [KAMOを利用した成果](#kamoを利用した成果)
    * [バージョン履歴](#バージョン履歴)
 
 
@@ -313,6 +316,17 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 として，同時に動かす最大ジョブ数を指定して下さい．
 
 また，reverse-phiでは無いビームライン(SPring-8以外のビームラインは大体該当)では，`reverse_phi=false`を必ず指定して下さい．縦置きゴニオなどには未対応です．
+
+## 文献
+
+### KAMOの引用
+
+現在論文準備中につき，当英語版ドキュメントのURL https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md を引用して頂ますようお願いします．
+
+### KAMOを利用した成果
+
+* Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN)
+
 
 ## バージョン履歴
 日付はGitHub公開時

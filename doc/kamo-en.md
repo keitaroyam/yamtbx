@@ -39,6 +39,9 @@ This manual is for 2015-12-18.
       * [Installation](#installation)
       * [How to update KAMO](#how-to-update-kamo)
       * [Launch](#launch)
+   * [Citations](#citations)
+      * [How to cite the use of KAMO](#how-to-cite-the-use-of-kamo)
+      * [Researches which used KAMO](#researches-which-used-kamo)
    * [Version hisotry](#version-hisotry)
 
 
@@ -309,6 +312,16 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ```
 
 NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do not forget to give `reverse_phi=false`. Vertically installed goniometer is not supported now.
+
+## Citations
+
+### How to cite the use of KAMO
+
+As the paper is in preparation, please refer to this documentation URL: https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md
+
+### Researches which used KAMO 
+
+* Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN)
 
 ## Version hisotry
 Dates when the code became available on GitHub are shown
