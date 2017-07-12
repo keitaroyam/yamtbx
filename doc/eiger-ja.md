@@ -54,8 +54,11 @@ master.h5は通常圧縮されていません(masterにはflatfieldやpixel mask
 
 ### HDF5 software
 generate_XDS.INPは[HDF5 software](https://www.hdfgroup.org/HDF5/release/obtain5.html)に含まれるh5dumpを利用します．
-各種パッケージマネージャ(Macの場合macportsなど)でhdf5を導入可能かと思います．
-
+各種パッケージマネージャでhdf5を導入可能かと思います．MacでMacPortsをお使いの場合は，
+```
+sudo port install hdf5
+```
+で導入できます．
 [hdfview](https://www.hdfgroup.org/products/java/release/download.html)も導入しておくと便利です(master h5の中身をツリー表示できるGUIです)．
 
 ### eiger2cbf (H5ToXds互換)
