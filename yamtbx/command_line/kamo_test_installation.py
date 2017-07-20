@@ -188,9 +188,14 @@ def tst_dxtbx_eiger():
         goniometer_model = GoniometerFactory(sample).model
 
         _test = detector_model[0].get_fast_axis() + detector_model[0].get_slow_axis() + beam_model.get_direction() + goniometer_model.get_rotation_axis()
-        if _test == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0):
+        if _test == (1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, -1.0,  1.0, 0.0, 0.0):
             print "  OK"
             return True
+        elif _test == (1.0, 0.0, 0.0,  0.0, -1.0, 0.0,  0.0, 0.0, 1.0,  1.0, 0.0, 0.0):
+            print "  OK"
+            return True
+        else:
+            print "  vectors=", _test
     except:
         print traceback.format_exc()
 

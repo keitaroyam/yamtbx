@@ -275,7 +275,7 @@ If this is too hard, there is much easier way:
 4. Install scipy to dials.python
    1. If Mac, install [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS). If Linux, install blas-devel and lapack-devel using yum or something.
    2. `cd $DIALS/build`
-   3. `./bin/libtbx.python -m easy_install scipy`
+   3. `./bin/libtbx.python -m easy_install scipy==0.18.1`
 5. Run the following commands (yamtbx can be cloned anywhere you like)
 ```
 cd $HOME
@@ -292,10 +292,17 @@ kamo.test_installation
 ```
 to check if dependencies are all installed.
 
+##### Troubleshooting tips
+* Installation of scipy stops with error "as: I don't understand 'm' flag!"
+   * If you are using MacPorts, try excluding /opt/local/bin from environment variable PATH. [Reference URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l).
+* Installing with DIALS/PHENIX environment, but kamo.test\_installation claims wxPython is NG
+   * Please check if some GUI program of DIALS/PHENIX successfully starts (e.g. dials.image\_viewer)．In case of Ubuntu, you may need to install libjpeg62 package.
+
 ### How to update KAMO
 1. `cd` where-you-cloned-yamtbx
 2. `git pull`
-4. `$DIALS/build/bin/libtbx.refresh`
+3. `$DIALS/build/bin/libtbx.refresh`
+4. `kamo.test_installation`
 
 ### Launch
 Basically, the same as above; but specify always `bl=other` to find image files from filesystem.
@@ -307,7 +314,7 @@ kamo bl=other [batch.sge_pe_name=par]
 In addition, give SGE's parallel environment (the strings you usually write after qsub -pe; by default par). If no SGE environment and you want to run it only on local computer, give maximum job number instead:
 
 ```
-kamo bl=other batch.engine=sh batch.sh_max_jobs=8
+kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ```
 
 Goniometer rotation axis is, if header does not have that information, recognized in the same way as [generate\_XDS.INP](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP) which uses header information.

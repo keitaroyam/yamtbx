@@ -277,7 +277,7 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 4. scipyをdials.pythonから使えるようにする
    1. Macの場合，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
    2. `cd $DIALS/build`
-   3. `./bin/libtbx.python -m easy_install scipy`
+   3. `./bin/libtbx.python -m easy_install scipy==0.18.1`
 5. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
 ```
 cd $HOME
@@ -294,11 +294,19 @@ kamo.test_installation
 ```
 を実行することで必要なパッケージがインストールされているかどうか確認できます．
 
+##### トラブルシューティング
+
+* scipyの導入時に"as: I don't understand 'm' flag!"というエラーで止まる
+   * MacPortsを使用している場合は/opt/local/binを環境変数PATHから外してもう一度試す．[参考URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l).
+* DIALS/PHENIX環境を使っているのに，kamo.test\_installationでwxPythonがNGになる
+   * まずDIALS/PHENIXのGUIがちゃんと立ち上がるか確認してください(dials.image\_viewerなど)．Ubuntuの場合，libjpeg62などを導入する必要があるそうです．
+
 ### KAMOのアップデート
 以下の手順で最新版にアップデートできます
 1. yamtbxをcloneした場所へ移動(`cd`)
 2. `git pull`
-4. `$DIALS/build/bin/libtbx.refresh`
+3. `$DIALS/build/bin/libtbx.refresh`
+4. `kamo.test_installation`
 
 ### 起動
 基本的には上記と一緒ですが，イメージファイルをファイルシステムから探すため常に`bl=other`を指定してください．
@@ -310,7 +318,7 @@ kamo bl=other [batch.sge_pe_name=par]
 また，SGEのparallel environment (qsub -pe の後に書く文字列)を上記のように指定して下さい(デフォルト: par)．SGEの環境が無く，ローカルコンピュータのみで動かすときは，
 
 ```
-kamo bl=other batch.engine=sh batch.sh_max_jobs=8
+kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ```
 として，同時に動かす最大ジョブ数を指定して下さい．
 
