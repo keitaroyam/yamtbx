@@ -51,7 +51,10 @@ First, you need these:
 
 ### HDF5 software
 generate_XDS.INP uses h5dump in [HDF5 software](https://www.hdfgroup.org/HDF5/release/obtain5.html).
-You can use several package managers (like macports for Mac) to install hdf5.
+You can use several package managers to install hdf5. If you are using MacPorts on Mac, use following command to install:
+```
+sudo port install hdf5
+```
 
 [Hdfview](https://www.hdfgroup.org/products/java/release/download.html) is also a useful software to visualize the contents of master hdf5 file.
 
