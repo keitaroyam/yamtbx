@@ -37,7 +37,7 @@ d_min = 3
 min_ios = None
  .type = float
  .help = minimum I/sigma(I) cutoff used in the method
-max_delta = 3
+max_delta = 5
  .type = float
  .help = maximum obliquity used in determining the lattice symmetry, using a modified Le-Page algorithm.
 
@@ -121,6 +121,8 @@ def run(params):
         rb.assign_operators(max_cycle=params.max_cycles)
     else:
         rb.assign_operators()
+
+    rb.show_assign_summary()
 
     if params.dry_run:
         print >>log_out, "This is dry-run. Exiting here."

@@ -62,13 +62,44 @@ def import_geometry(xds_inp=None, dials_json=None):
     return []
 # import_geometry()
 
-# Reference: http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP
-def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None, minimum=False,
+def read_geometry_using_dxtbx(img_file):
+    import dxtbx.datablock
+    import dxtbx.serialize.xds
+
+    geom_kwds = set(["DIRECTION_OF_DETECTOR_X-AXIS", "DIRECTION_OF_DETECTOR_Y-AXIS",
+                     "DETECTOR_DISTANCE", "ORGX", "ORGY", "ROTATION_AXIS", "X-RAY_WAVELENGTH",
+                     "DETECTOR", "MINIMUM_VALID_PIXEL_VALUE", "OVERLOAD", "SENSOR_THICKNESS",
+                     "NX", "NY", "QX", "QY", "STARTING_ANGLE", "OSCILLATION_RANGE",
+                     "FRACTION_OF_POLARIZATION", "POLARIZATION_PLANE_NORMAL", 
+                     "INCIDENT_BEAM_DIRECTION", "SEGMENT", "DIRECTION_OF_SEGMENT_X-AXIS",
+                     "DIRECTION_OF_SEGMENT_Y-AXIS", "SEGMENT_DISTANCE",
+                     "SEGMENT_ORGX", "SEGMENT_ORGY"])
+
+    datablocks = dxtbx.datablock.DataBlockFactory.from_filenames([img_file])
+    to_xds = dxtbx.serialize.xds.to_xds(datablocks[0].extract_sweeps()[0])
+    sio = cStringIO.StringIO()
+    to_xds.XDS_INP(sio)
+    
+    inp = get_xdsinp_keyword(inp_str=sio.getvalue())
+    inp = filter(lambda x: x[0] in geom_kwds, inp)
+    return to_xds, map(lambda x: " %s= %s"%x, inp)
+
+# read_geometry_using_dxtbx()
+
+def generate_xds_inp(img_files, inp_dir, use_dxtbx=False, anomalous=True,
+                     reverse_phi=None, spot_range=None, minimum=False,
                      crystal_symmetry=None, integrate_nimages=None,
                      osc_range=None, orgx=None, orgy=None, rotation_axis=None, distance=None,
                      wavelength=None,
-                     minpk=None, exclude_resolution_range=[],
-                     fstart=None, fend=None, extra_kwds=[], overrides=[], fix_geometry_when_overridden=False):
+                     minpk=None, exclude_resolution_range=None,
+                     fstart=None, fend=None, extra_kwds=None, overrides=None, fix_geometry_when_overridden=False):
+    """
+    Reference: http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP
+    """
+    if not exclude_resolution_range: exclude_resolution_range = []
+    if not extra_kwds: extra_kwds = []
+    if not overrides: overrides = []
+
     is_eiger_hdf5 = (len(img_files) == 1 and "_master.h5" in img_files[0])
 
     if is_eiger_hdf5:
@@ -85,22 +116,12 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
     template = os.path.join(imdir, os.path.basename(template))
     #print imdir
 
-    im = None
-    for imgfile in img_files:
-        if os.path.isfile(imgfile):
-            im = XIO.Image(imgfile)
-            break
-    if im is None:
-        raise Exception("No actual images found.")
-
     if crystal_symmetry is None:
         sgnum = 0
         cell_str = "50 60 70 90 90 90"
     else:
         sgnum = crystal_symmetry.space_group_info().type().number()
         cell_str = " ".join(map(lambda x: "%.2f"%x, crystal_symmetry.unit_cell().parameters()))
-
-    if osc_range is None: osc_range = im.header["PhiWidth"]
 
     data_range = "%d %d" % (fstart, fend)
     if spot_range is None:
@@ -115,140 +136,172 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
         print "Error!"
         return
 
-    if rotation_axis is None:
-        if im.header["ImageType"] == "raxis": rotation_axis = (0,1,0)
-        else: rotation_axis = (1,0,0)
-
-    if reverse_phi: rotation_axis = map(lambda x:-1*x, rotation_axis)
-    rotation_axis = " ".join(map(lambda x: "%.2f"%x, rotation_axis))
-
-    if integrate_nimages is None:
-        delphi = 5
-    else:
-        delphi = osc_range * integrate_nimages
-
-    nx, ny = im.header["Width"], im.header["Height"],
-    qx, qy = im.header["PixelX"], im.header["PixelY"]
-    if orgx is None: orgx = im.header["BeamX"]/qx
-    if orgy is None: orgy = im.header["BeamY"]/qy
-    if wavelength is None: wavelength = im.header["Wavelength"]
-    if distance is None: distance = im.header["Distance"]
     friedel = "FALSE" if anomalous else "TRUE"
-    sensor_thickness = 0 # FIXME
+    is_pilatus_or_eiger = False
 
-    if im.header["ImageType"] == "marccd":
-        detector = "CCDCHESS MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 65500"
-    elif im.header["ImageType"] == "raxis":
-        detector = "RAXIS MINIMUM_VALID_PIXEL_VALUE= 0  OVERLOAD= 2000000"
-        distance *= -1
-    elif im.header["ImageType"] == "minicbf":
-        detector = "PILATUS MINIMUM_VALID_PIXEL_VALUE=0 OVERLOAD= 1048576"
-        sensor_thickness = sensor_thickness_from_minicbf(img_files[0])
-    elif im.header["ImageType"] == "adsc":
-        detector = "ADSC MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 65000"
-    elif im.header["ImageType"] == "mscccd":
-        detector = "SATURN MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 262112" # XXX Should read header!!
-        distance *= -1
-    elif is_eiger_hdf5:
-        detector = "EIGER MINIMUM_VALID_PIXEL_VALUE=0 OVERLOAD= %d" % im.header["Overload"]
-        sensor_thickness = im.header["SensorThickness"]
+    img_files_existed = filter(lambda x: os.path.isfile(x), img_files)
+    if not img_files_existed: raise Exception("No actual images found.")
 
-    if minpk is not None: extra_kwds.append(" MINPK= %.2f" % minpk)
-    for r1, r2 in exclude_resolution_range:
-        if r1 < r2: r1, r2 = r2, r1
-        extra_kwds.append(" EXCLUDE_RESOLUTION_RANGE= %.3f %.3f" % (r1, r2))
-
-    extra_kwds = "\n".join(extra_kwds)
     inp_str = """\
+ MAXIMUM_NUMBER_OF_JOBS= 1
  JOB= XYCORR INIT COLSPOT IDXREF DEFPIX INTEGRATE CORRECT
+ NAME_TEMPLATE_OF_DATA_FRAMES= %(template)s
+ DATA_RANGE= %(data_range)s
+ SPOT_RANGE= %(spot_range)s
+!BACKGROUND_RANGE=1 10
+ FRIEDEL'S_LAW= %(friedel)s
+""" % locals()
+
+    if use_dxtbx:
+        # This is the current limitation..
+        assert all(x is None for x in (osc_range, orgx, orgy, rotation_axis, distance, wavelength))
+
+        toxds, inplst = read_geometry_using_dxtbx(img_files_existed[0])
+        inp_str += "\n".join(inplst) + "\n"
+        osc_range = toxds.oscillation_range
+        nx, ny = toxds.detector_size
+        is_pilatus_or_eiger = toxds.get_detector()[0].get_type() == "SENSOR_PAD"
+
+    else:
+        im = XIO.Image(img_files_existed[0])
+
+        if osc_range is None: osc_range = im.header["PhiWidth"]
+
+        if rotation_axis is None: # automatic decision
+            if "OscAxisVec" in im.header:
+                rotation_axis = im.header["OscAxisVec"]
+                print "DEBUG::rotation_axis from header:", rotation_axis
+            else:
+                if im.header["ImageType"] == "raxis": rotation_axis = (0,1,0)
+                else: rotation_axis = (1,0,0)
+
+                if reverse_phi is None: # automatic decision
+                    REVERSEPHI_SNs=dict(marccd="""\
+24
+31
+38
+40
+42
+106
+""".split(), # Known detectors for reversed-phi in SPring-8: 24: BL26B2 Mar225, 31: BL32XU MX225HE, 38: BL44XU MX225HE, 42: BL44XU MX300HE, 40: BL41XU MX225HE, 106: BL32XU MX225HS
+                                        adsc="""\
+915
+458
+924
+""".split(), # Known detectors for reversed-phi in SPring-8: 915: BL38B1 Q315; APS 19-ID: 458; BM30A: 924
+                                        minicbf="""\
+PILATUS3 6M, S/N 60-0125
+PILATUS3 6M, S/N 60-0132
+PILATUS 2M, S/N 24-0109
+""".splitlines(), # Known detectors for reversed-phi in SPring-8: BL41XU PILATUS3 6M 60-0125, APS: 19ID PILATUS3 6M 60-0132, MX2 beamline (Brazilian Synchrotron National Laboratory - LNLS)
+                                        )
+                    if im.header.get("SerialNumber") in REVERSEPHI_SNs.get(im.header["ImageType"], ()):
+                        print "DEBUG:: this is reversephi of", rotation_axis
+                        reverse_phi = True
+
+                if reverse_phi:
+                    rotation_axis = map(lambda x:-1*x, rotation_axis)
+
+        rotation_axis = " ".join(map(lambda x: "%.2f"%x, rotation_axis))
+
+        nx, ny = im.header["Width"], im.header["Height"],
+        qx, qy = im.header["PixelX"], im.header["PixelY"]
+        if orgx is None: orgx = im.header["BeamX"]/qx
+        if orgy is None: orgy = im.header["BeamY"]/qy
+        if wavelength is None: wavelength = im.header["Wavelength"]
+        if distance is None: distance = im.header["Distance"]
+
+        sensor_thickness = 0 # FIXME
+
+        if im.header["ImageType"] == "marccd":
+            detector = "CCDCHESS MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 65500"
+        elif im.header["ImageType"] == "raxis":
+            detector = "RAXIS MINIMUM_VALID_PIXEL_VALUE= 0  OVERLOAD= 2000000"
+            distance *= -1
+        elif im.header["ImageType"] == "minicbf":
+            detector = "PILATUS MINIMUM_VALID_PIXEL_VALUE=0 OVERLOAD= 1048576"
+            sensor_thickness = sensor_thickness_from_minicbf(img_files[0])
+            is_pilatus_or_eiger = True
+        elif im.header["ImageType"] == "adsc":
+            detector = "ADSC MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 65000"
+        elif im.header["ImageType"] == "mscccd":
+            detector = "SATURN MINIMUM_VALID_PIXEL_VALUE= 1 OVERLOAD= 262112" # XXX Should read header!!
+            distance *= -1
+        elif is_eiger_hdf5:
+            detector = "EIGER MINIMUM_VALID_PIXEL_VALUE=0 OVERLOAD= %d" % im.header["Overload"]
+            sensor_thickness = im.header["SensorThickness"]
+            is_pilatus_or_eiger = True
+
+        inp_str += """\
  ORGX= %(orgx).2f ORGY= %(orgy).2f
  DETECTOR_DISTANCE= %(distance).2f
  OSCILLATION_RANGE= %(osc_range).3f
  X-RAY_WAVELENGTH= %(wavelength).5f
- NAME_TEMPLATE_OF_DATA_FRAMES= %(template)s
-! REFERENCE_DATA_SET=xxx/XDS_ASCII.HKL ! e.g. to ensure consistent indexing
- DATA_RANGE= %(data_range)s
- SPOT_RANGE= %(spot_range)s
-! BACKGROUND_RANGE=1 10 ! rather use defaults (first 5 degree of rotation)
- FRIEDEL'S_LAW= %(friedel)s
- DELPHI= %(delphi).2f
-! parameters specifically for this detector and beamline:
  DETECTOR= %(detector)s
  SENSOR_THICKNESS= %(sensor_thickness).2f
-! attention CCD detectors: for very high resolution (better than 1A) make sure to specify SILICON
-! as about 32* what CORRECT.LP suggests (absorption of phosphor is much higher than that of silicon)
- NX= %(nx)s NY= %(ny)s  QX= %(qx)s  QY= %(qy)s ! to make CORRECT happy if frames are unavailable
+ NX= %(nx)s NY= %(ny)s  QX= %(qx)s  QY= %(qy)s
  ROTATION_AXIS= %(rotation_axis)s
-%(extra_kwds)s
+ INCIDENT_BEAM_DIRECTION= 0 0 1
+ FRACTION_OF_POLARIZATION= 0.98
+ POLARIZATION_PLANE_NORMAL= 0 1 0
 """ % locals()
 
-    # XXX Really, really BAD idea!!
-    # Synchrotron can have R-AXIS, and In-house detecotr can have horizontal goniometer..!!
-    if im.header["ImageType"] == "raxis":
-        inp_str += """\
+        # XXX Synchrotron can have R-AXIS, and In-house detecotr can have horizontal goniometer!
+        if im.header["ImageType"] == "raxis":
+            inp_str += """\
  DIRECTION_OF_DETECTOR_X-AXIS= 1 0 0
  DIRECTION_OF_DETECTOR_Y-AXIS= 0 -1 0
  INCIDENT_BEAM_DIRECTION= 0 0 1
 !FRACTION_OF_POLARIZATION= 0.98   ! uncomment if synchrotron
  POLARIZATION_PLANE_NORMAL= 1 0 0
 """
-    else:
-        if im.header["ImageType"] == "mscccd":
-            inp_str += """\
+        else:
+            if im.header["ImageType"] == "mscccd":
+                inp_str += """\
  DIRECTION_OF_DETECTOR_X-AXIS= -1 0 0
  DIRECTION_OF_DETECTOR_Y-AXIS=  0 1 0
 """
-        else:
-            inp_str += """\
+            else:
+                inp_str += """\
  DIRECTION_OF_DETECTOR_X-AXIS= 1 0 0
  DIRECTION_OF_DETECTOR_Y-AXIS= 0 1 0
 """
-        inp_str += """\
- INCIDENT_BEAM_DIRECTION= 0 0 1
- FRACTION_OF_POLARIZATION= 0.98   ! better value is provided by beamline staff!
- POLARIZATION_PLANE_NORMAL= 0 1 0
-"""
+
+    if integrate_nimages is None:
+        extra_kwds.append(" DELPHI= 5")
+    else:
+        extra_kwds.append(" DELPHI= %.4f" % osc_range * integrate_nimages)
+
+    if minpk is not None: extra_kwds.append(" MINPK= %.2f" % minpk)
+    for r1, r2 in exclude_resolution_range:
+        if r1 < r2: r1, r2 = r2, r1
+        extra_kwds.append(" EXCLUDE_RESOLUTION_RANGE= %.3f %.3f" % (r1, r2))
+
+    extra_kwds = "\n".join(extra_kwds) + "\n"
+    inp_str += extra_kwds
 
     if not minimum:
         inp_str += """\
- SPACE_GROUP_NUMBER= %(sgnum)d                   ! 0 if unknown
- UNIT_CELL_CONSTANTS= %(cell)s ! put correct values if known
- INCLUDE_RESOLUTION_RANGE=50 0  ! after CORRECT, insert high resol limit; re-run CORRECT
+ SPACE_GROUP_NUMBER= %(sgnum)d
+ UNIT_CELL_CONSTANTS= %(cell)s
+ INCLUDE_RESOLUTION_RANGE=50 0
 
- TRUSTED_REGION=0.00 1.4  ! partially use corners of detectors; 1.41421=full use
- VALUE_RANGE_FOR_TRUSTED_DETECTOR_PIXELS=6000. 30000. ! often 7000 or 8000 is ok
- STRONG_PIXEL=4           ! COLSPOT: only use strong reflections (default is 3)
- MINIMUM_NUMBER_OF_PIXELS_IN_A_SPOT=3 ! default of 6 is sometimes too high
-! close spots: reduce SEPMIN and CLUSTER_RADIUS from their defaults of 6 and 3, e.g. to 4 and 2
-! for bad or low resolution data remove the "!" in the following line:
+ TRUSTED_REGION=0.00 1.4
+ VALUE_RANGE_FOR_TRUSTED_DETECTOR_PIXELS=6000. 30000.
+ STRONG_PIXEL=4
+ MINIMUM_NUMBER_OF_PIXELS_IN_A_SPOT=3
  REFINE(IDXREF)=CELL BEAM ORIENTATION AXIS ! DISTANCE POSITION
  REFINE(INTEGRATE)= DISTANCE POSITION BEAM ORIENTATION ! AXIS CELL
-! REFINE(CORRECT)=CELL BEAM ORIENTATION AXIS DISTANCE POSITION ! Default is: refine everything
-
-!used by DEFPIX and CORRECT to exclude ice-reflections / ice rings - uncomment if necessary
-!EXCLUDE_RESOLUTION_RANGE= 3.93 3.87 !ice-ring at 3.897 Angstrom
-!EXCLUDE_RESOLUTION_RANGE= 3.70 3.64 !ice-ring at 3.669 Angstrom
-!EXCLUDE_RESOLUTION_RANGE= 3.47 3.41 !ice-ring at 3.441 Angstrom
-!EXCLUDE_RESOLUTION_RANGE= 2.70 2.64 !ice-ring at 2.671 Angstrom
-!EXCLUDE_RESOLUTION_RANGE= 2.28 2.22 !ice-ring at 2.249 Angstrom
-!EXCLUDE_RESOLUTION_RANGE= 2.102 2.042 !ice-ring at 2.072 Angstrom - strong
-!EXCLUDE_RESOLUTION_RANGE= 1.978 1.918 !ice-ring at 1.948 Angstrom - weak
-!EXCLUDE_RESOLUTION_RANGE= 1.948 1.888 !ice-ring at 1.918 Angstrom - strong
-!EXCLUDE_RESOLUTION_RANGE= 1.913 1.853 !ice-ring at 1.883 Angstrom - weak
-!EXCLUDE_RESOLUTION_RANGE= 1.751 1.691 !ice-ring at 1.721 Angstrom - weak
+!REFINE(CORRECT)=CELL BEAM ORIENTATION AXIS DISTANCE POSITION
 """ % dict(sgnum=sgnum, cell=cell_str)
-    if im.header["ImageType"] == "minicbf":
+
+    if is_pilatus_or_eiger:
         inp_str += """\
- NUMBER_OF_PROFILE_GRID_POINTS_ALONG_ALPHA/BETA= 13 ! Default is 9 - Increasing may improve data
- NUMBER_OF_PROFILE_GRID_POINTS_ALONG_GAMMA= 13      ! accuracy, particularly if finely-sliced on phi,
-!                                                   and does not seem to have any downsides.
+ NUMBER_OF_PROFILE_GRID_POINTS_ALONG_ALPHA/BETA= 13
+ NUMBER_OF_PROFILE_GRID_POINTS_ALONG_GAMMA= 13
 """
-        if nx == 1475:
-            if 1:#! grep -q Flat_field tmp2: #XXX FIXME
-                inp_str += """\
-! the following specifications are for a detector _without_ proper
-! flat_field correction; they cut away one additional pixel adjacent
-! to each UNTRUSTED_RECTANGLE
+        if nx == 1475 and ny == 1679: # Pilatus 2M
+            inp_str += """\
 !EXCLUSION OF VERTICAL DEAD AREAS OF THE PILATUS 2M DETECTOR
  UNTRUSTED_RECTANGLE= 486  496     0 1680
  UNTRUSTED_RECTANGLE= 980  990     0 1680
@@ -261,24 +314,7 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
  UNTRUSTED_RECTANGLE=   0 1476  1254 1274
  UNTRUSTED_RECTANGLE=   0 1476  1466 1486
 """
-            else:
-                inp_str += """\
-!EXCLUSION OF VERTICAL DEAD AREAS OF THE PILATUS 2M DETECTOR
- UNTRUSTED_RECTANGLE= 487  495     0 1680
- UNTRUSTED_RECTANGLE= 981  989     0 1680
-!EXCLUSION OF HORIZONTAL DEAD AREAS OF THE PILATUS 2M DETECTOR
- UNTRUSTED_RECTANGLE=   0 1476   195  213
- UNTRUSTED_RECTANGLE=   0 1476   407  425
- UNTRUSTED_RECTANGLE=   0 1476   619  637
- UNTRUSTED_RECTANGLE=   0 1476   831  849
- UNTRUSTED_RECTANGLE=   0 1476  1043 1061
- UNTRUSTED_RECTANGLE=   0 1476  1255 1273
- UNTRUSTED_RECTANGLE=   0 1476  1467 1485
-"""
-
-        elif nx == 2463:
-            # Pilatus 6M
-            # FIXME: here we could test if a Flat_field correction was applied like we do for 2M
+        elif nx == 2463 and ny == 2527: # Pilatus 6M
             inp_str += """\
  UNTRUSTED_RECTANGLE= 487  495     0 2528
  UNTRUSTED_RECTANGLE= 981  989     0 2528
@@ -296,8 +332,7 @@ def generate_xds_inp(img_files, inp_dir, reverse_phi, anomalous, spot_range=None
  UNTRUSTED_RECTANGLE=   0 2464  2103 2121
  UNTRUSTED_RECTANGLE=   0 2464  2315 2333
 """
-    if is_eiger_hdf5 and nx == 3110 and ny == 3269:
-            # Eiger 9M
+        elif nx == 3110 and ny == 3269: # Eiger 9M
             inp_str += """\
  UNTRUSTED_RECTANGLE= 1029 1042 0 3269
  UNTRUSTED_RECTANGLE= 2069 2082 0 3269

@@ -80,6 +80,11 @@ auto_frame_exclude_spot_based = false
  .type = bool
  .help = automatic frame exclusion from integration based on spot search result.
 cell_prior {
+ method = *not_use_first use_first symm_constraint_only
+  .type = choice(multi=False)
+  .help = "not_use_first: Try indexing without prior information first, and if failed, use prior."
+          "use_first: Try indexing with prior information."
+          "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell"
  check = true
   .type = bool
  cell = None
@@ -216,6 +221,8 @@ def try_indexing_hard(wdir, show_progress, decilog,
                                           ("SPACE_GROUP_NUMBER", "1"),
                                           ("UNIT_CELL_CONSTANTS", cell)
                                           ])
+
+        for f in xds_files.generated_by_IDXREF: util.rotate_file(os.path.join(wdir, f), copy=(f=="SPOT.XDS"))
         run_xds(wdir=wdir, show_progress=show_progress)
 
         if idxreflp.IdxrefLp(idxref_lp).is_cell_maybe_half():
@@ -228,6 +235,7 @@ def try_indexing_hard(wdir, show_progress, decilog,
                                               ("SEPMIN", "4"),
                                               ("CLUSTER_RADIUS", "2")
                                               ])
+            for f in xds_files.generated_by_IDXREF: util.rotate_file(os.path.join(wdir, f), copy=(f=="SPOT.XDS"))
             run_xds(wdir=wdir, show_progress=show_progress)
 
             if idxreflp.IdxrefLp(idxref_lp).is_cell_maybe_half():
@@ -261,6 +269,8 @@ def try_indexing_hard(wdir, show_progress, decilog,
                                                " ".join(map(lambda x: "%.3f"%x, known_cell))),
                                               ("SPACE_GROUP_NUMBER", "%d"%known_sgnum),
                                               ])
+            for f in xds_files.generated_by_IDXREF: util.rotate_file(os.path.join(wdir, f),
+                                                                     copy=(f=="SPOT.XDS"))
             run_xds(wdir=wdir, show_progress=False)
             modify_xdsinp(xdsinp, inp_params=[("SPACE_GROUP_NUMBER", "0"),
                                               ])           
@@ -347,9 +357,17 @@ def xds_sequence(root, params):
                 sx.write(open(spot_xds, "w"), frame_selection=set(keep_frames))
 
         # Indexing
-        modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF")])
+        if params.cell_prior.method == "use_first":
+            modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
+                                              ("UNIT_CELL_CONSTANTS",
+                                               " ".join(map(lambda x: "%.3f"%x, params.cell_prior.cell))),
+                                              ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
+                                              ])
+        else:
+            modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF")])
+
         run_xds(wdir=root, show_progress=params.show_progress)
-        print # indexing stats like indexed percentage here.
+        print # TODO indexing stats like indexed percentage here.
 
         if params.tryhard:
             try_indexing_hard(root, params.show_progress, decilog,
@@ -362,14 +380,42 @@ def xds_sequence(root, params):
             print >>decilog, " Indexing failed."
             return
 
-        if params.cell_prior.check and params.cell_prior.sgnum > 0:
+        if params.cell_prior.sgnum > 0:
+            # Check anyway
             xsxds = XPARM(xparm).crystal_symmetry()
             xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
             cosets = reindex.reindexing_operators(xsref, xsxds,
                                                   params.cell_prior.tol_length, params.cell_prior.tol_angle)
             if cosets.double_cosets is None:
-                print >>decilog, " Incompatible cell. Indexing failed."
-                return
+                if params.cell_prior.check:
+                    print >>decilog, " Incompatible cell. Indexing failed."
+                    return
+                else:
+                    print >>decilog, " Warning: Incompatible cell."
+
+            elif params.cell_prior.method == "symm_constraint_only":
+                cell = xsxds.unit_cell().change_basis(cosets.combined_cb_ops()[0])
+                print >>decilog, " Trying symmetry-constrained cell parameter:", cell
+                modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
+                                                  ("UNIT_CELL_CONSTANTS",
+                                                   " ".join(map(lambda x: "%.3f"%x, cell.parameters()))),
+                                                  ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
+                                                  ])
+                for f in xds_files.generated_by_IDXREF:
+                    util.rotate_file(os.path.join(root, f), copy=(f=="SPOT.XDS"))
+                
+                run_xds(wdir=root, show_progress=params.show_progress)
+                
+                if not os.path.isfile(xparm):
+                    print >>decilog, " Indexing failed."
+                    return
+
+                # Check again
+                xsxds = XPARM(xparm).crystal_symmetry()
+                if not xsxds.unit_cell().is_similar_to(xsref.unit_cell(),
+                                                       params.cell_prior.tol_length, params.cell_prior.tol_angle):
+                    print >>decilog, "  Resulted in different cell. Indexing failed."
+                    return
 
     elif params.mode == "recycle":
         print " Start recycle. original ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)

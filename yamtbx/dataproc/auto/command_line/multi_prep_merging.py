@@ -48,23 +48,25 @@ reference_for_reindex = None
  .help = Reference reflection data for resolving indexing ambiguity
 """
 
-def prepare_dials_files(wd, out, space_group=None, reindex_op=None):
+def prepare_dials_files(wd, out, space_group=None, reindex_op=None, moveto=None):
     try:
         from yamtbx.dataproc.dials.command_line import import_xds_for_refine
-        import_xds_for_refine.run(xds_inp=os.path.join(wd, "XDS.INP"),
-                                  xparm=os.path.join(wd, "XPARM.XDS"),
-                                  integrate_lp=os.path.join(wd, "INTEGRATE.LP"),
-                                  integrate_hkl=os.path.join(wd, "INTEGRATE.HKL"),
-                                  spot_xds=os.path.join(wd, "SPOT.XDS"),
-                                  space_group=space_group, reindex_op=reindex_op,
-                                  out_dir=wd)
+        files = import_xds_for_refine.run(xds_inp=os.path.join(wd, "XDS.INP"),
+                                          xparm=os.path.join(wd, "XPARM.XDS"),
+                                          integrate_lp=os.path.join(wd, "INTEGRATE.LP"),
+                                          integrate_hkl=os.path.join(wd, "INTEGRATE.HKL"),
+                                          spot_xds=os.path.join(wd, "SPOT.XDS"),
+                                          space_group=space_group, reindex_op=reindex_op,
+                                          out_dir=wd)
+        if moveto and wd!=moveto:
+            for f in files: shutil.move(f, moveto)
     except:
         print >>out, "Error in generation of dials files in %s" % wd
         print >>out, traceback.format_exc()
 # prepare_dials_files()
 
-def rescale_with_specified_symm_worker(sym_wd, topdir, log_out, reference_symm, sgnum, sgnum_laue, prep_dials_files=False):
-    sym, wd = sym_wd
+def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_symm, sgnum, sgnum_laue, prep_dials_files=False):
+    sym, wd, wdr = sym_wd_wdr
     out = StringIO()
     print >>out,  os.path.relpath(wd, topdir),
 
@@ -89,8 +91,11 @@ def rescale_with_specified_symm_worker(sym_wd, topdir, log_out, reference_symm, 
             log_out.write(out.getvalue())
             log_out.flush()
 
-            if prep_dials_files: prepare_dials_files(wd, out)
-            return (wd, (numpy.array(xac.symm.unit_cell().parameters()), xac_file))
+            if wd != wdr: shutil.copy2(xac_file, wdr)
+
+            if prep_dials_files: prepare_dials_files(wd, out, moveto=wdr)
+            return (wdr, (numpy.array(xac.symm.unit_cell().parameters()),
+                          os.path.join(wdr, os.path.basename(xac_file))))
 
     xdsinp = os.path.join(wd, "XDS.INP")
     cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
@@ -101,7 +106,7 @@ def rescale_with_specified_symm_worker(sym_wd, topdir, log_out, reference_symm, 
         reference_symm.show_summary(out, " ")
         log_out.write(out.getvalue())
         log_out.flush()
-        return (wd, None)
+        return (wdr, None)
 
     newcell = reference_symm.space_group().average_unit_cell(xac.symm.change_basis(cosets.combined_cb_ops()[0]).unit_cell())
     newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
@@ -123,17 +128,18 @@ def rescale_with_specified_symm_worker(sym_wd, topdir, log_out, reference_symm, 
     run_xds(wd)
     for f in ("XDS.INP", "CORRECT.LP", "XDS_ASCII.HKL", "GXPARM.XDS"):
         if os.path.exists(os.path.join(wd, f)):
-            shutil.copyfile(os.path.join(wd, f), os.path.join(wd, f+"_rescale"))
+            shutil.copyfile(os.path.join(wd, f), os.path.join(wdr, f+"_rescale"))
 
     revert_files(xds_files.generated_by_CORRECT, bk_prefix, wdir=wd, quiet=True)
 
-    new_xac = os.path.join(wd, "XDS_ASCII.HKL_rescale")
-    new_gxparm = os.path.join(wd, "GXPARM.XDS_rescale")
+    new_xac = os.path.join(wdr, "XDS_ASCII.HKL_rescale")
+    new_gxparm = os.path.join(wdr, "GXPARM.XDS_rescale")
 
     if prep_dials_files:
         prepare_dials_files(wd, out,
                             space_group=reference_symm.space_group(),
-                            reindex_op=cosets.combined_cb_ops()[0])
+                            reindex_op=cosets.combined_cb_ops()[0],
+                            moveto=wdr)
 
     ret = None
     if os.path.isfile(new_xac) and os.path.isfile(new_gxparm):
@@ -145,7 +151,7 @@ def rescale_with_specified_symm_worker(sym_wd, topdir, log_out, reference_symm, 
     return (wd, ret)
 # rescale_with_specified_symm_worker()
 
-def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_symm=None, nproc=1, prep_dials_files=False):
+def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_symm=None, nproc=1, prep_dials_files=False, copyto_root=None):
     assert (sgnum, reference_symm).count(None) == 1
 
     if sgnum is not None:
@@ -165,19 +171,36 @@ def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_
     print >>out,  " reference cell:", reference_symm.unit_cell()
     print >>out
     print >>out
+    out.flush()
     st_time = time.time()
+    wd_ret = []
+
+    if copyto_root:
+        for wd in dirs:
+            assert wd.startswith(os.path.join(topdir, ""))
+            tmp = os.path.join(copyto_root, os.path.relpath(wd, topdir))
+            if not os.path.exists(tmp): os.makedirs(tmp)
+            wd_ret.append(tmp)
+    else:
+        wd_ret = dirs
+
 
     ret = easy_mp.pool_map(fixed_func=lambda x: rescale_with_specified_symm_worker(x, topdir, out, reference_symm, sgnum, sgnum_laue, prep_dials_files),
-                           args=zip(symms, dirs), processes=nproc)
+                           args=zip(symms, dirs, wd_ret), processes=nproc)
     cells = dict(filter(lambda x: x[1] is not None, ret)) # cell and file
     print >>out, "\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc)
     return cells, reference_symm
 # rescale_with_specified_symm()
 
-def reindex_with_specified_symm_worker(wd, topdir, log_out, reference_symm, sgnum_laue, prep_dials_files=False):
+def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm, sgnum_laue, prep_dials_files=False):
+    """
+    wd: directory where XDS file exists
+    wdr: wd to return; a directory where transformed file should be saved.
+    """
+
     out = StringIO()
     print >>out, "%s:" % os.path.relpath(wd, topdir),
-    
+
     # Find appropriate data
     xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
                                              "XDS_ASCII_fullres.HKL.org", "XDS_ASCII_fullres.HKL",
@@ -187,7 +210,7 @@ def reindex_with_specified_symm_worker(wd, topdir, log_out, reference_symm, sgnu
         print >>out, "Can't find XDS_ASCII file in %s" % wd
         log_out.write(out.getvalue())
         log_out.flush()
-        return (wd, None)
+        return (wdr, None)
 
     if xac_file.endswith(".org"): xac_file_org, xac_file = xac_file, xac_file[:-4]
     else: xac_file_org = xac_file+".org"
@@ -206,10 +229,13 @@ def reindex_with_specified_symm_worker(wd, topdir, log_out, reference_symm, sgnu
             log_out.write(out.getvalue())
             log_out.flush()
 
-            if prep_dials_files and not xac_file.endswith("DIALS.HKL"):
-                prepare_dials_files(wd, out)
+            if wd != wdr: shutil.copy2(xac_file, wdr)
 
-            return (wd, (numpy.array(xac.symm.unit_cell().parameters()), xac_file))
+            if prep_dials_files and not xac_file.endswith("DIALS.HKL"):
+                prepare_dials_files(wd, out, moveto=wdr)
+
+            return (wdr, (numpy.array(xac.symm.unit_cell().parameters()), 
+                          os.path.join(wdr, os.path.basename(xac_file))))
             
 
     cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
@@ -220,45 +246,63 @@ def reindex_with_specified_symm_worker(wd, topdir, log_out, reference_symm, sgnu
         reference_symm.show_summary(out, " ")
         log_out.write(out.getvalue())
         log_out.flush()
-        return (wd, None)
+        return (wdr, None)
+
+    hklout = os.path.join(wdr, os.path.basename(xac_file))
 
     newcell = xac.write_reindexed(op=cosets.combined_cb_ops()[0],
                                   space_group=reference_symm.space_group(),
-                                  hklout=xac_file)
-    ret = (numpy.array(newcell.parameters()), xac_file)
+                                  hklout=hklout)
+    ret = (numpy.array(newcell.parameters()), hklout)
+           
 
     if "DIALS.HKL" in os.path.basename(xac_file):
+        outstr = 'output.experiments="%sreindexed_experiments.json" ' % os.path.join(wdr, "")
+        outstr += 'output.reflections="%sreindexed_reflections.pickle" ' % os.path.join(wdr, "")
         for f in ("experiments.json", "indexed.pickle"):
             if not os.path.isfile(os.path.join(os.path.dirname(xac_file), f)): continue
-            util.call('dials.reindex %s change_of_basis_op=%s space_group="%s" '%(f, 
-                                                                                  cosets.combined_cb_ops()[0].as_abc(), 
-                                                                                  reference_symm.space_group_info()),
+            util.call('dials.reindex %s change_of_basis_op=%s space_group="%s" %s'%(f, 
+                                                                                    cosets.combined_cb_ops()[0].as_abc(), 
+                                                                                    reference_symm.space_group_info(),
+                                                                                    outstr),
                       wdir=os.path.dirname(xac_file))
     elif prep_dials_files:
         prepare_dials_files(wd, out,
                             space_group=reference_symm.space_group(),
-                            reindex_op=cosets.combined_cb_ops()[0])
+                            reindex_op=cosets.combined_cb_ops()[0],
+                            moveto=wdr)
 
     newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
     print >>out,  "  Reindexed to transformed cell: %s with %s" % (newcell, cosets.combined_cb_ops()[0].as_hkl())
     log_out.write(out.getvalue())
     log_out.flush()
-    return (wd, ret)
+    return (wdr, ret)
 # reindex_with_specified_symm_worker()
 
-def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, prep_dials_files=False):
+def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, prep_dials_files=False, copyto_root=None):
     print >>out
     print >>out,  "Re-index to specified symmetry:"
     reference_symm.show_summary(out, "  ")
     print >>out
     print >>out
+    out.flush()
 
     st_time = time.time()
+    wd_ret = []
+
+    if copyto_root:
+        for wd in dirs:
+            assert wd.startswith(os.path.join(topdir, ""))
+            tmp = os.path.join(copyto_root, os.path.relpath(wd, topdir))
+            if not os.path.exists(tmp): os.makedirs(tmp)
+            wd_ret.append(tmp)
+    else:
+        wd_ret = dirs
 
     sgnum_laue = reference_symm.space_group().build_derived_reflection_intensity_group(False).type().number()
 
-    ret = easy_mp.pool_map(fixed_func=lambda wd: reindex_with_specified_symm_worker(wd, topdir, out, reference_symm, sgnum_laue, prep_dials_files),
-                           args=dirs, processes=nproc)
+    ret = easy_mp.pool_map(fixed_func=lambda wd2: reindex_with_specified_symm_worker(wd2[0], wd2[1], topdir, out, reference_symm, sgnum_laue, prep_dials_files),
+                           args=zip(dirs, wd_ret), processes=nproc)
     cells = dict(filter(lambda x: x[1] is not None, ret)) # cell and file
 
     print >>out, "\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc)

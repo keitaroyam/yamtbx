@@ -76,6 +76,10 @@ def get_xac_info(xac, get_nframes=False):
         elif l.startswith("!END_OF_HEADER"):
             break
 
+    if not "resol_range" in ret:
+        d_max_min = XDS_ASCII(xac, i_only=True).as_miller_set().d_max_min()
+        ret["resol_range"] = "%.3f %.3f" % d_max_min
+
     if get_nframes:
         frame_range = XDS_ASCII(f, read_data=False).get_frame_range()
         ret["nframes"] = frame_range[1] - frame_range[0]

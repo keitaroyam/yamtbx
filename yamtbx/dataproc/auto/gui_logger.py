@@ -26,6 +26,13 @@ critical = logger.critical
 exception = logger.exception
 log = logger.log
 
+def formatf():
+    hostname = platform.node()
+    hostname = hostname[:hostname.find(".")]
+    username = getpass.getuser()
+    pid = os.getpid()
+    return "%(asctime)-15s " + " %s : %s : %d : "%(hostname, username, pid) + "%(module)s:%(lineno)s [%(levelname)s] %(message)s"
+# formatf()
 
 def config(beamline, log_root=None):
     logging.root.handlers = [] # clear basic config
@@ -34,30 +41,31 @@ def config(beamline, log_root=None):
     if beamline is None: beamline = "other"
 
     date = time.strftime("%Y%m%d")
-    hostname = platform.node()
-    hostname = hostname[:hostname.find(".")]
-    username = getpass.getuser()
-    pid = os.getpid()
 
-    logfile = os.path.join(log_root, beamline, "%s_%s.log"%(date, getpass.getuser()))
+    if os.path.isdir(log_root):
+        logfile = os.path.join(log_root, beamline, "%s_%s.log"%(date, getpass.getuser()))
+        if not os.path.exists(os.path.dirname(logfile)):
+            os.makedirs(os.path.dirname(logfile))
 
-    if not os.path.exists(os.path.dirname(logfile)):
-        os.makedirs(os.path.dirname(logfile))
+        handlerf = logging.FileHandler(logfile)
+        handlerf.setLevel(logging.DEBUG)
+        handlerf.setFormatter(logging.Formatter(formatf()))
+        logger.addHandler(handlerf)
 
-    formatf = "%(asctime)-15s " + " %s : %s : %d : "%(hostname, username, pid) + "%(module)s:%(lineno)s [%(levelname)s] %(message)s"
     formats = "%(asctime)-15s %(levelname)s : %(message)s"
-
-    handlerf = logging.FileHandler(logfile)
-    handlerf.setLevel(logging.DEBUG)
-    handlerf.setFormatter(logging.Formatter(formatf))
-    logger.addHandler(handlerf)
-
     handlers = logging.StreamHandler()
     handlers.setLevel(logging.INFO)
     handlers.setFormatter(logging.Formatter(formats))
     logger.addHandler(handlers)
 
 # config_logger()
+
+def add_logfile(logfile):
+    handlerf = logging.FileHandler(logfile)
+    handlerf.setLevel(logging.DEBUG)
+    handlerf.setFormatter(logging.Formatter(formatf()))
+    logger.addHandler(handlerf)
+# add_logfile()
 
 def handle_exception(exc_type, exc_value, exc_traceback):
     if issubclass(exc_type, KeyboardInterrupt):

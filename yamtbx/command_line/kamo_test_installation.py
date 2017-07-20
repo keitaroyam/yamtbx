@@ -10,6 +10,8 @@ This software is released under the new BSD License; see LICENSE.
 from yamtbx import util
 import os
 import shutil
+import traceback
+import tempfile
 
 def tst_jsdir():
     print "Testing location.."
@@ -125,6 +127,77 @@ def tst_dials_module():
         return False
 # tst_dials_module()
 
+def tst_dxtbx_eiger():
+    print "Testing eiger hdf5 geometry recognition.."
+
+    try:
+        import h5py
+        import uuid
+        from dxtbx.format.nexus import NXmxReader
+        from dxtbx.format.FormatHDFEigerNearlyNexus import EigerNXmxFixer
+        from dxtbx.format.nexus import BeamFactory
+        from dxtbx.format.nexus import DetectorFactory
+        from dxtbx.format.nexus import GoniometerFactory
+        import numpy
+
+        tmpfd, tmpf = tempfile.mkstemp()
+        os.close(tmpfd)
+
+        h = h5py.File(tmpf, "w")
+        h.create_group("/entry/instrument/detector/")
+        h["/entry/instrument/detector/description"] = "Dectris Eiger"
+        h["/entry/"].attrs["NX_class"] = "NXentry"
+        g = h.create_group("entry/instrument/detector/detectorSpecific/detectorModule_000")
+        g["countrate_correction_count_cutoff"] = 10
+        g = h.create_group("/entry/instrument/beam")
+        g["incident_wavelength"] = 1.
+        g["incident_wavelength"].attrs["units"] = "angstrom"
+        h["/entry/instrument"].attrs["NX_class"] = "NXinstrument"
+        h["/entry/instrument/beam"].attrs["NX_class"] = "NXbeam"
+        g = h.create_group("/entry/data")
+        g.create_dataset("data_000001", (1, 3269, 3110), dtype=numpy.uint16)
+        h["/entry/data"].attrs["NX_class"] = "NXdata"
+        g = h.create_group("/entry/instrument/detector/geometry/orientation")
+        g["value"] = (-1,0,0, 0,-1,0)
+        g = h.create_group("/entry/instrument/detector/geometry/translation")
+        g["distances"] = (0.11737501, 0.11992501, -0.18)
+        h["/entry/instrument/detector"].attrs["NX_class"] = "NXdetector"
+        h["/entry/instrument/detector/x_pixel_size"] = h["/entry/instrument/detector/y_pixel_size"] = 7.5e-5
+        h["/entry/instrument/detector/sensor_material"] = "Si"
+        h["/entry/instrument/detector/sensor_thickness"] = 4.5e-4
+        h["/entry/instrument/detector/sensor_thickness"].attrs["units"] = "m"
+        h["/entry/instrument/detector/count_time"] = 0.99998
+
+        g = h.create_group("/entry/sample/goniometer")
+        g["omega_range_average"] = 1.
+        h["/entry/sample"].attrs["NX_class"] = "NXsample"
+
+        h.close()
+
+        temp_file = "tmp_master_%s.nxs" % uuid.uuid1().hex
+        fixer = EigerNXmxFixer(tmpf, temp_file)
+        reader = NXmxReader(handle=fixer.handle)
+
+        entry = reader.entries[0]
+        instrument = entry.instruments[0]
+        detector = instrument.detectors[0]
+        sample = entry.samples[0]
+        beam = sample.beams[0]
+        beam_model = BeamFactory(beam).model
+        detector_model = DetectorFactory(detector, beam_model).model
+        goniometer_model = GoniometerFactory(sample).model
+
+        _test = detector_model[0].get_fast_axis() + detector_model[0].get_slow_axis() + beam_model.get_direction() + goniometer_model.get_rotation_axis()
+        if _test == (1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0):
+            print "  OK"
+            return True
+    except:
+        print traceback.format_exc()
+
+    print "  NG! You are using old cctbx. Use latest cctbx or environment of DIALS v1.6 or PHENIX 1.12 or newer."
+    return False
+# tst_dxtbx_eiger()
+
 #def tst_h5():
 #    print "Testing hdf5..",   
 
@@ -223,7 +296,7 @@ def run():
     failed = []
 
     for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_h5toxds, tst_ccp4, tst_dials, tst_dials_module,
-              tst_adxv, tst_numpy, tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
+              tst_dxtbx_eiger, tst_adxv, tst_numpy, tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
         ret = f()
         if not ret: failed.append(f.func_name)
 

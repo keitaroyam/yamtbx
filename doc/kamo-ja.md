@@ -41,7 +41,7 @@ SPring-8でのオンラインデータ解析のために設計されています
       * [起動](#起動)
    * [文献](#文献)
       * [KAMOの引用](#kamoの引用)
-      * [KAMOを利用した成果](#kamoを利用した成果)
+      * [KAMOを利用した研究](#kamoを利用した研究)
    * [バージョン履歴](#バージョン履歴)
 
 
@@ -301,21 +301,22 @@ kamo.test_installation
 4. `$DIALS/build/bin/libtbx.refresh`
 
 ### 起動
-基本的には上記と一緒ですが，
+基本的には上記と一緒ですが，イメージファイルをファイルシステムから探すため常に`bl=other`を指定してください．
 
 ```
-kamo bl=other log_root=~/kamo-log/ [batch.sge_pe_name=par]
+kamo bl=other [batch.sge_pe_name=par]
 ```
 
-のように，`log_root=`に書き込み権限のあるディレクトリを指定して下さい．
 また，SGEのparallel environment (qsub -pe の後に書く文字列)を上記のように指定して下さい(デフォルト: par)．SGEの環境が無く，ローカルコンピュータのみで動かすときは，
 
 ```
-kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
+kamo bl=other batch.engine=sh batch.sh_max_jobs=8
 ```
 として，同時に動かす最大ジョブ数を指定して下さい．
 
-また，reverse-phiでは無いビームライン(SPring-8以外のビームラインは大体該当)では，`reverse_phi=false`を必ず指定して下さい．縦置きゴニオなどには未対応です．
+ゴニオメータの回転軸については，ヘッダから取得できない場合，[generate\_XDS.INP](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP)と同様の方法で(つまりヘッダ情報を見て)判断します．
+明示的に指示する場合は，`reverse_phi=false` (or `true`)や`rotation_axis=1,0,0`という形で指定してください．
+あるいは`use_dxtbx=true`を指定すると，[dxtbx](https://doi.org/10.1107/S1600576714011996)を使って判断します．
 
 ## 文献
 
@@ -323,7 +324,7 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 
 現在論文準備中につき，当英語版ドキュメントのURL https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md を引用して頂ますようお願いします．
 
-### KAMOを利用した成果
+### KAMOを利用した研究
 
 * Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN)
 
@@ -331,6 +332,17 @@ kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-07-20
+   * (new) kamo.multi\_determine\_symmetry: 複数の(small wedge)データから空間群(点群対称のみ)を推定するプログラムを追加
+   * KAMO: 既知格子定数の使い方を指定するknown.method=オプションを追加 (デフォルトはnot\_use\_firstで先ず事前情報無しで指数付け．use\_firstを指定すると最初から使用)
+   * KAMO: マージ準備時に指定した格子定数にreindexしたHKLファイルをマージ用のディレクトリ以下にコピーするオプションを追加(デフォルトでON)
+   * KAMO: ADSC検出器のビームセンターの読み取り方やreverse phiかどうかをヘッダ情報から判断するように変更 (デフォルトでON)
+   * KAMO: (experimental) use\_dxtbx=オプションを追加．trueを指定するとdxtbxを使ってビーム・ゴニオメータ・検出器のジオメトリを取得．
+   * KAMO: 動作ログを作業ディレクトリにも保存するように変更．log\_root=オプションの指定は任意．
+   * GUIを軽量化 (ジョブ状況取得でGUIをブロックしないように変更; 格子定数によるデータのグループ化をバックグラウンドで進行)
+   * kamo.resolve\_indexing\_ambiguity: selective breedingで並列計算を実装(nproc>1)
+   * 各プログラムで基本的にmax\_delta=5をデフォルトに設定
+   * filter\_cell.Rでplotを出力
 * 2017-05-24
    * 2017-03-10の修正に含まれていたバグを修正(batchjob実行時の環境変数コピー)
 * 2017-05-23

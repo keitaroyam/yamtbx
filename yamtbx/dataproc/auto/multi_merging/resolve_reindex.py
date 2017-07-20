@@ -5,16 +5,21 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
-
+from yamtbx.util.xtal import format_unit_cell
+from cctbx import crystal
 from cctbx.crystal import reindex
 from cctbx.array_family import flex
 from cctbx import sgtbx
 from libtbx.utils import null_out
 from libtbx import easy_mp
+from libtbx import adopt_init_args
 from cctbx.merging import brehm_diederichs
 
 import os
 import copy
+import multiprocessing
+import time
+import numpy
 
 def calc_cc(a1, a2):
     a1, a2 = a1.common_sets(a2, assert_is_similar_symmetry=False)
@@ -27,29 +32,73 @@ def calc_cc(a1, a2):
 # calc_cc()
 
 class ReindexResolver:
-    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=3, log_out=null_out()):
-        self.xac_files = xac_files
-        self.log_out = log_out
-        self.nproc = nproc
+    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=5, log_out=null_out()):
+        adopt_init_args(self, locals())
         self.arrays = []
-        self.max_delta = max_delta
         self.best_operators = None
+        self._representative_xs = None
+    # __init__()
 
-        print >>self.log_out, "Reading"
+    def representative_crystal_symmetry(self): return self._representative_xs
+
+    def read_xac_files(self, from_p1=False):
+        op_to_p1 = None
+        if from_p1:
+            """
+            This option is currently for multi_determine_symmetry.
+            Do not use this for ambiguity resolution! op_to_p1 is not considered when writing new HKL files.
+            """
+            self.log_out.write("\nAveraging symmetry of all inputs..\n")
+            cells = []
+            sgs = []
+            for f in self.xac_files:
+                xac =  XDS_ASCII(f, read_data=False)
+                cells.append(xac.symm.unit_cell().parameters())
+                sgs.append(xac.symm.space_group())
+            assert len(set(sgs)) < 2
+            avg_symm = crystal.symmetry(list(numpy.median(cells, axis=0)), space_group=sgs[0])
+            op_to_p1 = avg_symm.change_of_basis_op_to_niggli_cell()
+            self.log_out.write("  Averaged symmetry: %s (%s)\n" % (format_unit_cell(avg_symm.unit_cell()), sgs[0].info()))
+            self.log_out.write("  Operator to Niggli cell: %s\n" % op_to_p1.as_hkl())
+            self.log_out.write("        Niggli cell: %s\n" % format_unit_cell(avg_symm.unit_cell().change_basis(op_to_p1)))
+
+        print >>self.log_out, "\nReading"
+        cells = []
         for i, f in enumerate(self.xac_files):
             print >>self.log_out, "%4d %s" % (i, f)
             xac = XDS_ASCII(f, i_only=True)
             xac.remove_rejected()
-            a = xac.i_obs().resolution_filter(d_min=d_min)
-            if min_ios is not None: a = a.select(a.data()/a.sigmas()>=min_ios)
+            a = xac.i_obs().resolution_filter(d_min=self.d_min)
+            if self.min_ios is not None: a = a.select(a.data()/a.sigmas()>=self.min_ios)
+            if from_p1:
+                a = a.change_basis(op_to_p1).customized_copy(space_group_info=sgtbx.space_group_info("P1"))
             a = a.as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
             self.arrays.append(a)
+            cells.append(a.unit_cell().parameters())
 
         print >>self.log_out, ""
-    # __init__()
+
+        self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
+                                                   space_group_info=self.arrays[0].space_group_info())
+    # read_xac_files()
+
+    def show_assign_summary(self, log_out=None):
+        if not log_out: log_out = self.log_out
+        if not self.best_operators:
+            log_out.write("ERROR: Operators not assigned.\n")
+            return
+
+        unique_ops = set(self.best_operators)
+        op_count = map(lambda x: (x, self.best_operators.count(x)), unique_ops)
+        op_count.sort(key=lambda x: x[1])
+        log_out.write("Assigned operators:\n")
+        for op, num in reversed(op_count):
+            log_out.write("  %10s: %4d\n" % (op.as_hkl(), num))
+        log_out.write("\n")
+    # show_assign_summary()
 
     def find_reindex_ops(self):
-        symm = self.arrays[0].crystal_symmetry()
+        symm = self.representative_crystal_symmetry()
         cosets = reindex.reindexing_operators(symm, symm, max_delta=self.max_delta)
         reidx_ops = cosets.combined_cb_ops()
         return reidx_ops
@@ -104,6 +153,27 @@ class ReindexResolver:
     # debug_write_mtz()
 # class ReindexResolver
 
+def kabsch_selective_breeding_worker(args):
+    ref, i, tmp, new_ops = args
+    global kabsch_selective_breeding_worker_dict
+    nproc = kabsch_selective_breeding_worker_dict["nproc"]
+    arrays = kabsch_selective_breeding_worker_dict["arrays"]
+    reindexed_arrays = kabsch_selective_breeding_worker_dict["reindexed_arrays"]
+    reidx_ops = kabsch_selective_breeding_worker_dict["reidx_ops"]
+
+    if ref==i: return None
+    
+    if nproc > 1:
+        tmp2 = reindexed_arrays[new_ops[ref]][ref]
+    else:                                
+        if reidx_ops[new_ops[ref]].is_identity_op(): tmp2 = arrays[ref]
+        else: tmp2 = arrays[ref].customized_copy(indices=reidx_ops[new_ops[ref]].apply(arrays[ref].indices())).map_to_asu()
+
+    cc = calc_cc(tmp, tmp2)
+    if cc==cc: return cc
+    return None
+# work_local()
+
 class KabschSelectiveBreeding(ReindexResolver):
     """
     Reference: W. Kabsch "Processing of X-ray snapshots from crystals in random orientations" Acta Cryst. (2014). D70, 2204-2216
@@ -111,10 +181,16 @@ class KabschSelectiveBreeding(ReindexResolver):
     If I understand correctly...
     """
 
-    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=3, log_out=null_out()):
+    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=5, from_p1=False, log_out=null_out()):
         ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
+        self._final_cc_means = [] # list of [(op_index, cc_mean), ...]
+        self._reidx_ops = []
+        self.read_xac_files(from_p1=from_p1)
     # __init__()
-    
+
+    def final_cc_means(self): return self._final_cc_means
+    def reindex_operators(self): return self._reidx_ops
+
     def assign_operators(self, reidx_ops=None, max_cycle=100):
         arrays = self.arrays
         self.best_operators = None
@@ -126,9 +202,10 @@ class KabschSelectiveBreeding(ReindexResolver):
         print >>self.log_out, ""
 
         reidx_ops.sort(key=lambda x: not x.is_identity_op()) # identity op to first
+        self._reidx_ops = reidx_ops
 
         if self.nproc > 1:
-            # consumes much memory..
+            # consumes much memory.. (but no much benefits)
             reindexed_arrays = [arrays]
             for op in reidx_ops[1:]:
                 reindexed_arrays.append(map(lambda x: x.customized_copy(indices=op.apply(x.indices())).map_to_asu(), arrays))
@@ -138,12 +215,19 @@ class KabschSelectiveBreeding(ReindexResolver):
         old_ops = map(lambda x:0, xrange(len(arrays)))
         new_ops = map(lambda x:0, xrange(len(arrays)))
 
+        global kabsch_selective_breeding_worker_dict
+        kabsch_selective_breeding_worker_dict = dict(nproc=self.nproc, arrays=arrays,
+                                                     reindexed_arrays=reindexed_arrays,
+                                                     reidx_ops=reidx_ops) # constants during cycles
+        pool = multiprocessing.Pool(self.nproc)
         for ncycle in xrange(max_cycle):
             #new_ops = copy.copy(old_ops) # doesn't matter
+            self._final_cc_means = []
+
             for i in xrange(len(arrays)):
                 cc_means = []
                 a = arrays[i]
-
+                #ttt=time.time()
                 for j, op in enumerate(reidx_ops):
                     cc_list = []
                     if self.nproc > 1:
@@ -152,6 +236,7 @@ class KabschSelectiveBreeding(ReindexResolver):
                         if op.is_identity_op(): tmp = a
                         else: tmp = a.customized_copy(indices=op.apply(a.indices())).map_to_asu()
                     
+                    """
                     def work_local(ref): # XXX This function is very slow when nproc>1...
                         if ref==i: return None
 
@@ -168,7 +253,10 @@ class KabschSelectiveBreeding(ReindexResolver):
 
                     cc_list = easy_mp.pool_map(fixed_func=work_local,
                                                args=range(len(arrays)),
-                                               processes=1)#self.nproc)
+                                               processes=self.nproc)
+                    """
+                    cc_list = pool.map(kabsch_selective_breeding_worker,
+                                       ((k, i, tmp, new_ops) for k in range(len(arrays))))
                     cc_list = filter(lambda x: x is not None, cc_list)
 
                     if len(cc_list) > 0:
@@ -177,6 +265,8 @@ class KabschSelectiveBreeding(ReindexResolver):
 
                 max_el = max(cc_means, key=lambda x:x[1])
                 print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_means)))
+                self._final_cc_means.append(cc_means)
+                #print "%.3f sec" % (time.time()-ttt)
                 new_ops[i] = max_el[0]
 
             print >>self.log_out, "In %4d cycle" % (ncycle+1)
@@ -197,8 +287,9 @@ class KabschSelectiveBreeding(ReindexResolver):
 # class KabschSelectiveBreeding
 
 class ReferenceBased(ReindexResolver):
-    def __init__(self, xac_files, ref_array, d_min=3, min_ios=3,  nproc=1, max_delta=3, log_out=null_out()):
+    def __init__(self, xac_files, ref_array, d_min=3, min_ios=3,  nproc=1, max_delta=5, log_out=null_out()):
         ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
+        self.read_xac_files()
         self.ref_array = ref_array.resolution_filter(d_min=d_min).as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
         
     # __init__()
@@ -241,8 +332,9 @@ class ReferenceBased(ReindexResolver):
 # class ReferenceBased
 
 class BrehmDiederichs(ReindexResolver):
-    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=3, log_out=null_out()):
+    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=5, log_out=null_out()):
         ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
+        self.read_xac_files()
     # __init__()
 
     def assign_operators(self, reidx_ops=None):

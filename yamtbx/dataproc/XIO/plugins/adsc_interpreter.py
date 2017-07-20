@@ -96,8 +96,15 @@ class Interpreter:
     '428':('ESRF','ID14-2','ADSC Q4'),
     '444':('ESRF','ID29 or ID14-1','ADSC Q210'),
     '445':('USA?','UNKN','ADSC 210'),
+    '449':('PF','NW12A','ADSC Q210'),
+    '472':('PF','NE3A','ADSC Q270'),
+    '474':('PF','BL17A','ADSC Q270'),
+    '912':('PF','BL5A','ADSC Q315'),
+    '916':('APS','24IDE','ADSC'),
     '917':('ESRF','ID23-1','ADSC 315'),
     '918':('ESRF','ID14-4','ADSC 315'),
+    '923':('ALS','BL5.0.2','ADSC Q315'),
+    '933':('AichSR','BL2S1','ADSC Q315'),
     '926':('ALS','ALS831','ADSC 315r'),
     '927':('SOLEIL','PROXIMA2a','ADSC 315r'),
     }
@@ -109,7 +116,9 @@ class Interpreter:
         "Intepret the ascii structure of the asdc image header."
 
         #_lis = raw_head[2:].split("}")[0].split(";\n")[:-1]
-        _lis = map(lambda x: x[:x.index(";")], raw_head[2:].split("}")[0].splitlines()[:-1])
+        #_lis = map(lambda x: x[:x.index(";")], raw_head[2:].split("}")[0].splitlines()[:-1])
+        tmp = filter(lambda x: x, raw_head[raw_head.index("{")+1 : raw_head.index("}")].splitlines())
+        _lis = map(lambda x: x.strip("; "), tmp)
         self.raw_head_dict = dict([par.split("=") for par in _lis])
         self.raw_head_dict.update({'MESSAGE': '', 'TWOTHETA': '0'}) # Example missing
         return self.raw_head_dict

@@ -208,7 +208,7 @@ class SGE(JobManager):
         stdout = p.stdout.readlines()
 
         if p.returncode != 0:
-            print "qstat %s failed (probably successfully finished)."%job_id 
+            print "job %s finished (qstat returned %s)." % (job_id, p.returncode)
             return None
         #raise SgeError("qstat failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
         #                                                                     stdout))

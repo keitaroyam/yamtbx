@@ -6,6 +6,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 import os, glob, re
 from yamtbx.dataproc import XIO
+import traceback
 
 IMG_EXTENSIONS = ".img", ".osc", ".cbf", ".mccd", ".mar1600", "_master.h5"
 COMPRESS_EXTENSIONS = ".bz2", ".gz"
@@ -140,7 +141,7 @@ def is_dataset(img_template, min_frame, max_frame, _epsilon=1e-5, quiet=False):
                 im = XIO.Image(f)
             except Exception, ex:
                 if not quiet:
-                    print ex
+                    print traceback.format_exc()
                 return False
 
             start_angles.append( im.header["PhiStart"] )
@@ -212,7 +213,8 @@ def takeout_datasets(img_template, min_frame, max_frame, _epsilon=1e-5,
             try:
                 im = XIO.Image(f)
             except Exception, ex:
-                print ex
+                print "Error on reading", f
+                print traceback.format_exc()
                 return []
 
             start_angles.append( im.header["PhiStart"] )

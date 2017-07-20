@@ -583,6 +583,7 @@ if __name__ == "__main__":
     parser.add_option("--dmax", action="store", dest="dmax", help="low resolution cutoff") # as str
     parser.add_option("--copy-test-flag","-r", action="store", dest="flag_source", help="")
     parser.add_option("--add-test-flag", action="store_true", dest="add_flag", help="")
+    parser.add_option("--space-group", action="store", type=int, dest="sgnum", help="Space group number")
 
     (opts, args) = parser.parse_args(sys.argv)
 
@@ -603,5 +604,6 @@ if __name__ == "__main__":
             run_xtriage=opts.run_xtriage, run_ctruncate=opts.run_ctruncate,
             dmin=opts.dmin, dmax=opts.dmax, force_anomalous=opts.anomalous,
             with_multiplicity=opts.make_mtzmulti,
-            flag_source=opts.flag_source, add_flag=opts.add_flag)
+            flag_source=opts.flag_source, add_flag=opts.add_flag,
+            sgnum=opts.sgnum)
 

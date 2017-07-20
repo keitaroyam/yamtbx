@@ -385,6 +385,34 @@ class Image:
             self.header["BeamX"] = self.header["BeamX"]*self.header["PixelX"]
             self.header["BeamY"] = self.header["BeamY"]*self.header["PixelY"]
         self.header["ImageType"] = self.type
+
+        if self.type == "adsc": # Fix beam center
+            """
+            Reference: http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP
+            """
+            SNs1 = """\
+449
+472
+474
+912
+923
+933
+911
+446
+916
+""".split()
+            SNs4 = """\
+915
+""".split()
+            beamx, beamy = self.header["BeamX"], self.header["BeamY"]
+            
+            if self.header["SerialNumber"] in SNs1:
+                self.header["BeamX"], self.header["BeamY"] = beamy, beamx
+            elif self.header["SerialNumber"] in SNs4:
+                pass
+            else: # 3
+                self.header["BeamY"] = self.header["Height"]*self.header["PixelY"] - beamy
+
         return self.header
 
     def export(self, exportType='xds'):

@@ -114,6 +114,25 @@ def rotate_file(filename, copy=False):
     return filename + ".1"
 # rotate_file()
 
+def safe_copy(src, dst, move=False):
+    """
+    Don't reveal file before copy completed.
+    """
+
+    src_name = os.path.basename(src)
+    if os.path.isdir(dst): dst = os.path.join(dst, src_name)
+
+    tmpfd, tmp = tempfile.mkstemp(prefix="."+src_name, dir=os.path.dirname(dst))
+    os.close(tmpfd)
+
+    shutil.copy2(src, tmp)
+    os.rename(tmp, dst)
+
+    if move and os.path.isfile(dst) and not os.path.islink(dst) and os.path.getsize(src)==os.path.getsize(dst):
+        os.remove(src)
+
+# safe_copy()
+
 def commonalize(Is):
     new_Is = []
     Is0 = Is[0]
@@ -249,3 +268,19 @@ def get_temp_local_dir(prefix, min_kb=None, min_mb=None, min_gb=None):
 def replace_forbidden_chars(filename, repl="-"):
     return re.sub(r"[/><\*\\\?%:]", repl, filename)
 # replace_forbidden_chars()
+
+def human_readable_bytes(bytes):
+    if bytes < 1024:
+        return bytes, "B"
+    elif bytes < 1024**2:
+        return bytes/1024., "KB"
+    elif bytes < 1024**3:
+        return bytes/1024.**2, "MB"
+    elif bytes < 1024**4:
+        return bytes/1024.**3, "GB"
+    elif bytes < 1024**5:
+        return bytes/1024.**4, "TB"
+    else:# if bytes < 1024**6:
+        return bytes/1024.**5, "PB"
+    
+# human_readable_bytes()

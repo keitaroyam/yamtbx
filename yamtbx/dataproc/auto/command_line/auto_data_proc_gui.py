@@ -18,6 +18,7 @@ from yamtbx.dataproc.xds.command_line import estimate_resolution_by_spotxds
 from yamtbx.dataproc.adxv import Adxv
 from yamtbx.dataproc.dataset import find_existing_files_in_template
 from yamtbx.dataproc.bl_logfiles import BssJobLog
+from yamtbx.dataproc.auto.command_line.multi_check_cell_consistency import CellGraph
 from yamtbx.util import batchjob, directory_included, read_path_list, safe_float, expand_wildcard_in_list
 from yamtbx.util.xtal import format_unit_cell
 
@@ -26,6 +27,7 @@ import libtbx.phil
 from libtbx.utils import multi_out
 import libtbx.easy_mp
 from cctbx import sgtbx
+from cctbx import crystal
 from cctbx.crystal import reindex
 
 import wx
@@ -48,6 +50,7 @@ import cPickle as pickle
 import glob
 import threading
 import traceback
+import pipes
 
 EventShowProcResult, EVT_SHOW_PROC_RESULT = wx.lib.newevent.NewEvent()
 EventLogsUpdated, EVT_LOGS_UPDATED = wx.lib.newevent.NewEvent()
@@ -100,7 +103,9 @@ logwatch_interval = 30
 logwatch_once = None
  .type = bool
  .help = find datasets only once (when program started). Default: true if bl=other, otherwise false.
-
+check_all_files_exist = True
+ .type = bool
+ .help = "Check all files in job exist before starting processing"
 auto_mode = true
  .type = bool
  .help = automatically start processing when data collection finished.
@@ -133,6 +138,11 @@ known {
  space_group = None
   .type = str
   .help = space group (no. or name)
+ method = *not_use_first use_first symm_constraint_only
+  .type = choice(multi=False)
+  .help = "not_use_first: Try indexing without prior information first, and if failed, use prior."
+          "use_first: Try indexing with prior information."
+          "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell"
 }
 
 auto_frame_exclude_spot_based = false
@@ -149,6 +159,9 @@ engine = *xds dials
  .type = choice(multi=False)
 
 xds {
+ use_dxtbx = False
+  .type = bool
+  .help = Use dxtbx for generation of XDS.INP
  minpk = None
   .type = float
  exclude_resolution_range = None
@@ -161,6 +174,9 @@ xds {
   .type = str
   .multiple = true
   .help = extra keywords for XDS.INP
+ reverse_phi = None
+  .type = bool
+  .help = "Automatic decision if None (by default)."
  override {
   geometry_reference = None
    .type = path
@@ -186,8 +202,6 @@ merging {
  }
 }
 
-reverse_phi = true
- .type = bool
 split_hdf_miniset = true
  .type = bool
  .help = Whether or not minisets in hdf5 are treated individually.
@@ -242,7 +256,8 @@ class BssJobs:
         self._current_prefix = None
         self._joblogs = []
         self._chaches = {} # chache logfile objects. {filename: [timestamp, objects..]
-
+        self.cell_graph = CellGraph(tol_length=config.params.merging.cell_grouping.tol_length,
+                                    tol_angle=config.params.merging.cell_grouping.tol_angle)
         self.xds_inp_overrides = []
     # __init__()
 
@@ -563,7 +578,8 @@ class BssJobs:
 
         xdsinp_str = xds_inp.generate_xds_inp(img_files=img_files,
                                               inp_dir=os.path.abspath(workdir),
-                                              reverse_phi=config.params.reverse_phi,
+                                              use_dxtbx=config.params.xds.use_dxtbx,
+                                              reverse_phi=config.params.xds.reverse_phi,
                                               anomalous=config.params.anomalous,
                                               spot_range="all", minimum=False,
                                               integrate_nimages=None, minpk=config.params.xds.minpk,
@@ -587,6 +603,7 @@ class BssJobs:
         if None not in (config.params.known.space_group, config.params.known.unit_cell):
             opts.append("cell_prior.cell=%s" % ",".join(map(lambda x: "%.3f"%x, config.params.known.unit_cell)))
             opts.append("cell_prior.sgnum=%d" % sgtbx.space_group_info(config.params.known.space_group).group().type().number())
+            opts.append("cell_prior.method=%s" % config.params.known.method)
 
         # Start batch job
         job = batchjob.Job(workdir, "xds_auto.sh", nproc=config.params.batch.nproc_each)
@@ -639,10 +656,15 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
 #filename_template="%(filename)s", prefix="%(prefix)s", nr_range=%(nr)s, wdir=".", nproc=%(nproc)d)
 
         job.write_script(job_str+"\n")
+
+        known_xs = None
+        if None not in (config.params.known.space_group, config.params.known.unit_cell):
+            known_xs = crystal.symmetry(config.params.known.unit_cell, config.params.known.space_group)
+
         pickle.dump(dict(filename_template=bssjob.filename,
                          prefix=prefix,
                          nr_range=nr, wdir=".",
-                         known=config.params.known,
+                         known_xs=known_xs,
                          overrides=overrides,
                          nproc=config.params.batch.nproc_each),
                     open(os.path.join(workdir, "args.pkl"), "w"), -1)
@@ -805,7 +827,7 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
 # class BssJobs
 
 # Singleton objects
-bssjobs = BssJobs()
+bssjobs = None # BssJobs()
 batchjobs = None # initialized in __main__
 mainFrame = None
 
@@ -846,6 +868,8 @@ class WatchLogThread:
             if config.params.date == "today": date = datetime.datetime.today()
             else: date = datetime.datetime.strptime(config.params.date, "%Y-%m-%d")
 
+            job_statuses = {}
+
             if not (config.params.logwatch_once and counter > 1):
                 # check bsslog
                 if config.params.jobspkl is not None:
@@ -859,20 +883,25 @@ class WatchLogThread:
                     else:
                         bssjobs.update_jobs_from_files(config.params.topdir,
                                                        config.params.include_dir, config.params.exclude_dir)
-                # start jobs
-                if config.params.auto_mode:
-                    for key in bssjobs.keys():
-                        status = bssjobs.get_process_status(key)[0]
-                        job = bssjobs.get_job(key)
-                        if job.status == "finished" and status is None:
-                            if job.all_image_files_exist():
-                                mylog.info("Automatically starting processing %s" % str(key))
-                                bssjobs.process_data(key)
-                            else:
-                                mylog.info("Waiting for files: %s" % str(key))
+            # start jobs
+            if config.params.auto_mode:
+                for key in bssjobs.keys():
+                    job_statuses[key] = bssjobs.get_process_status(key)
+                    status = job_statuses[key][0]
+                    job = bssjobs.get_job(key)
+                    if job.status == "finished" and status is None:
+                        if not config.params.check_all_files_exist or job.all_image_files_exist():
+                            mylog.info("Automatically starting processing %s" % str(key))
+                            bssjobs.process_data(key)
+                        else:
+                            mylog.info("Waiting for files: %s" % str(key))
 
-            ev = EventLogsUpdated()
+            ev = EventLogsUpdated(job_statuses=job_statuses)
             wx.PostEvent(self.parent, ev)
+
+            for key in job_statuses:
+                if job_statuses[key][0] == "finished":
+                    bssjobs.cell_graph.add_proc_result(key, bssjobs.get_xds_workdir(key))
 
             # Make html report # TODO Add DIALS support
             html_report.make_kamo_report(bssjobs, 
@@ -1014,14 +1043,20 @@ class MultiPrepDialog(wx.Dialog):
         vbox.Add(hbox1)
 
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, "Determine cell-dimensions in specified symmetry by "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, "Prepare files in specified symmetry by "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
 
         self.rbReindex = wx.RadioButton(mpanel, wx.ID_ANY, "reindexing only", style=wx.RB_GROUP)
+        self.rbReindex.SetToolTipString("Just change H,K,L columns and unit cell parameters in HKL file")
         self.rbReindex.SetValue(True)
         self.rbPostref = wx.RadioButton(mpanel, wx.ID_ANY, "post-refinement")
+        self.rbPostref.SetToolTipString("Run CORRECT job of XDS to refine unit cell and geometric parameters")
         hbox2.Add(self.rbReindex, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         hbox2.Add(self.rbPostref, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
-        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, " using "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+        self.chkPrepFilesInWorkdir = wx.CheckBox(mpanel, wx.ID_ANY, "into the workdir")
+        self.chkPrepFilesInWorkdir.SetToolTipString("When checked, HKL files for merging will be saved in the workdir. Useful when you are trying several symmetry possibilities. Otherwise files are modified in place.")
+        self.chkPrepFilesInWorkdir.SetValue(True)
+        hbox2.Add(self.chkPrepFilesInWorkdir, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+        hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, " using "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         self.txtNproc = wx.TextCtrl(mpanel, wx.ID_ANY, size=(40,25))
         hbox2.Add(self.txtNproc, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         hbox2.Add(wx.StaticText(mpanel, wx.ID_ANY, " CPU cores "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
@@ -1032,7 +1067,7 @@ class MultiPrepDialog(wx.Dialog):
         try: import dials
         except ImportError: self.chkPrepDials.Disable()
 
-        self.selected = (None, None, None, None, None, None)
+        self.selected = (None, None, None, None, None, None, None)
         self.cm = cm
         self._set_default_input()
     # __init__()
@@ -1092,7 +1127,7 @@ class MultiPrepDialog(wx.Dialog):
                              "Error", style=wx.OK).ShowModal()
             return
 
-        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine", nproc, self.chkPrepDials.GetValue()
+        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine", nproc, self.chkPrepDials.GetValue(), self.chkPrepFilesInWorkdir.GetValue()
         self.EndModal(wx.OK)
     # btnProceed_click()
 
@@ -1165,6 +1200,7 @@ class ControlPanel(wx.Panel):
 
     def on_update(self, ev):
         self.update_listctrl()
+        job_statuses = ev.job_statuses
 
         lc = self.listctrl
         n_proc = 0
@@ -1173,11 +1209,12 @@ class ControlPanel(wx.Panel):
         dumpdata = {}
         for i in xrange(lc.GetItemCount()):
             key = self.listctrl.key_at(i)
-            status, (cmpl, sg, resn) = bssjobs.get_process_status(key)
+            if key not in job_statuses: continue
+            status, (cmpl, sg, resn) = job_statuses.get(key)
             dumpdata[key] = status, (cmpl, sg, resn)
             item = lc.get_item(key)
             if status is None:
-                item[6] = "never"
+                item[6] = "waiting"
             else:
                 item[6] = status
                 if status == batchjob.STATE_FINISHED: n_proc += 1
@@ -1200,6 +1237,9 @@ class ControlPanel(wx.Panel):
         for prefix, nr in bssjobs.jobs:
             lab = "%s (%.4d..%.4d)" % (os.path.relpath(prefix, config.params.topdir), nr[0], nr[1])
             job = bssjobs.jobs[(prefix, nr)]
+
+            # If exists, don't overwrite with blank data
+            if lc.get_item((prefix, nr)): continue
             
             item = [lab]
             if job.sample is not None: item.append("%s(%.2d)" % job.sample)
@@ -1261,41 +1301,31 @@ class ControlPanel(wx.Panel):
         keys = filter(lambda k: bssjobs.get_process_status(k)[0]=="finished", keys)
         mylog.info("%d finished jobs selected for merging" % len(keys))
 
+        if not bssjobs.cell_graph.is_all_included(keys):
+            busyinfo = wx.lib.agw.pybusyinfo.PyBusyInfo("Thinking..", title="Busy KAMO")
+            try: wx.SafeYield()
+            except: pass
+            while not bssjobs.cell_graph.is_all_included(keys):
+                print "waiting.."
+                time.sleep(1)
+            busyinfo = None
+
         if len(keys) == 0:
             wx.MessageDialog(None, "No successfully finished job in the selection",
                              "Error", style=wx.OK).ShowModal()
             return
 
-        xdsdirs = map(lambda k: bssjobs.get_xds_workdir(k), keys)
-
-        # Check cell consistency
-        from yamtbx.dataproc.auto.command_line import multi_check_cell_consistency
-
-        cell_params = libtbx.phil.parse(input_string=multi_check_cell_consistency.master_params_str).extract()
-
-        if config.params.merging.cell_grouping.tol_length is not None:
-            cell_params.tol_length = config.params.merging.cell_grouping.tol_length
-        if config.params.merging.cell_grouping.tol_angle is not None:
-            cell_params.tol_angle = config.params.merging.cell_grouping.tol_angle 
-
-        cell_params.xdsdir = xdsdirs
         sio = StringIO.StringIO()
+        cm = bssjobs.cell_graph.get_subgraph(keys)
+        cm.group_xds_results(sio)
         
-        busyinfo = wx.lib.agw.pybusyinfo.PyBusyInfo("Thinking..", title="Busy KAMO")
-        try: wx.SafeYield()
-        except: pass
-        try:
-            cm = multi_check_cell_consistency.run(cell_params, out=sio)
-        finally:
-            busyinfo = None
-
         if len(cm.groups) == 0:
             wx.MessageDialog(None, "Oh, no. No data",
                              "Error", style=wx.OK).ShowModal()
             return
         
         mpd = MultiPrepDialog(cm=cm)
-        group, symmidx, workdir, cell_method, nproc, prep_dials_files = mpd.ask(sio.getvalue())
+        group, symmidx, workdir, cell_method, nproc, prep_dials_files, into_workdir = mpd.ask(sio.getvalue())
         mpd.Destroy()
 
         if None in (group,symmidx):
@@ -1312,26 +1342,27 @@ class ControlPanel(wx.Panel):
 
         prep_log_out.write("\n\ngroup_choice= %d, symmetry= %s (%s)\n" % (group, reference_symm.space_group_info(),
                                                                           format_unit_cell(reference_symm.unit_cell())))
-        
+        prep_log_out.flush()
+
         # Scale with specified symmetry
         from yamtbx.dataproc.auto.command_line.multi_prep_merging import rescale_with_specified_symm, reindex_with_specified_symm
 
         symms = map(lambda i: cm.symms[i], cm.groups[group-1])
         dirs = map(lambda i: cm.dirs[i], cm.groups[group-1])
-        topdir = os.path.dirname(os.path.commonprefix(dirs))
+        copyto_root = os.path.join(workdir, "input_files") if into_workdir else None
         mylog.info("group choice: %d, symmetry choice: %s (%s)" % (group, reference_symm.space_group_info(),
                                                                    format_unit_cell(reference_symm.unit_cell())))
 
         if cell_method == "reindex":
-            cell_and_files = reindex_with_specified_symm(topdir, reference_symm, dirs, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files)
+            cell_and_files = reindex_with_specified_symm(config.params.workdir, reference_symm, dirs, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files, copyto_root=copyto_root)
         elif cell_method == "postrefine":
-            cell_and_files, reference_symm = rescale_with_specified_symm(topdir, dirs, symms, reference_symm=reference_symm, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files)
+            cell_and_files, reference_symm = rescale_with_specified_symm(config.params.workdir, dirs, symms, reference_symm=reference_symm, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files, copyto_root=copyto_root)
         else:
             raise "Don't know this choice: %s" % cell_method
 
         prep_log_out.flush()
 
-        cosets = reindex.reindexing_operators(reference_symm, reference_symm, max_delta=10)
+        cosets = reindex.reindexing_operators(reference_symm, reference_symm, max_delta=5)
         reidx_ops = cosets.combined_cb_ops()
 
         print >>prep_log_out, "\nReference symmetry:", reference_symm.unit_cell(), reference_symm.space_group_info().symbol_and_number()
@@ -1378,7 +1409,7 @@ kamo.multi_merge \\
         program=xscale xscale.reference=bmin \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
-        xscale.use_tmpdir_if_available=${use_ramdisk} \\
+        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
 #        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
 """ % config.params.batch.sge_pe_name)
         os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
@@ -1400,15 +1431,49 @@ kamo.multi_merge \\
         reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
         clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
         cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
-        xscale.use_tmpdir_if_available=${use_ramdisk} \\
+        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
 #        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
 """ % config.params.batch.sge_pe_name)
         os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
 
         open(os.path.join(workdir, "filter_cell.R"), "w").write("""\
+iqrf <- 2.5
+
+myhist <- function(v, title) {
+ if(sd(v)==0) {
+  plot.new()
+  return()
+ }
+ hist(v, main=paste("Histogram of", title), xlab=title)
+ abline(v=c(median(v)-IQR(v)*iqrf, median(v)+IQR(v)*iqrf), col="blue")
+}
+
 cells <- read.table("cells.dat", h=T)
-good <- subset(cells, abs(a-median(a))<IQR(a)*2.5 & abs(b-median(b))<IQR(b)*2.5 & abs(c-median(c))<IQR(c)*2.5)
+good <- subset(cells, abs(a-median(a))<=IQR(a)*iqrf & abs(b-median(b))<=IQR(b)*iqrf & abs(c-median(c))<=IQR(c)*iqrf & abs(al-median(al))<=IQR(al)*iqrf & abs(be-median(be))<=IQR(be)*iqrf & abs(ga-median(ga))<=IQR(ga)*iqrf)
 write.table(good$file, "formerge_goodcell.lst", quote=F, row.names=F, col.names=F)
+
+pdf("hist_cells.pdf", width=14, height=7)
+par(mfrow=c(2,3))
+myhist(cells$a, "a")
+myhist(cells$b, "b")
+myhist(cells$c, "c")
+myhist(cells$al,"alpha")
+myhist(cells$be,"beta")
+myhist(cells$ga,"gamma")
+dev.off()
+cat("See hist_cells.pdf\n\n")
+
+cat(sprintf("%4d files given.\n", nrow(cells)))
+cat(sprintf("mean: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", mean(cells$a), mean(cells$b), mean(cells$c), mean(cells$al), mean(cells$be), mean(cells$ga)))
+cat(sprintf(" std: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", sd(cells$a), sd(cells$b), sd(cells$c), sd(cells$al), sd(cells$be), sd(cells$ga)))
+cat(sprintf(" iqr: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", IQR(cells$a), IQR(cells$b), IQR(cells$c), IQR(cells$al), IQR(cells$be), IQR(cells$ga)))
+
+cat(sprintf("\n%4d files removed.\n", nrow(cells)-nrow(good)))
+cat(sprintf("mean: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", mean(good$a), mean(good$b), mean(good$c), mean(good$al), mean(good$be), mean(good$ga)))
+cat(sprintf(" std: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", sd(good$a), sd(good$b), sd(good$c), sd(good$al), sd(good$be), sd(good$ga)))
+cat(sprintf(" iqr: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", IQR(good$a), IQR(good$b), IQR(good$c), IQR(good$al), IQR(good$be), IQR(good$ga)))
+
+cat("\nUse formerge_goodcell.lst instead!\n")
 """)
 
         if prep_dials_files:
@@ -1881,7 +1946,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
 
 3) To process already-collected data (off-line & directory search mode)
 
-  bl=other [reverse_phi=false] [include_dir=dirs.lst]
+  bl=other [include_dir=dirs.lst]
 
 ** This program must be started in the top directory of your datasets! **
    (Only processes the data in the subdirectories)
@@ -1893,7 +1958,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         iotbx.phil.parse(gui_phil_str).show(prefix="  ", attributes_level=1)
         return
 
-    cmdline = iotbx.phil.process_command_line(args=sys.argv,
+    cmdline = iotbx.phil.process_command_line(args=argv,
                                               master_string=gui_phil_str)
     config.params = cmdline.work.extract()
     args = cmdline.remaining_args
@@ -1921,6 +1986,14 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         mylog.error("Specify both space_group and unit_cell!")
         return
 
+    if config.params.xds.reverse_phi is not None:
+        if config.params.xds.use_dxtbx: # rotation axis is determined by dxtbx
+            mylog.error("When use_dxtbx=true, you cannot specify reverse_phi= option")
+            return
+        if config.params.xds.override.rotation_axis:
+            mylog.error("When xds.override.rotation_axis= is given, you cannot specify reverse_phi= option")
+            return            
+
     if config.params.topdir is None: config.params.topdir = os.getcwd()
     if not os.path.isabs(config.params.topdir):
         config.params.topdir = os.path.abspath(config.params.topdir)
@@ -1944,11 +2017,19 @@ This is an alpha-version. If you found something wrong, please let staff know! W
 
     if not os.path.isabs(config.params.workdir):
         config.params.workdir = os.path.abspath(config.params.workdir)
+
+    mylog.add_logfile(os.path.join(config.params.workdir, "kamo_gui.log"))
+    mylog.info("Starting GUI in %s" % config.params.workdir)
     
     # Save params
     savephilpath = os.path.join(config.params.workdir, time.strftime("gui_params_%y%m%d-%H%M%S.txt"))
-    libtbx.phil.parse(gui_phil_str).format(config.params).show(out=open(savephilpath, "w"),
-                                                               prefix="")
+    with open(savephilpath, "w") as ofs:
+        ofs.write("# Command-line args:\n")
+        ofs.write("# kamo %s\n\n" % " ".join(map(lambda x: pipes.quote(x), argv)))
+        libtbx.phil.parse(gui_phil_str).format(config.params).show(out=ofs,
+                                                                   prefix="")
+    mylog.info("GUI parameters were saved as %s" % savephilpath)
+
     if config.params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
     elif config.params.batch.engine == "sh":
@@ -1963,6 +2044,8 @@ This is an alpha-version. If you found something wrong, please let staff know! W
 
     if config.params.logwatch_once is None:
         config.params.logwatch_once = (config.params.bl == "other")
+
+    bssjobs = BssJobs()
 
     if config.params.xds.override.geometry_reference:
         bssjobs.load_override_geometry(config.params.xds.override.geometry_reference)

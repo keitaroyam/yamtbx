@@ -6,6 +6,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 from yamtbx.dataproc.xds import xds_ascii
 from yamtbx.dataproc.crystfel import hkl as crystfel_hkl
+from yamtbx.util import read_path_list
 import yamtbx_utils_ext
 from cctbx import miller
 from cctbx import crystal
@@ -26,6 +27,11 @@ import cPickle as pickle
 master_params_str = """\
 lstin = None
  .type = path
+dials_phil = None
+ .type = path
+dials_phil_selection_lst = None
+ .type = path
+ .help = can be used when subset of dials_phil= is merged. Give a list of reflection files
 start_after = None
  .type = int
 stop_after = None
@@ -51,6 +57,8 @@ min_peak = None
  .type = float
 min_peak_percentile = None
  .type = float
+dials_data = *prf sum
+ .type = choice(multi=False)
 skip_rejected = true
  .type = bool
  .help = skip data with negative sigmas
@@ -118,6 +126,32 @@ def read_list(lstin):
     return ret
 # read_list()
 
+def read_dials_phil(phil_in, dials_phil_selection_lst):
+    master_str = """\
+input {
+  experiments = None
+   .type = path
+   .multiple = true
+  reflections = None
+   .type = path
+   .multiple = true
+}
+"""
+    params = iotbx.phil.process_command_line(args=[phil_in], master_string=master_str).work.extract()
+
+    assert len(params.input.experiments) == len(params.input.reflections)
+    assert all(map(lambda x: os.path.isfile(x), params.input.experiments))
+    assert all(map(lambda x: os.path.isfile(x), params.input.reflections))
+
+    ret = zip(params.input.experiments, params.input.reflections)
+
+    if dials_phil_selection_lst:
+        selected_files = set(read_path_list(dials_phil_selection_lst))
+        ret = filter(lambda x: x[1] in selected_files, ret)
+
+    return ret
+# read_dials_phil()
+
 #@profile
 def get_data_from_xac(params, xac):
     if xac.endswith(".pkl"):
@@ -184,8 +218,71 @@ def get_data_from_xac(params, xac):
                 for x, y, p in zip(tmp.xd, tmp.yd, P):
                     print "pdebug:: %.2f %.2f %.4e" % (x, y, p)
 
-    return tmp
+    return tmp.i_obs().customized_copy(anomalous_flag=params.anomalous_flag,
+                                       space_group_info=sgtbx.space_group_info(params.space_group))
 # get_data_from_xac()
+
+def get_data_from_dials(params, files):
+    from dials.util.options import Importer, flatten_reflections, flatten_experiments
+    
+    importer = Importer(files, read_experiments=True, read_reflections=True)
+    reflections = flatten_reflections(importer.reflections)
+    experiments = flatten_experiments(importer.experiments)
+    assert len(reflections) == len(experiments) == 1
+
+    xs = crystal.symmetry(experiments[0].crystal.get_unit_cell(), space_group=experiments[0].crystal.get_space_group())
+
+    tmp = reflections[0].select(reflections[0]["id"] >= 0)
+    assert max(tmp["id"]) == 0
+
+    if params.dials_data == "sum":
+        assert "intensity.sum.value" in tmp
+        assert "intensity.sum.variance" in tmp
+    else:
+        assert "intensity.prf.value" in tmp
+        assert "intensity.prf.variance" in tmp
+
+    intensity_key = "intensity.sum.value" if params.dials_data == "sum" else "intensity.prf.value"
+    variance_key = "intensity.sum.variance" if params.dials_data == "sum" else "intensity.prf.variance"
+
+    sel_remove = flex.bool(tmp.size(), False)
+    
+    if params.min_peak is not None:
+        sel = tmp["partiality"] < params.min_peak/100.
+        sel_remove |= sel
+    elif params.min_peak_percentile is not None:
+        q = numpy.percentile(tmp["partiality"], params.min_peak_percentile)
+        print "percentile %.2f %s" % (q*100., xac)
+        sel = tmp["partiality"] < q
+        sel_remove |= sel
+
+    if params.skip_rejected: sel_remove |= tmp[variance_key] <= 0
+    if params.dmin is not None:
+        sel_remove |= xs.unit_cell().d(tmp["miller_index"]) < params.dmin
+
+    if params.correct_peak:
+        sel_remove |= (tmp["partiality"] < .01) # remove PEAK==0
+
+    # Remove selected
+    print "DEBUG:: removing %d reflections" % sel_remove.count(True) #sum(sel_remove)#
+    tmp = tmp.select(~sel_remove)
+
+    ret = miller.array(miller.set(xs, tmp["miller_index"], params.anomalous_flag),
+                       data=tmp[intensity_key],
+                       sigmas=flex.sqrt(flex.abs(tmp[variance_key])))
+
+    scale = flex.double(ret.size(), 1.)
+    if not params.cancel_rlp and "lp" in tmp: scale *= tmp["lp"]
+    if "dqe" in tmp: scale /= tmp["dqe"]
+    if params.correct_peak: scale *= tmp["partiality"]
+
+    ret = ret.apply_scaling(factor=scale)
+
+    if params.cancel_rlp and params.polarization.correct:
+        raise "Not implemented"
+
+    return ret
+# get_data_from_dials()
 
 #@profile
 def scale_data(indices, iobs, scale_ref, parameter, calc_cc):
@@ -221,28 +318,34 @@ def scale_data(indices, iobs, scale_ref, parameter, calc_cc):
 # scale_data()
 
 #@profile
-def mc_integration(params, xac_files, scale_ref=None, split_idxes=None):
+def mc_integration(params, input_files, input_type, scale_ref=None, split_idxes=None):
     """
     split_idxes: [i]->{0,1} if index given, returns 0 or 1, the group indicator.
     """
     import yamtbx_dataproc_crystfel_ext
+
+    assert input_type in ("xds_ascii", "dials")
 
     sgtype = sgtbx.space_group_info(params.space_group).type()
 
     manager = multiprocessing.Manager()
     scale_strs = manager.list()
 
-    def load_xds(i, xac, scout):
-        print "Reading %5d %s" %(i, xac)
-        tmp = get_data_from_xac(params, xac)
+    def load_xds_or_dials(i, file_in, scout):
+        print "Reading %5d %s" %(i, file_in if input_type=="xds_ascii" else file_in[1])
+        if input_type=="xds_ascii":
+            tmp = get_data_from_xac(params, file_in)
+        else:
+            tmp = get_data_from_dials(params, file_in)
+
         miller.map_to_asu(sgtype,
                           params.anomalous_flag,
-                          tmp.indices)
+                          tmp.indices())
 
         k, b = None, None
         if scale_ref is not None:
-            k, b, cc = scale_data(tmp.indices, tmp.iobs, scale_ref, params.scaling.parameter, params.scaling.calc_cc)
-            scout.append("%s %.4e %.4e %.4f\n" % (xac, k, b, cc))
+            k, b, cc = scale_data(tmp.indices(), tmp.data(), scale_ref, params.scaling.parameter, params.scaling.calc_cc)
+            scout.append("%s %.4e %.4e %.4f\n" % (file_in if input_type=="xds_ascii" else file_in[1], k, b, cc))
             #tmp.iobs *= k
             #tmp.sigma_iobs *= k
 
@@ -252,16 +355,16 @@ def mc_integration(params, xac_files, scale_ref=None, split_idxes=None):
             #    tmp.sigma_iobs *= flex.exp(-b*d_star_sq)
 
         return i, tmp, k, b
-    # load_xds()
+    # load_xds_or_dials()
 
     if params.nproc > 1:
         # It may cost much memory..
-        xds_data = easy_mp.pool_map(fixed_func=lambda x: load_xds(x[0],x[1], scale_strs),
-                                    args=map(lambda x:x, enumerate(xac_files)),
+        xds_data = easy_mp.pool_map(fixed_func=lambda x: load_xds_or_dials(x[0],x[1], scale_strs),
+                                    args=map(lambda x:x, enumerate(input_files)),
                                     processes=params.nproc)
     else:
         # create generator
-        xds_data = (load_xds(i, x, scale_strs) for i, x in enumerate(xac_files))
+        xds_data = (load_xds_or_dials(i, x, scale_strs) for i, x in enumerate(input_files))
 
     merger = yamtbx_dataproc_crystfel_ext.merge_equivalents_crystfel()
     merger_split = None
@@ -276,28 +379,30 @@ def mc_integration(params, xac_files, scale_ref=None, split_idxes=None):
         sys.stdout.write("Merging %7d\r" % (i+1))
         sys.stdout.flush()
 
+        data, sigmas = x.data(), x.sigmas()
+
         if None not in (k,b):
-            x.iobs *= k
-            x.sigma_iobs *= k
+            data *= k
+            sigmas *= k
 
             if b == b: # nan if not calculated
-                d_star_sq = x.symm.unit_cell().d_star_sq(x.indices)
-                x.iobs *= flex.exp(-b*d_star_sq)
-                x.sigma_iobs *= flex.exp(-b*d_star_sq)
+                d_star_sq = x.unit_cell().d_star_sq(x.indices())
+                data *= flex.exp(-b*d_star_sq)
+                sigmas *= flex.exp(-b*d_star_sq)
                 bs.append(b)
 
         if params.sigma_calculation == "population":
-            merger.add_observations(x.indices, x.iobs)
+            merger.add_observations(x.indices(), data)
         else: # experimental
-            merger.add_observations(x.indices, x.iobs, x.sigma_iobs)
+            merger.add_observations(x.indices(), data, sigmas)
 
-        cells.append(x.symm.unit_cell().parameters())
+        cells.append(x.unit_cell().parameters())
         if split_idxes is not None:
             if b is not None and b==b: bs_split[split_idxes[i]].append(b)
             if params.sigma_calculation == "population":
-                merger_split[split_idxes[i]].add_observations(x.indices, x.iobs)
+                merger_split[split_idxes[i]].add_observations(x.indices(), data)
             else: # experimental
-                merger_split[split_idxes[i]].add_observations(x.indices, x.iobs, x.sigma_iobs)
+                merger_split[split_idxes[i]].add_observations(x.indices(), data, sigmas)
 
     print "\nDone."
 
@@ -402,13 +507,19 @@ def run(params):
         print "Give unit_cell if usecell=given! Otherwise give usecell=mean"
         quit()
 
-    xac_files = read_list(params.lstin)
-    if params.start_after is not None:
-        xac_files = xac_files[params.start_after:]
-    if params.stop_after is not None:
-        xac_files = xac_files[:params.stop_after]
+    if params.lstin:
+        input_files = read_list(params.lstin)
+        input_type = "xds_ascii"
+    elif params.dials_phil:
+        input_files = read_dials_phil(params.dials_phil, params.dials_phil_selection_lst)
+        input_type = "dials"
 
-    print "%3d xds files will be merged" % len(xac_files)
+    if params.start_after is not None:
+        input_files = input_files[params.start_after:]
+    if params.stop_after is not None:
+        input_files = input_files[:params.stop_after]
+
+    print "%3d %s files will be merged" % (len(input_files), input_type)
 
     scale_ref = None
 
@@ -422,7 +533,7 @@ def run(params):
     # For split stats
     split_idxes = None
     if params.calc_split:
-        split_idxes = ([0,1]*(len(xac_files)//2+1))[:len(xac_files)]
+        split_idxes = ([0,1]*(len(input_files)//2+1))[:len(input_files)]
         if params.split_method == "alternate":
             pass
         elif params.split_method == "random":
@@ -431,11 +542,11 @@ def run(params):
             raise "Never reaches here"
 
         ofs = open(params.prefix+"_split_idxes.dat", "w")
-        for i, f in zip(split_idxes, xac_files): ofs.write("%d %s\n"%(i,f))
+        for i, f in zip(split_idxes, input_files): ofs.write("%d %s\n"%(i,f if input_type=="xds_ascii" else f[1]))
         ofs.close()
 
     if params.method == "mc":
-        iobs, reds, sp = mc_integration(params, xac_files, scale_ref, split_idxes)
+        iobs, reds, sp = mc_integration(params, input_files, input_type, scale_ref, split_idxes)
         if params.scaling.parameter is not None and params.scaling.reference is None:
             write_out(params, iobs, reds, suffix="_beforescale")
             if params.calc_split:
@@ -447,7 +558,7 @@ def run(params):
             sortp = yamtbx_utils_ext.sort_permutation_fast_less(iobs.indices())
             iobs = iobs.select(sortp)
 
-            iobs, reds, sp = mc_integration(params, xac_files, iobs, split_idxes)
+            iobs, reds, sp = mc_integration(params, input_files, input_type, iobs, split_idxes)
     elif params.method == "xscale":
         raise "Not supported yet"
     else:

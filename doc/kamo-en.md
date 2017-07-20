@@ -298,20 +298,21 @@ to check if dependencies are all installed.
 4. `$DIALS/build/bin/libtbx.refresh`
 
 ### Launch
-Basically, the same as above, but like
+Basically, the same as above; but specify always `bl=other` to find image files from filesystem.
 
 ```
-kamo bl=other log_root=~/kamo-log/ [batch.sge_pe_name=par]
+kamo bl=other [batch.sge_pe_name=par]
 ```
 
-please give `log_root=` any directory where you have write permission.
 In addition, give SGE's parallel environment (the strings you usually write after qsub -pe; by default par). If no SGE environment and you want to run it only on local computer, give maximum job number instead:
 
 ```
-kamo bl=other log_root=~/kamo-log/ batch.engine=sh batch.sh_max_jobs=8
+kamo bl=other batch.engine=sh batch.sh_max_jobs=8
 ```
 
-NOTE that for non-reverse-phi beamline (most beamlines other than SPring-8), do not forget to give `reverse_phi=false`. Vertically installed goniometer is not supported now.
+Goniometer rotation axis is, if header does not have that information, recognized in the same way as [generate\_XDS.INP](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP) which uses header information.
+If you want to specify the rotation axis, you can give `reverse_phi=false` (or `true`) or `rotation_axis=1,0,0`.
+Alternatively, when `use_dxtbx=true`, [dxtbx](https://doi.org/10.1107/S1600576714011996) is used to recognize beamline geometry.
 
 ## Citations
 
@@ -326,6 +327,17 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-07-20
+   * (new) kamo.multi\_determine\_symmetry: determines space group (point group only) from multiple (small wedge) datasets
+   * KAMO: new option known.method= to specify how prior cell knowledge is used (default is not\_use\_first that tries indexing without prior knowledge first; use\_first is to use it first)
+   * KAMO: new option on Multi-Merge GUI to copy transformed HKL files into working directory for merging (ON by default)
+   * KAMO: now automatically recognizes beam center convention of ADSC detectors and goniometer rotation axis using header information.
+   * KAMO: (experimental) new use\_dxtbx= option; when true, dxtbx is used to recognize beam, goniometer, and detector geometries.
+   * KAMO: now saves log file in working directory. log\_root= option is not mandatory.
+   * KAMO: less stressful GUI (job status acquisition not blocking GUI; grouping datasets using unit cells in the background)
+   * kamo.resolve\_indexing\_ambiguity: selective breeding now supports parallel computation (nproc>1)
+   * Now basically use max\_delta=5 by default in all programs.
+   * filter\_cell.R creates plot
 * 2017-05-24
    * Fixed a bug introduced on 2017-03-10 (avoid failure in copying environment variables).
 * 2017-05-23

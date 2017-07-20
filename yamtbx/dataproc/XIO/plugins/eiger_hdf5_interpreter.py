@@ -34,7 +34,7 @@ class Interpreter:
     #'TwoTheta':(['Detector_2theta'], FLOAT1),   # No example yet...
     'SerialNumber':(['SerialNumber'], str),
     #'HeaderSize':(['HEADER_SIZE'], int),
-    #'OscAxis':(['Oscillation_axis'], lambda x: x.split(",")[0].lower().strip()),
+    'OscAxisVec':(['Oscillation_axis'], raw),
     'DateStr':(['DateStr'], str),
     'DateSeconds':(['DateStr'], date_seconds),
     }
@@ -66,6 +66,10 @@ class Interpreter:
         self.raw_head_dict["PhiStart"] = gonio["omega"].value if gonio["omega"].shape==() else gonio["omega"][0]
         self.raw_head_dict["PhiEnd"] = gonio["omega_end"].value if gonio["omega_end"].shape==() else gonio["omega_end"][-1]
         self.raw_head_dict["PhiWidth"] = gonio["omega_range_average"].value
+
+        omega_key = "/entry/sample/transformations/omega"
+        if omega_key in h5 and "vector" in h5[omega_key].attrs:
+            self.raw_head_dict["Oscillation_axis"] = tuple(h5[omega_key].attrs["vector"])
 
         self.raw_head_dict["Nimages_each"] = detectorsp["nimages"].value
         self.raw_head_dict["Nimages"] = 0

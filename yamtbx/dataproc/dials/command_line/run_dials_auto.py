@@ -112,7 +112,7 @@ def calc_merging_stats(hklin, cut_resolution=True):
     return dict(d_min=d_min, cutoffs=cutoffs, stats=stats)
 # calc_merging_stats()
 
-def run_dials_sequence(filename_template, prefix, nr_range, wdir, known, overrides, nproc):
+def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, overrides, nproc):
     log_out = open(os.path.join(wdir, "dials_sequence.log"), "w")
     pointless_log = os.path.join(wdir, "pointless.log")
 
@@ -158,9 +158,9 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known, overrid
             if index_ok: break
             cmd = "dials.index datablock.json strong.pickle verbosity=3 "
             cmd += "indexing.method=%s index_assignment.method=%s " % (index_meth, index_assi)
-            if None not in (known.space_group, known.unit_cell):
-                cmd += "unit_cell=%s space_group=%d" % (",".join(map(lambda x: "%.3f"%x, known.unit_cell)),
-                                                sgtbx.space_group_info(known.space_group).group().type().number())
+            if known_xs is not None:# not in (known.space_group, known.unit_cell):
+                cmd += "unit_cell=%s space_group=%d" % (",".join(map(lambda x: "%.3f"%x, known_xs.unit_cell().parameters())),
+                                                        known_xs.space_group().type().number())
             elif index_meth == "real_space_grid_search":
                 continue
 

@@ -51,6 +51,10 @@ class ScanInfo:
     # get_file_number_based_on_template()
 
     def get_prefix(self): return self.filename_template[:self.filename_template.index("?")]
+
+    def scan_completed(self):
+        return self.vpoints*self.hpoints == len(self.filename_coords)
+
 # class ScanInfo
 
 class BssDiffscanLog:
@@ -67,6 +71,7 @@ class BssDiffscanLog:
         re_point_step = re.compile("point: *([0-9]+) *step: *([0-9\.]+)")
         re_osc = re.compile("Oscillation start: ([-0-9\.]+) \[deg\], step: ([-0-9\.]+) \[deg\]")
         re_att = re.compile("Attenuator: +([^ ]+) +([0-9]+)um")
+        re_att2 = re.compile("Attenuator transmission: +([^ ]+) +\(([^ ]+) attenuator: ([0-9]+)\[um\]\)")
         re_exp = re.compile("Exp\. time: ([\.0-9]+) ")
         re_beam = re.compile("hor\. beam size: +([\.0-9]+)\[um\], ver\. beamsize: +([\.0-9]+)\[um\]") # old bss, wrong (need to swap h/v)
         re_beam2 = re.compile("horizontal size: +([\.0-9]+)\[um\], vertical size: +([\.0-9]+)\[um\]") # new bss (2015-Apr), correct
@@ -145,8 +150,11 @@ class BssDiffscanLog:
 
             if "Attenuator:" in l:
                 r_att = re_att.search(l)
+                r_att2 = re_att2.search(l)
                 if r_att:
                     self.scans[-1].attenuator = (r_att.group(1), int(r_att.group(2)))
+                elif r_att2:
+                    self.scans[-1].attenuator = (r_att2.group(2), int(r_att2.group(3))) # (1) is transmisttance
                 continue
 
             if "Cameralength: " in l:
@@ -219,7 +227,8 @@ class BssDiffscanLog:
             return h[0]
     # get_gonio_xyz()
 
-    def get_grid_coord_internal(self, vpoint, vstep, hpoint, hstep, num, include_extra_files, scan_direction, scan_path):
+    @staticmethod
+    def get_grid_coord_internal(vpoint, vstep, hpoint, hstep, num, include_extra_files, scan_direction, scan_path):
         voffset = 0 if vpoint % 2 == 1 else -0.5
         hoffset = 0 if hpoint % 2 == 1 else -0.5
 
@@ -255,17 +264,28 @@ class BssDiffscanLog:
 
         x, y = (hpoint//2 - h + hoffset)*hstep, (vpoint//2 - v + voffset)*vstep
 
-        if scan_path is None:
-            return x, y
-        elif scan_path == "zig-zag":
+        # scan_path can be zig-zag or normal (in case of streaming) or None
+        if scan_path == "zig-zag":
             if scan_direction in ("horizontal", None):
                 if int(v%2) == 0: return x, y
                 else: return -x, y
             else:
                 if int(h%2) == 0: return x, y
                 else: return x, -y
+        else:
+            return x, y
 
     # get_grid_coord()
+
+    def calc_grid_coord(self, prefix, num):
+        matched = filter(lambda x: x.get_prefix()==prefix, self.scans)
+        if not matched: return None
+        scan = matched[-1]
+        return self.get_grid_coord_internal(scan.vpoints, scan.vstep,
+                                            scan.hpoints, scan.hstep,
+                                            num, scan.is_shutterless() and scan.has_extra_images,
+                                            scan.scan_direction, scan.scan_path)
+    # calc_grid_coord()
 
     def remove_overwritten_scans(self):
         table = {}
@@ -331,13 +351,31 @@ re_gonio_center = re.compile("center #([0-9]*): +([-0-9\.]*) +([-0-9\.]*) +([-0-
 def interpret_attenuator_label(label):
     if label == "None":
         return ("None", 0)
+    elif "T=" in label:
+        r = re.search("([-A-Za-z0-9\. ]+)\[([a-z]+)\] \(T= *([-0-9\.]+)\)", label)
+        if r:
+            unit = r.group(2)
+            fac = 1.
+            if unit == "mm": fac = 1.e3
+            mat, thick = "??", float("nan")
+            sp = r.group(1).split()
+            if len(sp) == 2:
+                mat, thick = sp[0], float(sp[1])*fac
+            else:
+                thick = float(sp[0])*fac
+                
+            return (mat, thick)
+        else:
+            return ("??", float("nan"))
     else:
+        # old style
         sp = label.split()
-        assert len(sp) == 2
-        assert sp[1].endswith(("mm","um"))
-        fac = 1e3 if sp[1].endswith("mm") else 1
-        thickness = int(sp[1][:-2]) * fac
-        return (sp[0], thickness)
+        if len(sp) == 2 and sp[1].endswith(("mm","um")):
+            fac = 1e3 if sp[1].endswith("mm") else 1
+            thickness = int(sp[1][:-2]) * fac
+            return (sp[0], thickness)
+        else:
+            return ("??", float("nan"))
 # interpret_attenuator_label()
 
 class JobInfo:

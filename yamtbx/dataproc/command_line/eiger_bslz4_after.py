@@ -30,7 +30,8 @@ def run_safe(infile, check_data=True):
         print "SKIPPING. Already bslz4'd: %s" % infile
         return
 
-    outfile = tempfile.mkstemp(prefix=os.path.basename(infile), dir="/dev/shm")[1]
+    tmpfd, outfile = tempfile.mkstemp(prefix=os.path.basename(infile), dir="/dev/shm")
+    os.close(tmpfd)
 
     # copy and compress data
     data = h5in["/entry/data/data"]

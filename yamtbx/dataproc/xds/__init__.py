@@ -65,8 +65,8 @@ def make_backup(backup_needed, bk_prefix=None, wdir=None, quiet=False):
 
     for f in backup_needed:
         if os.path.isfile(os.path.join(wdir, f)):
-            shutil.copyfile(os.path.join(wdir, f), 
-                            os.path.join(wdir, bk_prefix+f))
+            shutil.copy2(os.path.join(wdir, f), 
+                         os.path.join(wdir, bk_prefix+f))
             if not quiet: print "Backup: %s => %s" % (f, bk_prefix+f)
 
     return bk_prefix

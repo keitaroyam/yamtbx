@@ -10,16 +10,27 @@ from yamtbx.util import call
 import iotbx.file_reader
 import os
 def run(hklin):
-    arrays = filter(lambda x:x.is_xray_intensity_array(),
-                    iotbx.file_reader.any_file(hklin).file_server.miller_arrays)
+    i_arrays = filter(lambda x:x.is_xray_intensity_array(),
+                      iotbx.file_reader.any_file(hklin).file_server.miller_arrays)
+    f_arrays = filter(lambda x:x.is_xray_amplitude_array(),
+                      iotbx.file_reader.any_file(hklin).file_server.miller_arrays)
 
     # TODO Copy non-intensity arrays to new mtz!
 
-    if len(arrays) == 0:
-        print "No intensity array"
+    if not i_arrays and not f_arrays:
+        print "No observation data"
         return
 
-    print "Intensity arrays:"
+    opts = ""
+
+    if i_arrays:
+        arrays = i_arrays
+        print "Intensity arrays:"
+    else:
+        arrays = f_arrays
+        opts = " -amplitudes"
+        print "No intensity arrays. Using amplitude arrays instead:"
+
     for ar in arrays:
         print "", ar.info().label_string()
     print
@@ -47,6 +58,10 @@ def run(hklin):
         cmd += "-colin '%s' " % colin
     if colano != "":
         cmd += "-colano '%s' " % colano
+
+    cmd += opts
+
+    print cmd
 
     call(cmd=cmd,
          stdout=open("ctruncate_%s.log" % os.path.splitext(os.path.basename(hklin))[0], "w")

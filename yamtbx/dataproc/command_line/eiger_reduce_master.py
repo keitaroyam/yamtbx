@@ -20,6 +20,9 @@ h5in = None
 h5out = None
  .type = path
  .help = "Output file"
+replace = False
+ .type = bool
+ .help = "Replace original file with updated file"
 remove_filters_first = False
  .type = bool
  .help = "Run h5repack -f NONE to remove all filters first."
@@ -82,6 +85,10 @@ def run(params):
     print
 
     master_size_org = os.path.getsize(params.h5in)
+
+    if params.replace:
+        shutil.copyfile(params.h5in, params.h5in+".org")
+        params.h5out = params.h5in
 
     tmpfd, tmpout = tempfile.mkstemp(prefix=os.path.basename(params.h5out)+".tmp", dir=os.path.dirname(params.h5out))
     os.close(tmpfd)

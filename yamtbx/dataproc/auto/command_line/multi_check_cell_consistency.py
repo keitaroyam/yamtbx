@@ -39,118 +39,115 @@ do_pointless = False
  .help = Run pointless for largest group data to determine symmetry
 """
 
-class CheckMulti:
-    def __init__(self, topdir=None, xdsdirs=None, out=sys.stdout):
-        assert (topdir, xdsdirs).count(None) == 1
+class CellGraph:
+    def __init__(self, tol_length=None, tol_angle=None):
+        self.tol_length = tol_length if tol_length else 0.1
+        self.tol_angle = tol_angle if tol_angle else 5
 
-        self.topdir, self.xdsdirs = topdir, xdsdirs
-        self.dirs, self.p1cells, self.symms = [], [], []
-        self.reference_symmetries = []
-        self.G = None
-        self.cosets = {}
-        self.groups = []
-        self.grouped_dirs = []
-        self.out = out
+        self.G = nx.Graph()
+        self.p1cells = {} # key->p1cell
+        self.dirs = {} # key->xdsdir
+        self.symms = {} # key->symms
+        self.cbops = {} # (key1,key2) = cbop
     # __init__()
 
-    def get_symms_from_xds_results(self):
-        if self.xdsdirs is not None:
-            xdsdirs = filter(lambda x: os.path.isfile(os.path.join(x, "GXPARM.XDS")) or os.path.isfile(os.path.join(x, "DIALS.HKL")), self.xdsdirs)
-        else:
-            xdsdirs = map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2] or "DIALS.HKL" in x[2], os.walk(self.topdir)))
+    def get_p1cell_and_symm(self, xdsdir):
+        gxparm_xds = os.path.join(xdsdir, "GXPARM.XDS")
+        dials_hkl = os.path.join(xdsdir, "DIALS.HKL")
 
-        symms = []
-        print >>self.out, "Idx Dir Cell P1Cell"
-        idx = 0
-        for root in xdsdirs:
-            print >>self.out, "%.3d"%idx,
-            print >>self.out, os.path.relpath(root, self.topdir) if self.topdir is not None else root,
-            gxparm_xds = os.path.join(root, "GXPARM.XDS")
-            if os.path.isfile(gxparm_xds):
-                correct_lp = filter(lambda x: os.path.isfile(x), map(lambda f: os.path.join(root, f), ("CORRECT.LP_noscale", "CORRECT.LP")))[0]
-                p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
-                try:
-                    xparm = XPARM(gxparm_xds)
-                except ValueError:
-                    print >>self.out, "Invalid xparm format:", gxparm_xds
-                    continue
-                xs = xparm.crystal_symmetry()
-            else: # DIALS
-                xs = run_dials_auto.get_most_possible_symmetry(root)
-                if xs is None:
-                    print >>self.out, "Cannot get crystal symmetry:", root
-                    continue
+        p1cell, xs = None, None
 
-                p1cell = list(xs.niggli_cell().unit_cell().parameters())
-                # force obtuse angle
-                tmp = map(lambda x: (x[0]+3,abs(90.-x[1])), enumerate(p1cell[3:])) # Index and difference from 90 deg
+        if os.path.isfile(gxparm_xds):
+            correct_lp = filter(lambda x: os.path.isfile(x), map(lambda f: os.path.join(xdsdir, f),
+                                                                 ("CORRECT.LP_noscale", "CORRECT.LP")))[0]
+            p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
+            try:
+                xparm = XPARM(gxparm_xds)
+            except ValueError:
+                print "Invalid xparm format:", gxparm_xds
+                return
+            xs = xparm.crystal_symmetry()
+
+        elif os.path.isfile(dials_hkl): # DIALS
+            xs = run_dials_auto.get_most_possible_symmetry(xdsdir)
+            if xs is None:
+                print "Cannot get crystal symmetry:", xdsdir
+                return
+
+            p1cell = list(xs.niggli_cell().unit_cell().parameters())
+            # force obtuse angle
+            tmp = map(lambda x: (x[0]+3,abs(90.-x[1])), enumerate(p1cell[3:])) # Index and difference from 90 deg
+            tmp.sort(key=lambda x: x[1], reverse=True)
+            if p1cell[tmp[0][0]] < 90:
+                tmp = map(lambda x: (x[0]+3,90.-x[1]), enumerate(p1cell[3:])) # Index and 90-val.
                 tmp.sort(key=lambda x: x[1], reverse=True)
-                if p1cell[tmp[0][0]] < 90:
-                    tmp = map(lambda x: (x[0]+3,90.-x[1]), enumerate(p1cell[3:])) # Index and 90-val.
-                    tmp.sort(key=lambda x: x[1], reverse=True)
-                    for i,v in tmp[:2]: p1cell[i] = 180.-p1cell[i]
+                for i,v in tmp[:2]: p1cell[i] = 180.-p1cell[i]
 
-                p1cell = uctbx.unit_cell(p1cell)
+            p1cell = uctbx.unit_cell(p1cell)
+        
+        return p1cell, xs
 
-            self.dirs.append(root)
-            self.p1cells.append(p1cell)
-            self.symms.append(xs)
-            print >>self.out, xs.space_group_info(), xs.unit_cell(), p1cell
-            idx += 1
+    # get_p1cell_and_symm()
 
-        assert len(self.dirs) == len(self.symms) == len(self.p1cells)
-    # get_cells_from_xds_results()
+    def add_proc_result(self, key, xdsdir):
+        if key in self.G: return #G.remove_node(key)
 
-    def construct_graph(self, tol_length, tol_angle):
-        self.G = nx.Graph()
+        p1cell, symm = self.get_p1cell_and_symm(xdsdir)
+        if None in (p1cell, symm): return
 
-        for i in xrange(len(self.p1cells)):
-            self.G.add_node(i)
+        self.p1cells[key] = p1cell
+        self.dirs[key] = xdsdir
+        self.symms[key] = symm
 
-        for i in xrange(len(self.p1cells)-1):
-            for j in xrange(i+1, len(self.p1cells)):
-                cell_i = self.p1cells[i]
-                cell_j = self.p1cells[j]
-                if cell_i.is_similar_to(cell_j, tol_length, tol_angle):
-                    self.G.add_edge(i, j)
-                else:
-                    cosets = reindex.reindexing_operators(crystal.symmetry(cell_i, 1),
-                                                          crystal.symmetry(cell_j, 1),
-                                                          tol_length, tol_angle)
-                    self.cosets[(i,j)] = cosets
-                    if cosets.double_cosets is not None:
-                        print cell_i, cell_j, cosets.combined_cb_ops()[0]
-                        self.G.add_edge(i, j)
-        #nx.write_dot(self.G, "compatible_cell_graph.dot")
-    # construct_graph()
+        connected_nodes = []
 
-    def _average_p1_cell(self, idxes):
-        cells = [self.p1cells[idxes[0]].parameters()]
-        for j in idxes[1:]:
-            key = tuple(sorted((j, idxes[0])))
-            if key in self.cosets and self.cosets[key].double_cosets is not None:
-                #print "debug:: using cosets", self.p1cells[j].parameters()
-                cbop = self.cosets[key].combined_cb_ops()[0]
-                cells.append(self.p1cells[j].change_basis(cbop).parameters())
+        for node in self.G.nodes_iter():
+            other_cell = self.p1cells[node]
+            if other_cell.is_similar_to(p1cell, self.tol_length, self.tol_angle):
+                connected_nodes.append(node)
             else:
-                cells.append(self.p1cells[j].parameters())
+                cosets = reindex.reindexing_operators(crystal.symmetry(other_cell, 1),
+                                                      crystal.symmetry(p1cell, 1),
+                                                      self.tol_length, self.tol_angle)
+                if cosets.double_cosets is not None:
+                    self.cbops[(node,key)] = cosets.combined_cb_ops()[0]
+                    print other_cell, p1cell, self.cbops[(node,key)]
+                    connected_nodes.append(node)
+
+        # Add nodes and edges
+        self.G.add_node(key)
+        for node in connected_nodes:
+            self.G.add_edge(node, key)
+
+    # add_proc_result()
+
+    def _average_p1_cell(self, keys):
+        cells = [self.p1cells[keys[0]].parameters()]
+        for key in keys[1:]:
+            cell = self.p1cells[key]
+            if (keys[0], key) in self.cbops:
+                cell = cell.change_basis(self.cbops[(keys[0], key)])
+            elif (key, keys[0]) in self.cbops:
+                cell = cell.change_basis(self.cbops[(key, keys[0])].inverse()) # correct??
+
+            cells.append(cell.parameters())
 
         cells = numpy.array(cells)
         return map(lambda i: cells[:,i].mean(), xrange(6))
     # _average_p1_cell()
 
-    def group_xds_results(self, show_details=True):
+    def group_xds_results(self, out, show_details=True):
         self.groups = map(lambda g: list(g), nx.connected_components(self.G))
         self.groups.sort(key=lambda x:-len(x))
         self.grouped_dirs = []
         self.reference_symmetries = []
 
-        for i, sg in enumerate(self.groups):
+        for i, keys in enumerate(self.groups):
             self.reference_symmetries.append([])
-            avg_cell = uctbx.unit_cell(self._average_p1_cell(sg))
-            print >>self.out, "[%2d]"%(i+1), len(sg), "members:"
-            print >>self.out, " Averaged P1 Cell=", " ".join(map(lambda x:"%.2f"%x, avg_cell.parameters()))
-            print >>self.out, " Members=", sg
+            avg_cell = uctbx.unit_cell(self._average_p1_cell(keys))
+            print >>out, "[%2d]"%(i+1), len(keys), "members:"
+            print >>out, " Averaged P1 Cell=", " ".join(map(lambda x:"%.2f"%x, avg_cell.parameters()))
+            #print >>out, " Members=", keys
             if show_details:
                 # by explore_metric_symmetry
                 sg_explorer = pointgroup_tools.space_group_graph_from_cell_and_sg(avg_cell,  sgtbx.space_group_info("P1").group(), max_delta=10)
@@ -161,7 +158,7 @@ class CheckMulti:
                     trans_cell = avg_cell.change_basis(cbop)
 
                     if pg.group() == sgtbx.space_group_info("I2").group():
-                        print >>self.out, "Warning!! I2 cell was given." # Not sure if this happens..
+                        print >>out, "Warning!! I2 cell was given." # Not sure if this happens..
 
                     # Transform to best cell
                     fbc = crystal.find_best_cell(crystal.symmetry(trans_cell, space_group_info=pg,
@@ -185,25 +182,26 @@ class CheckMulti:
                     pgg = tmp[sel[0]][1].group()
 
                     if len(sel) == 1:
-                        freq = len(filter(lambda x: self.symms[x].space_group().build_derived_reflection_intensity_group(True) == pgg, sg))
+                        freq = len(filter(lambda x: self.symms[x].space_group().build_derived_reflection_intensity_group(True) == pgg, keys))
                         tmp[sel[0]][0] = freq
                     else:
                         trans_cells = map(lambda x: numpy.array(tmp[x][2].parameters()), sel)
                         
-                        for idx in sg:
-                            if self.symms[idx].space_group().build_derived_reflection_intensity_group(True) != pgg: continue
-                            cell = numpy.array(self.symms[idx].unit_cell().parameters())
+                        for key in keys:
+                            if self.symms[key].space_group().build_derived_reflection_intensity_group(True) != pgg: continue
+                            cell = numpy.array(self.symms[key].unit_cell().parameters())
                             celldiffs = map(lambda tc: sum(abs(tc-cell)), trans_cells)
-                            min_idx = celldiffs.index(min(celldiffs))
-                            tmp[sel[min_idx]][0] += 1
+                            min_key = celldiffs.index(min(celldiffs))
+                            tmp[sel[min_key]][0] += 1
 
-                print >>self.out, " Possible symmetries:"
-                print >>self.out, "   freq symmetry     a      b      c     alpha  beta   gamma reindex"
+                print >>out, " Possible symmetries:"
+                print >>out, "   freq symmetry     a      b      c     alpha  beta   gamma reindex"
                 for freq, pg, trans_cell, cbop, pgnum in sorted(tmp, key=lambda x:x[-1]):
-                    print >> self.out, "   %4d %-10s %s %s" % (freq, pg, " ".join(map(lambda x:"%6.2f"%x, trans_cell.parameters())), cbop)
+                    print >> out, "   %4d %-10s %s %s" % (freq, pg, " ".join(map(lambda x:"%6.2f"%x, trans_cell.parameters())), cbop)
                     self.reference_symmetries[i].append((pg, trans_cell, freq))
+                print >>out, ""
 
-            dirs = map(lambda x: self.dirs[x], sg)
+            dirs = map(lambda x: self.dirs[x], keys)
             self.grouped_dirs.append(dirs)
     # group_xds_results()
 
@@ -266,13 +264,33 @@ class CheckMulti:
 
     # get_symmetry_reference_matched()
 
-def run(params, out=sys.stdout):
-    cm = CheckMulti(topdir=params.topdir, xdsdirs=params.xdsdir, out=out)
-    cm.get_symms_from_xds_results()
-    cm.construct_graph(params.tol_length, params.tol_angle)
-    cm.group_xds_results()
-    print
+    def is_all_included(self, keys):
+        all_nodes = set(self.G.nodes_iter())
+        return all_nodes.issuperset(keys)
+    # is_all_included()
 
+    def get_subgraph(self, keys):
+        copied_obj = CellGraph(self.tol_length, self.tol_angle)
+        copied_obj.G = self.G.subgraph(keys)
+        copied_obj.p1cells = dict((k, self.p1cells[k]) for k in keys)
+        copied_obj.dirs = dict((k, self.dirs[k]) for k in keys)
+        copied_obj.symms = dict((k, self.symms[k]) for k in keys)
+        copied_obj.cbops = dict((k, self.cbops[k]) for k in self.cbops if k[0] in keys or k[1] in keys) # XXX may be slow
+        return copied_obj
+    # get_subgraph()
+# class CellGraph
+
+def run(params, out=sys.stdout):
+    cm = CellGraph(tol_length=params.tol_length, tol_angle=params.tol_angle)
+
+    if not params.xdsdir and params.topdir:
+        params.xdsdir = map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2] or "DIALS.HKL" in x[2],
+                                                   os.walk(self.topdir)))
+        
+    for i, xdsdir in enumerate(params.xdsdir):
+        cm.add_proc_result(i, xdsdir)
+
+    cm.group_xds_results(out)
     ret = cm.grouped_dirs
 
     if len(ret) == 0:
@@ -305,8 +323,8 @@ def run(params, out=sys.stdout):
         
         print >>out, "\nRunning pointless for the largest member."
         result = worker.run_for_symm(xdsin=files, 
-                                  logout="pointless.log",
-                                  tolerance=10, d_min=5)
+                                     logout="pointless.log",
+                                     tolerance=10, d_min=5)
         if "symm" in result:
             print >>out, " pointless suggested", result["symm"].space_group_info()
 

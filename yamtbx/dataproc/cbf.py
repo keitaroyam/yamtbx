@@ -96,6 +96,7 @@ def get_pilatus_header(cbfin):
         import tempfile
         import bz2
         junk, tmpf = tempfile.mkstemp()
+        os.close(junk)
         open(tmpf, "wb").write(bz2.BZ2File(cbfin).read())
         h.read_file(tmpf, pycbf.MSG_DIGEST)
         os.remove(tmpf)

@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+import iotbx.phil
+from cctbx import sgtbx
 from dxtbx.model.experiment_list import ExperimentListFactory
 from dxtbx.model.experiment_list import ExperimentListDumper
 from dxtbx.model import Crystal
@@ -14,6 +16,27 @@ from dials.array_family import flex
 from dials.algorithms.centroid import centroid_px_to_mm_panel
 import os
 import copy
+
+master_params_str="""\
+xds_inp = None
+ .type = path
+xparm = None
+ .type = path
+integrate_lp = None
+ .type = path
+integrate_hkl = None
+ .type = path
+spot_xds = None
+ .type = path
+space_group = None
+ .type = str
+reindex_op = None
+ .type = str
+out_prefix = None
+ .type = str
+out_dir = "."
+ .type = path
+"""
 
 def import_integrated(integrate_hkl, min_ios=3):
     reader = integrate_hkl_as_flex.reader(integrate_hkl, "IOBS,SIGMA,XCAL,YCAL,ZCAL,XOBS,YOBS,ZOBS,ISEG".split(","))
@@ -102,30 +125,48 @@ def run(xds_inp, xparm=None, integrate_lp=None, integrate_hkl=None, spot_xds=Non
 
     # Very dirty fix.. but no way to change template after object creation??
     json_str = ExperimentListDumper(experiments).as_json().replace("_######.h5", "_master.h5")
-    open(os.path.join(out_dir, out_prefix+"experiments.json"), "w").write(json_str)
+    ret = [os.path.join(out_dir, out_prefix+"experiments.json")]
+    open(ret[-1], "w").write(json_str)
+
 
     if integrate_hkl is not None:
         table = import_integrated(integrate_hkl)
         px_to_mm(experiment, table)
         if None not in (space_group, reindex_op): table["miller_index"] = reindex_op.apply(table["miller_index"])
-        table.as_pickle(os.path.join(out_dir, out_prefix+"integrate_hkl.pickle"))
+        ret.append(os.path.join(out_dir, out_prefix+"integrate_hkl.pickle"))
+        table.as_pickle(ret[-1])
 
     if spot_xds is not None:
         table = import_spot_xds(spot_xds)
         px_to_mm(experiment, table)
         if None not in (space_group, reindex_op): table["miller_index"] = reindex_op.apply(table["miller_index"])
-        table.as_pickle(os.path.join(out_dir, out_prefix+"spot_xds.pickle"))
+        ret.append(os.path.join(out_dir, out_prefix+"spot_xds.pickle"))
+        table.as_pickle(ret[-1])
 
+    return ret
 # run()
 
 if __name__ == "__main__":
     import sys
-    xds_inp, xparm, integrate_hkl = sys.argv[1:]
-
     """
     from cctbx import sgtbx
     space_group=sgtbx.space_group_info("c2").group()
     reindex_op=sgtbx.change_of_basis_op("h+2*l,h,k"))
     """
 
-    run(xds_inp, integrate_lp=xparm, integrate_hkl=integrate_hkl)
+    cmdline = iotbx.phil.process_command_line(args=sys.argv[1:],
+                                              master_string=master_params_str)
+    params = cmdline.work.extract()
+    args = cmdline.remaining_args
+
+    if len(args) ==1 and os.path.isdir(args[0]):
+        if not params.xds_inp: params.xds_inp = os.path.join(args[0], "XDS.INP")
+        if not params.xparm: params.xparm = os.path.join(args[0], "XPARM.XDS")
+        if not params.integrate_lp: params.integrate_lp = os.path.join(args[0], "INTEGRATE.LP")
+        if not params.integrate_hkl: params.integrate_hkl = os.path.join(args[0], "INTEGRATE.HKL")
+
+    run(xds_inp=params.xds_inp, xparm=params.xparm, integrate_lp=params.integrate_lp,
+        integrate_hkl=params.integrate_hkl, spot_xds=params.spot_xds,
+        space_group=sgtbx.space_group_info(params.space_group).group() if params.space_group else None,
+        reindex_op=sgtbx.change_of_basis_op(params.reindex_op) if params.reindex_op else None,
+        out_prefix=params.out_prefix, out_dir=params.out_dir)
