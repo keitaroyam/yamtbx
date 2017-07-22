@@ -340,6 +340,8 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-07-22
+   * MarCCDの拡張子なし形式(hoge.0001など)に対応
 * 2017-07-20
    * (new) kamo.multi\_determine\_symmetry: 複数の(small wedge)データから空間群(点群対称のみ)を推定するプログラムを追加
    * KAMO: 既知格子定数の使い方を指定するknown.method=オプションを追加 (デフォルトはnot\_use\_firstで先ず事前情報無しで指数付け．use\_firstを指定すると最初から使用)

@@ -12,6 +12,7 @@ IMG_EXTENSIONS = ".img", ".osc", ".cbf", ".mccd", ".mar1600", "_master.h5"
 COMPRESS_EXTENSIONS = ".bz2", ".gz"
 
 re_pref_num_ext = re.compile("(.*[^0-9])([0-9]+)\.(.*)")
+re_pref_num = re.compile("(.*\.)([0-9]+)(\.)?((?(3).+))$") # .0001 style
 
 def find_img_files(parentdir, recursive=True, skip_symlinks=False):
     """
@@ -20,15 +21,15 @@ def find_img_files(parentdir, recursive=True, skip_symlinks=False):
     """
     matches = []
     re_including_digits = re.compile("[0-9]")
+    re_noext = re.compile(".*\.[0-9]+(?:\.gz|\.bz2)?$")
     possible_extensions = tuple([ i+c for i in IMG_EXTENSIONS for c in COMPRESS_EXTENSIONS+("",) ])
-    print possible_extensions
 
     for root, dirnames, filenames in os.walk(parentdir, followlinks=not skip_symlinks):
         if not recursive and root != parentdir:
             continue
 
         for filename in filenames:
-            if filename.endswith(possible_extensions) and re_including_digits.search(filename):
+            if (filename.endswith(possible_extensions) and re_including_digits.search(filename)) or re_noext.search(filename):
                 if skip_symlinks and os.path.islink(os.path.join(root, filename)):
                     continue
                 matches.append(os.path.join(root, filename))
@@ -49,10 +50,13 @@ def group_img_files_template(img_files, skip_0=False):
 
     # At first, grouping by pref+numbers+ext style
     for f in img_files:
+        r = re_pref_num.search(f)
+        if r: 
+            first_selection.setdefault((r.group(1), r.group(4)), []).append(r.group(2))
+            continue
         r = re_pref_num_ext.search(f)
         if r:
             first_selection.setdefault((r.group(1), r.group(3)), []).append(r.group(2))
-
 
     group = []
 
@@ -65,10 +69,10 @@ def group_img_files_template(img_files, skip_0=False):
         if len(set(numbers_digit)) != 1:
             pass
 
-        template_str = "%(pref)s%(digit)s.%(ext)s" % dict(pref= pref,
-                                                          digit= "?"*numbers_digit[0],
-                                                          ext= ext
-                                                          )
+        template_str = "%(pref)s%(digit)s%(ext)s" % dict(pref= pref,
+                                                         digit= "?"*numbers_digit[0],
+                                                         ext= "."+ext if ext else ""
+                                                         )
 
         min_frame, max_frame = min(numbers_int), max(numbers_int)
 
@@ -265,10 +269,7 @@ def takeout_datasets(img_template, min_frame, max_frame, _epsilon=1e-5,
         ranges.append((img_indexes[i], img_indexes[b-1]))
         i = b
 
-    print borders
-    print ranges
     return ranges
-
 # takeout_datasets()
 
 def find_data_sets(wdir, skip_symlinks=True, skip_0=False, split_hdf_miniset=True):
@@ -285,6 +286,7 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False, split_hdf_miniset=Tru
 
     # group images
     group = group_img_files_template(img_files, skip_0=skip_0)
+    print group
 
     for img_template, min_frame, max_frame in group:
         if min_frame == max_frame:

@@ -334,6 +334,8 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version hisotry
 Dates when the code became available on GitHub are shown
 
+* 2017-07-22
+   * Support MarCCD's no-extension format like foo.0001
 * 2017-07-20
    * (new) kamo.multi\_determine\_symmetry: determines space group (point group only) from multiple (small wedge) datasets
    * KAMO: new option known.method= to specify how prior cell knowledge is used (default is not\_use\_first that tries indexing without prior knowledge first; use\_first is to use it first)
