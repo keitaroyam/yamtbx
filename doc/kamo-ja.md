@@ -197,7 +197,7 @@ XDSを使って処理を行う．基本的にgenerate_XDS.INPと同じ内容のX
 4. 各wedgeごとに推定された対称性の頻度も表示する
 5. ユーザがグループ番号と対称性を選択すると，各ファイル(XDS_ASCII.HKL_noscale)をその対称性の格子に変換する(reindexおよび格子定数の変換を行う)．
  - 同じ空間群でも異なる格子定数の候補がある場合があるので，頻度の表示(および既知情報があればそれも参考)に注意して選択して下さい．
- - XDS_ASCII.HKL_noscaleのファイルはreindexの時上書きされるので，複数の候補を並行して用意することはできません．
+ - <s>XDS_ASCII.HKL_noscaleのファイルはreindexの時上書きされるので，複数の候補を並行して用意することはできません．</s> "into the workdir"にチェックを入れておけば各作業ディレクトリにコピーされるので，複数の候補を試すことが可能です．
 6. Index ambiguityが存在するかどうかを調べ，存在する場合はユーザに通知する．
 
 ### 複数結晶に由来するデータのマージ (kamo.multi_merge)
@@ -260,10 +260,6 @@ rotation_axis= -1 0 0
 run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*のうち一番数字が大きいディレクトリが最終サイクルです．
 
 ## ローカル環境での使用方法
-まず，[依存関係](#依存プログラムライブラリ)をすべて導入してください (R, CCP4, XDS)．
-
-次に，[INSTALL.md](../INSTALL.md)に従って環境構築を行いますが，難しければ，以下のPHENIXを使った方法が簡単です．
-
 ### DIALSを利用した環境構築
 注: これまでPHENIXの環境を利用することを推奨していましたが，最新機能の一部がDIALSのモジュールを利用するようになったため，今後はDIALSを利用することを推奨します．基本的にはPHENIX環境でも動かせます(以下のDIALSをPHENIXに読み替えてください)．
 
@@ -334,6 +330,8 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 
 ### KAMOを利用した研究
 
+* Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](http://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93)
+* Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>" *Nature* doi: [10.1038/nature23448](http://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ)
 * Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN)
 
 

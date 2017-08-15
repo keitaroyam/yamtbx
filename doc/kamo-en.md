@@ -196,7 +196,7 @@ Internally,
 4. The frequency of actually deduced symmetry for wedges is listed as well.
 5. When a user chooses group number and symmetry, each result (XDS_ASCII.HKL_noscale) is transformed to the selected symmetry (reindexing and change of unit cell parameters).
  - Sometimes there are multiple candidates sharing the same space group (but different unit cell parameters). Decide using the frequencies and prior knowledge if any.
- - XDS_ASCII.HKL_noscale files will be overwritten when reindexing. You cannot prepare multiple symmetry candidates at the same time (Sorry).
+ - <s>XDS_ASCII.HKL_noscale files will be overwritten when reindexing. You cannot prepare multiple symmetry candidates at the same time (Sorry).</s> You can do that by checking "into the workdir" as files are copied to the working directory.
 6. Check and notify if index ambiguity exits.
 
 ### Merging of multiple wedges (kamo.multi_merge)
@@ -260,10 +260,6 @@ Please use run_03/ccp4/xscale.mtz. If run_03/ is not there, run_\* with the larg
 
 ## How can I use KAMO at home?
 ### Installation
-1. Follow [INSTALL.md](../INSTALL.md) to setup environment.
-2. Install all [dependencies](#Dependencies) (R, CCP4, XDS)
-
-If this is too hard, there is much easier way:
 
 1. Install CCP4, R with rjson package, XDS
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
@@ -329,6 +325,8 @@ As the paper is in preparation, please refer to this documentation URL: https://
 
 ### Researches which used KAMO 
 
+* Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](http://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93)
+* Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>" *Nature* doi: [10.1038/nature23448](http://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ)
 * Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN)
 
 ## Version hisotry
