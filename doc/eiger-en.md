@@ -66,10 +66,14 @@ eiger2cbf can be used as an alternative of H5ToXds, which is needed by XDS to pr
 H5ToXds itself can be obtained from the bottom of [Dectris website](https://www.dectris.com/EIGER_X_Features.html), but only Linux version is available.
 Moreover, H5ToXds does not write header in CBF file.
 By these reasons, I recommend to use eiger2cbf instead of H5ToXds.
-Eiger2cbf shows message in standard output, which overlaps with XDS output in processing. To avoid this, create shell script named H5ToXds like below.
+Eiger2cbf shows message in standard output, which overlaps with XDS output in processing. To avoid this, it is recommended to create a shell script named H5ToXds by running the shell commands below.
 ```
+cd (anywhere PATH is set)
+cat <<+ > H5ToXds
 #!/bin/sh
 eiger2cbf $@ 2>/dev/null
++
+chmod +x H5ToXds
 ```
 
 To use eiger2cbf, just give a master.h5; e.g.,

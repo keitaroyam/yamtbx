@@ -69,10 +69,14 @@ eiger2cbfは，XDSがh5を処理する際に必要とするH5ToXdsと互換性�
 H5ToXdsは[Dectrisのサイト](https://www.dectris.com/EIGER_X_Features.html)の一番下からダウンロードできますが，Linux版のみでありMac版は配布されていません．
 またH5ToXdsはCBFにヘッダ情報を付与しません．
 これらの理由から，eiger2cbfをH5ToXdsという名前に変えて(またはH5ToXdsという名前のリンクを作って)使うことを推奨します．
-ただしeiger2cbfは標準エラー出力にメッセージを出力するので，XDSで処理してる時の表示とかぶってしまいます．これを避けるためには，以下のようなシェルスクリプトをH5ToXdsという名前で使うと良いでしょう．
+ただしeiger2cbfは標準エラー出力にメッセージを出力するので，XDSで処理してる時の表示とかぶってしまいます．これを避けるためには，以下のようにしてH5ToXdsという名前のシェルスクリプトを作ると良いでしょう．
 ```
+cd (任意のPATHが通った場所)
+cat <<+ > H5ToXds
 #!/bin/sh
 eiger2cbf $@ 2>/dev/null
++
+chmod +x H5ToXds
 ```
 
 eiger2cbfは，以下のようにmaster.h5を与えて使います．
