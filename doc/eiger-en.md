@@ -5,6 +5,8 @@ The contents may be updated by the upgrade of the firmware of EIGER.
 
    * [EIGER HDF5](#eiger-hdf5)
       * [Compression of internal data (filter)](#compression-of-internal-data-filter)
+      * [Modification on master.h5 at BL32XU](#modification-on-masterh5-at-bl32xu)
+      * [onlyhits.h5 at BL32XU](#onlyhitsh5-at-bl32xu)
    * [Installing software](#installing-software)
       * [HDF5 software](#hdf5-software)
       * [eiger2cbf (H5ToXds compatible)](#eiger2cbf-h5toxds-compatible)
@@ -43,6 +45,26 @@ HDF5 has a mechanism called 'filter' that internally compresses data. EIGER data
 Normally master.h5, which include a bit huge data e.g. flatfield and pixel mask, is not compressed, but at BL32XU byteshuffle+gzip is used to reduce the size (bslz4 is used since 2017A).
 
 No matter what kind of filters is used, you can read the data in the same way (HDF5 library internally decompress data). However, for non-standard filters including bslz4, you need to install the plugin.
+
+### Modification on master.h5 at BL32XU
+
+BL32XU provides modified master.h5 (not what is originally provided by EIGER) to make the meta data right and reduce file size. The modification is following:
+* Removal of unnecessary data
+  * flatfield,pixel\_mask,trimbit in /entry/instrument/detector/detectorSpecific/detectorModule\_*/
+  * These data except trimbit are redundant and data for overall image are saved elsewhere.
+* Compression of large array data (bslz4)
+* Adding crystal rotation axis (/entry/sample/transformations/omega)
+* Making omega table right (/entry/sample/goniometer/)
+
+### onlyhits.h5 at BL32XU
+
+Raster scan (termed diffraction scan at SPring-8) data are often very large, and usually there are only few frames that have spots.
+BL32XU produces onlyhits.h5 where only hit frames are included, and users can bring them home and leave original scan files.
+
+The file contents are the copy of master.h5 and hit images saved in /entry/data.
+There are groups named prefix + image number in /entry/data having attributes of n\_spots, and dataset `data` in each group is the image data.
+
+onlyhits.h5 can be easily opened `yamtbx.adxv_eiger` (see below).
 
 
 ## Installing software

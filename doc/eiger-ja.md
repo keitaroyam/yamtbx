@@ -7,6 +7,8 @@ English version is [here](eiger-en.md).
 
   * [EIGER HDF5について](#eiger-hdf5について) 
      * [内部データの圧縮(filter)](#内部データの圧縮filter)
+     * [BL32XUにおけるmaster.h5の改変](#bl32xuにおけるmasterh5の改変)
+     * [BL32XUにおけるonlyhits.h5に関して](#bl32xuにおけるonlyhitsh5に関して)
   * [ソフトウェアの導入](#ソフトウェアの導入) 
      * [HDF5 software](#hdf5-software)
      * [eiger2cbf (H5ToXds互換)](#eiger2cbf-h5toxds互換) 
@@ -46,6 +48,27 @@ HDF5は内部的にデータを圧縮することができるようになって�
 master.h5は通常圧縮されていません(masterにはflatfieldやpixel maskなどそこそこ大きい情報が格納されています)が，BL32XUではbyteshuffle+gzipによって圧縮するようにしています(2017A期より，bslz4での圧縮に変更)．
 
 データを読む際には，圧縮されていようがいまいが，同じように読むことができます（HDF5のライブラリが自動的に解凍処理を行います）．ただし非標準のFilter (bslz4も該当)の場合は，プラグインをインストールしなければ読めません．
+
+### BL32XUにおけるmaster.h5の改変
+
+BL32XUでは，EIGERから直接出力されるmaster.h5ではなく以下のような改変を行ったものをユーザに提供しています．
+（含まれている情報を適切に修正し，かつ，ファイルサイズを削減する目的です）
+* 不要データの除去
+  * /entry/instrument/detector/detectorSpecific/detectorModule\_*/以下のflatfield,pixel\_mask,trimbitを削除
+  * これらのデータはtrimbitを除き，検出器全体での情報が別に保存されている
+* サイズの大きな配列の圧縮(bslz4)
+* 結晶回転軸の情報を付与(/entry/sample/transformations/omega)
+* omegaのテーブルを適切に修正(/entry/sample/goniometer/)
+
+### BL32XUにおけるonlyhits.h5に関して
+
+回折スキャン(diffraction scan)の結果は巨大であることが多く，通常ほとんどスポットの写っていないフレームであるため，
+BL32XUではスポットの写っているフレームのみを抽出したonlyhits.h5を作成し，それだけを持ち帰れるようにしています．
+
+中身はmaster.h5のコピーに加え，/entry/data以下にフレーム情報を記録しています．
+/entry/data/直下にprefix + image numberの名前のgroupが存在し(そのasttributeとしてn_spotsの情報あり)，その直下にあるdataset `data`がフレームのデータです．
+
+onlyhits.h5は後述の`yamtbx.adxv_eiger`で開くことができます．
 
 
 ## ソフトウェアの導入
