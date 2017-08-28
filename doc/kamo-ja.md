@@ -49,7 +49,7 @@ SPring-8でのオンラインデータ解析のために設計されています
 以下のプログラム・ライブラリを使用しています．
 
 * [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (動作上必須)
-* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (動作上必須)
+* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx 1.x](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (動作上必須)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), [H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換) (EIGERの場合)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
 * [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
@@ -269,7 +269,7 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 2. [DIALS](https://dials.github.io/installation.html)-1.5以上をインストールする
 3. networkxをdials.pythonから使えるようにする
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -m easy_install networkx`
+   2. `./bin/libtbx.python -m easy_install networkx==1.11`
 4. scipyをdials.pythonから使えるようにする
    1. Macの場合，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
    2. `cd $DIALS/build`
@@ -331,8 +331,8 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ### KAMOを利用した研究
 
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](http://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93)
-* Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>" *Nature* doi: [10.1038/nature23448](http://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ)
-* Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN)
+* Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>." *Nature* doi: [10.1038/nature23448](http://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ)
+* Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN) [Processig note](https://github.com/keitaroyam/yamtbx/wiki/Processing-Polyhedra-data-(5GQM-&-5GQN))
 
 
 ## バージョン履歴
