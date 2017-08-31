@@ -86,6 +86,7 @@ class Interpreter:
     'OscAxis':(['Oscillation_axis'], lambda x: x.split(",")[0].lower().strip()),
     'DateStr':(['DATE'], str),
     'DateSeconds':(['DATE'], date_seconds),
+    'Overload':(['Count_cutoff'], FLOAT1),
     }
 
     SpecialRules = {
