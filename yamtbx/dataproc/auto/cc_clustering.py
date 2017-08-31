@@ -8,6 +8,7 @@ from cctbx.array_family import flex
 from cctbx import miller
 from libtbx import easy_mp
 from libtbx.utils import null_out
+from libtbx.utils import Sorry
 from yamtbx.util import call
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.auto.blend import load_xds_data_only_indices
@@ -43,6 +44,7 @@ class CCClustering:
         self.arrays = read_xac_files(xac_files, d_min=d_min, d_max=d_max, min_ios=min_ios)
         self.wdir = wdir
         self.clusters = {}
+        self.all_cc = {} # {(i,j):cc, ...}
         
         if not os.path.exists(self.wdir): os.makedirs(self.wdir)
 
@@ -81,11 +83,21 @@ class CCClustering:
 
         elif use_normalized:
             from mmtbx.scaling.absolute_scaling import kernel_normalisation
+            failed = {}
             for f in self.arrays:
                 arr = self.arrays[f]
-                normaliser = kernel_normalisation(arr, auto_kernel=True)
-                self.arrays[f] = arr.customized_copy(data=arr.data()/normaliser.normalizer_for_miller_array,
-                                                     sigmas=arr.sigmas()/normaliser.normalizer_for_miller_array)
+                try:
+                    normaliser = kernel_normalisation(arr, auto_kernel=True)
+                    self.arrays[f] = arr.customized_copy(data=arr.data()/normaliser.normalizer_for_miller_array,
+                                                         sigmas=arr.sigmas()/normaliser.normalizer_for_miller_array)
+                except Sorry, e:
+                    failed.setdefault(e.message, []).append(f)
+
+            if failed:
+                msg = ""
+                for r in failed: msg += " %s\n%s\n" % (r, "\n".join(map(lambda x: "  %s"%x, failed[r])))
+                raise Sorry("intensity normalization failed by following reason(s):\n%s"%msg)
+                    
         # Prep 
         args = []
         for i in xrange(len(self.arrays)-1):
@@ -145,9 +157,11 @@ class CCClustering:
 
         ofs = open("%s.dat"%prefix, "w")
         ofs.write("   i    j     cc  nref\n")
+        self.all_cc = {}
         for (i,j), (cc,nref) in zip(args, results):
             ofs.write("%4d %4d %.4f %4d\n" % (i,j,cc,nref))
-
+            self.all_cc[(i,j)] = cc
+            
         open("%s_ana.R"%prefix, "w").write("""\
 treeToList2 <- function(htree)
 {  # stolen from $CCP4/share/blend/R/blend0.R
@@ -169,7 +183,8 @@ treeToList2 <- function(htree)
 }
 
 cc<-scan("%(prefix)s.matrix")
-md<-matrix(1-cc, ncol=%(ncol)d, byrow=TRUE)
+        md<-matrix(1-cc, ncol=%(ncol)d, byrow=TRUE)
+#        md<-matrix(sqrt(2*(1-cc)), ncol=%(ncol)d, byrow=TRUE)
 hc <- hclust(as.dist(md),method="ward")
 pdf("tree.pdf")
 plot(hc)
@@ -258,6 +273,17 @@ q(save="yes")
             return cmpl
     # cluster_completeness()
 
+    def get_all_cc_in_cluster(self, clno):
+      IDs = self.clusters[clno][1]
+      ret = []
+      
+      for i in xrange(len(IDs)-1):
+          for j in xrange(i+1, len(IDs)):
+            ids = IDs[i]-1, IDs[j]-1
+            ret.append(self.all_cc[(min(ids), max(ids))])
+      return ret
+    # get_all_cc_in_cluster()
+    
     def show_cluster_summary(self, d_min, out=null_out()):
         tmp = []
         self.miller_sets = load_xds_data_only_indices(xac_files=self.arrays.keys(), d_min=d_min)
@@ -266,17 +292,19 @@ q(save="yes")
             cluster_height, IDs = self.clusters[clno]
             cmpl, redun = self.cluster_completeness(clno, anomalous_flag=False, d_min=d_min)
             acmpl, aredun = self.cluster_completeness(clno, anomalous_flag=True, d_min=d_min)
-            tmp.append((clno, IDs, cluster_height, cmpl*100., redun, acmpl*100., aredun))
+            all_cc = self.get_all_cc_in_cluster(clno)
+            ccmean, ccmin = numpy.mean(all_cc), min(all_cc)
+            tmp.append((clno, IDs, cluster_height, cmpl*100., redun, acmpl*100., aredun, ccmean, ccmin))
 
         self.miller_sets = None # clear memory
 
         tmp.sort(key=lambda x: (-x[4], -x[3])) # redundancy & completeness
         out.write("# d_min= %.3f\n" % (d_min))
         out.write("# Sorted by redundancy & completeness\n")
-        out.write("Cluster Number   CLh   Cmpl Redun  ACmpl ARedun\n")
-        for clno, IDs, clh, cmpl, redun, acmpl, aredun in tmp:
-            out.write("%7d %6d %5.1f %6.2f %5.1f %6.2f %5.1f\n" % (clno, len(IDs), clh, cmpl, redun,
-                                                                   acmpl, aredun))
+        out.write("Cluster Number   CLh   Cmpl Redun  ACmpl ARedun CCmean CCmin\n")
+        for clno, IDs, clh, cmpl, redun, acmpl, aredun, ccmean, ccmin in tmp:
+            out.write("%7d %6d %5.1f %6.2f %5.1f %6.2f %5.1f %.4f %.4f\n" % (clno, len(IDs), clh, cmpl, redun,
+                                                                             acmpl, aredun, ccmean, ccmin))
         return tmp
     # show_cluster_summary()
 

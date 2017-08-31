@@ -122,6 +122,8 @@ class XDS_ASCII:
                 self.incident_axis = tuple(map(float, val.split()))
             elif key == "ROTATION_AXIS":
                 self.rotation_axis = tuple(map(float, val.split()))
+            elif key == "OSCILLATION_RANGE":
+                self.osc_range = float(val.split()[0])
             elif key == "VARIANCE_MODEL":
                 self.variance_model = tuple(map(float, val.split()))
 
@@ -193,7 +195,7 @@ class XDS_ASCII:
 
         flag_data_start = False
         col_zd = self._colindex["ZD"]
-        min_frame, max_frame = 0, 0
+        min_frame, max_frame = float("inf"), -float("inf")
         for line in open(self._filein):
             if flag_data_start:
                 if line.startswith("!END_OF_DATA"):

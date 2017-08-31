@@ -4,11 +4,15 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+import re
+import os
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.anisotropic_analysis import calc_principal_vectors, calc_stats_along_axes
+from yamtbx.dataproc.auto import resolution_cutoff
 import iotbx.file_reader
 import iotbx.phil
 from libtbx.utils import null_out
+import numpy
 
 master_params_str = """\
 hklin = None
@@ -25,12 +29,52 @@ cone_angle = 20.
 n_bins = 10
  .type = int
  .help = "Number of resolution bin"
+fit_curve = True
+ .type = bool
+ .help = "Fit function for CC1/2 curve"
 log_out = None
  .type = path
  .help = "Output filename"
 """
 
-def make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, log_out):
+def parse_logfile(logfile):
+    re_reso_cut = re.compile("CC1/2=([^ ]+) resolution for ([^ ]+): ([^ ]+) Angstrom")
+    ret = {}
+    if not os.path.isfile(logfile): return ret
+
+    flag_eigen = False
+    ret["aniso_cutoffs"] = []
+    ret["eigen_values"] = []
+    ret["has_anisotropy"] = True
+    
+    for l in open(logfile):
+        if "No anisotropy in this symmetry" in l:
+            ret["has_anisotropy"] = False
+        elif "Eigenvalues/vectors:" in l:
+            flag_eigen = True
+        elif flag_eigen and not l.strip():
+            flag_eigen = False
+        elif flag_eigen:
+            val = float(l.split("(")[0])
+            label = l.split(")")[-1].strip()
+            ret["eigen_values"].append((val, label))
+        else:
+            r = re_reso_cut.search(l)
+            if r:
+                cchalf_cutoff, label, resol = float(r.group(1)), r.group(2), float(r.group(3))
+                ret["aniso_cutoffs"].append((cchalf_cutoff, label, resol))
+
+    if ret["aniso_cutoffs"]:
+        ret["aniso_cutoffs"].sort(key=lambda x:x[2])
+        ret["d_min_best"] = ret["aniso_cutoffs"][0][2]
+        ret["d_min_worst"] = ret["aniso_cutoffs"][-1][2]
+    else:
+        ret["d_min_best"] = ret["d_min_worst"] = float("nan")
+
+    return ret
+# parse_logfile()
+
+def make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, do_fit, log_out):
     """
     Rejected data must be removed from i_obs
     array_merged must have positive sigma values only.
@@ -47,6 +91,8 @@ def make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, log_out):
     
     cchalf = calc_stats_along_axes(i_obs, v_stars, binner, angle=cone_angle, kind="cchalf")
     ios = calc_stats_along_axes(array_merged, v_stars, binner, angle=cone_angle, kind="ioversigma")
+
+    ret = dict(binner=binner, cchalf=cchalf, ios=ios)
     
     print >>log_out, "Anisotropic stats with cone angle of %.1f deg:" % cone_angle
     for vc, vi in zip(cchalf, ios):
@@ -80,11 +126,42 @@ $$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
         for vstar, label, pn, cc_ovl, binnref, binstats in ios: log_out.write("% 6.2f "%binstats[i])
         for vstar, label, pn, cc_ovl, binnref, binstats in ios: log_out.write("%6d "%binnref[i])
         log_out.write("\n")
-
     print >>log_out, "$$"
+    
+
+    if do_fit:
+        log_out.write("\n\nFitting function for CC1/2 curves\n\n")
+        fitted_vals = {}
+        ret["aniso_d_min"] = []
+        for vstar, label, pn, cc_ovl, binnref, binstats in cchalf:
+            #s2_list = map(lambda x: numpy.mean(1/numpy.array(binner.bin_d_range(x))**2), binner.range_used())
+            s2_list = numpy.array(map(lambda x: 1/binner.bin_d_min(x)**2, binner.range_used()))
+            d0, r = resolution_cutoff.fit_curve_for_cchalf(s2_list, binstats, log_out, verbose=False)
+            d_min_est = resolution_cutoff.resolution_fitted(d0, r, cchalf_min=0.5)
+            ret["aniso_d_min"].append((label, d_min_est))
+            fitted_vals[label] = (d_min_est, resolution_cutoff.fun_ed_aimless(s2_list, d0, r))
+            log_out.write("CC1/2=0.5 resolution for %s: %.4f Angstrom\n" % (label, d_min_est))
+        log_out.write("\n")
+
+        print >>log_out, """
+$TABLE: Anisotropic statistics - CC1/2 fitted:
+$GRAPHS: fitted curve for weighted CC1/2 v resolution:%(xmin).4f|%(xmax).4fx0|1:1,%(ccnumbers)s:
+$$ 1/d^2 %(cclabels)s $$
+$$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
+             cclabels=" ".join(map(lambda x: "CC1/2:%s:d=%.2fA"%(x[1],fitted_vals[x[1]][0]), cchalf)),
+             xmin=s2_max_min[0], xmax=s2_max_min[1])
+
+        for i, i_bin in enumerate(binner.range_used()):
+            d_max, d_min = binner.bin_d_range(i_bin)
+            log_out.write("%.4f " % ((1./d_min**2+1./d_max**2)/2))
+            for x in cchalf: log_out.write("% .4f "%fitted_vals[x[1]][1][i])
+            log_out.write("\n")
+        print >>log_out, "$$"
+
+    return ret
 # make_aniso_stats_table()
 
-def run(hklin, hklin_merged=None, cone_angle=20., n_bins=10, anomalous=None, log_out=null_out()):
+def run(hklin, hklin_merged=None, cone_angle=20., n_bins=10, anomalous=None, do_fit=True, log_out=null_out()):
     if 1:
         xac = XDS_ASCII(hklin, i_only=True)
         xac.remove_rejected()
@@ -127,7 +204,7 @@ def run(hklin, hklin_merged=None, cone_angle=20., n_bins=10, anomalous=None, log
         array_merged = array_merged.average_bijvoet_mates()
 
 
-    make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, log_out)
+    return make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, do_fit, log_out)
 # run()
 
 def run_from_args(args):
@@ -158,7 +235,7 @@ Parameters:"""
 
     run(params.hklin, params.hklin_merged,
         cone_angle=params.cone_angle, n_bins=params.n_bins, anomalous=params.anomalous,
-        log_out=log_out)
+        do_fit=params.fit_curve, log_out=log_out)
 
 if __name__ == "__main__":
     import sys

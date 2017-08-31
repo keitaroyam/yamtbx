@@ -31,21 +31,41 @@ import traceback
 from cStringIO import StringIO
 
 master_params_str = """
-topdir = None
+xdsdir = None
  .type = path
+ .multiple = true
  .help = top directory containing xds results
-lstout = "formerging.lst"
+workdir = None
  .type = path
- .help = data list for merging
+ .help = ""
+
+unit_cell = None
+ .type = floats(size=6)
 space_group = None
  .type = str
  .help = Choose the space group (name or number).
 group_choice = None
  .type = int
  .help = Choose the group (run once and choose).
-reference_for_reindex = None
- .type = path
- .help = Reference reflection data for resolving indexing ambiguity
+
+cell_method = *reindex refine
+ .type = choice(multi=False)
+ .help = ""
+nproc = 1
+ .type = int
+prep_dials_files = True
+ .type = bool
+copy_into_workdir = True
+ .type = bool
+
+cell_grouping {
+  tol_length = None
+   .type = float
+   .help = relative_length_tolerance
+  tol_angle = None
+   .type = float
+   .help = absolute_angle_tolerance in degree
+}
 """
 
 def prepare_dials_files(wd, out, space_group=None, reindex_op=None, moveto=None):
@@ -238,7 +258,7 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
                           os.path.join(wdr, os.path.basename(xac_file))))
             
 
-    cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
+    cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20) # XXX ISN'T THIS TOO LARGE?
 
     if len(cosets.combined_cb_ops())==0:
         print >>out, "Can't find operator:"
@@ -310,206 +330,274 @@ def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, pre
     return cells
 # reindex_with_specified_symm()
 
-def read_strong_i_from_xds_ascii(xds_ascii_in):
-    tmp = XDS_ASCII(xds_ascii_in, i_only=True).i_obs(anomalous_flag=False)
-    sel = tmp.sigmas() > 0
-    sel &= tmp.data()/tmp.sigmas() > 2
-    sel &= tmp.d_spacings() > 3
-    if sel.count(True) < 10:
-        return None
-    tmp = tmp.select(sel)
-    merge = tmp.merge_equivalents(use_internal_variance=False)
-    return merge.array()
-# read_strong_i_from_xds_ascii()
+class PrepMerging:
+    def __init__(self, cell_graph):
+        self.cell_graph = cell_graph
+        self.cell_and_files = []
+        self.log_buffer = None
+    # __init__()
 
-def get_cc(lhs, rhs):
-    di, dj = lhs.common_sets(rhs, assert_is_similar_symmetry=False)
-    corr = flex.linear_correlation(di.data(), dj.data())
-    if corr.is_well_defined():
-        return corr.coefficient()
-    return None
-# get_cc()
-
-def resolve_indexing_ambiguity(dirs, reidx_ops):
-    """
-    This very simple implementation would be buggy and gangerous.
-    Don't use this now!!
-    """
-
-    data = {}
-
-    # Read all (strong) data
-    for wd in dirs:
-        print "reading", wd
-        tmp = read_strong_i_from_xds_ascii(os.path.join(wd, "XDS_ASCII.HKL"))
-        if tmp is None:
-            continue
-        data[wd] = tmp
-
-    # Pairwise analysis
-    best_op = map(lambda x: (0, 0), xrange(len(dirs)))
-    for i in xrange(len(dirs)-1):
-        for j in xrange(i+1, len(dirs)):
-            wd_i, wd_j = dirs[i], dirs[j]
-            if wd_i not in data or wd_j not in data:
-                continue
-            data_i, data_j = data[wd_i], data[wd_j]
-            cc_list = []
-            idx_min, idx_max = 0, 0
-            for k, rop in enumerate(reidx_ops):
-                if k == 0:
-                    data_j_ = data_j
-                else:
-                    data_j_ = data_j.customized_copy(indices=rop.apply(data_j.indices()))
-                cc_list.append(get_cc(data_i, data_j_))
-                if k > 0 and cc_list[k] is not None:
-                    if cc_list[k] < cc_list[idx_min]: idx_min = k
-                    if cc_list[k] > cc_list[idx_max]: idx_max = k
-
-            if len(cc_list) - cc_list.count(None) < 2:
-                print i,j,"skip"
-                continue
-            cc_min, cc_max = cc_list[idx_min], cc_list[idx_max]
-            score = (cc_max+1)/(cc_min+1) if cc_min+1 != 0 else float("nan")
-            print i, j, 
-            for cc in cc_list: print cc, 
-            print score
-
-            if score > best_op[j][1]:
-                best_op[j] = (idx_max, score)
-            if score > best_op[i][1]:
-                best_op[i] = (0, score)
-
-    for i in xrange(len(dirs)):
-        print "%.3d op= %d score= %.2f" % (i, best_op[i][0], best_op[i][1])
-
-    # Apply reindexing
-
-# resolve_indexing_ambiguity()
-
-def resolve_indexing_ambiguity_using_reference(dirs, reidx_ops, reference_file):
-    from iotbx import reflection_file_reader
-
-    hkl_ref = filter(lambda x: x.is_xray_intensity_array(),
-                     reflection_file_reader.any_reflection_file(reference_file).as_miller_arrays(merge_equivalents=False))
-    if len(hkl_ref) == 0:
-        raise Exception("No intensity data in %s"%reference_file)
+    def find_groups(self):
+        sio = StringIO()
+        self.cell_graph.group_xds_results(sio)
+        self.log_buffer = sio.getvalue()
+        return self.log_buffer
+    # find_groups()
     
-    ref_data = hkl_ref[0].merge_equivalents(use_internal_variance=False).array()
-    data = {}
-    
-    # Read all (strong) data
-    for wd in dirs:
-        print "reading", wd
-        tmp = read_strong_i_from_xds_ascii(os.path.join(wd, "XDS_ASCII.HKL"))
-        if tmp is None:
-            continue
-        data[wd] = tmp
+    def prep_merging(self, group, symmidx, workdir, topdir=None, cell_method="reindex", nproc=1, prep_dials_files=True, into_workdir=True):
+        from yamtbx.util.xtal import format_unit_cell
+        from cctbx.crystal import reindex
 
-    # Compare with reference
-    best_op = map(lambda x: 0, xrange(len(dirs)))
-    for i in xrange(len(dirs)):
-        if dirs[i] not in data:
-            continue
+        cm = self.cell_graph
+        
+        prep_log_out = multi_out()
+        prep_log_out.register("log", open(os.path.join(workdir, "prep_merge.log"), "w"), atexit_send_to=None)
+        prep_log_out.register("stdout", sys.stdout)
+        prep_log_out.write(self.log_buffer)
+        prep_log_out.flush()
 
-        data_i = data[dirs[i]]
-        cc_list = []
-        idx_max = 0
-        for k, rop in enumerate(reidx_ops):
-            if k == 0:
-                data_i_ = data_i
-            else:
-                data_i_ = data_i.customized_copy(indices=rop.apply(data_i.indices()))
-            cc_list.append(get_cc(data_i_, ref_data))
-            if cc_list[k] is not None:
-                if cc_list[k] > cc_list[idx_max]: idx_max = k
+        reference_symm = cm.get_reference_symm(group-1, symmidx)
 
-        if len(cc_list) - cc_list.count(None) < 2:
-            print i,"skip"
-            continue
-        cc_max = cc_list[idx_max]
-        print i,
-        for cc in cc_list: print cc, 
-        print
-        best_op[i] = idx_max
-    
-    print "\n Best reindexing operators"
-    print "=================================\n"
-    for i in xrange(len(dirs)):
-        print "%.3d op= %d %s" % (i, best_op[i], dirs[i])
+        prep_log_out.write("\n\ngroup_choice= %d, symmetry= %s (%s)\n" % (group, reference_symm.space_group_info(),
+                                                                          format_unit_cell(reference_symm.unit_cell())))
+        prep_log_out.flush()
 
-    print "\nApplying.."
-    for i, opi in enumerate(best_op):
-        if opi == 0: continue
-        # XXX treat!!
-    print "Done."
+        # Scale with specified symmetry
+        symms = map(lambda i: cm.symms[i], cm.groups[group-1])
+        dirs = map(lambda i: cm.dirs[i], cm.groups[group-1])
+        copyto_root = os.path.join(workdir, "input_files") if into_workdir else None
 
-# resolve_indexing_ambiguity_using_reference()
+        if not topdir: topdir = os.path.dirname(os.path.commonprefix(dirs))
+        
+        if cell_method == "reindex":
+            self.cell_and_files = reindex_with_specified_symm(topdir, reference_symm, dirs,
+                                                         out=prep_log_out, nproc=nproc,
+                                                         prep_dials_files=prep_dials_files, copyto_root=copyto_root)
+        elif cell_method == "refine":
+            self.cell_and_files, reference_symm = rescale_with_specified_symm(topdir, dirs, symms,
+                                                                         reference_symm=reference_symm,
+                                                                         out=prep_log_out, nproc=nproc,
+                                                                         prep_dials_files=prep_dials_files,
+                                                                         copyto_root=copyto_root)
+        else:
+            raise "Don't know this choice: %s" % cell_method
+
+        prep_log_out.flush()
+
+        cosets = reindex.reindexing_operators(reference_symm, reference_symm, max_delta=5)
+        reidx_ops = cosets.combined_cb_ops()
+
+        print >>prep_log_out, "\nReference symmetry:", reference_symm.unit_cell(), reference_symm.space_group_info().symbol_and_number()
+        msg_reindex = "\n"
+        if len(reidx_ops) > 1:
+            msg_reindex += "!! ATTENTION !! Reindex operators found. You may need to reindex some files before merging.\n"
+            for rop in reidx_ops:
+                msg_reindex += " operator: %-16s Cell: (%s)\n" % (rop.as_hkl(),
+                                                                format_unit_cell(reference_symm.unit_cell().change_basis(rop)))
+            msg_reindex += "Try kamo.resolve_indexing_ambiguity command before merging!!"
+
+        else:
+            msg_reindex += "No reindex operators found. No need to run kamo.resolve_indexing_ambiguity."
+
+        print >>prep_log_out, "%s\n\n" % msg_reindex
+        prep_log_out.close()
+
+        # Make list for merging
+        ofs_lst = open(os.path.join(workdir, "formerge.lst"), "w")
+        ofs_dat = open(os.path.join(workdir, "cells.dat"), "w")
+        ofs_dat.write("file a b c al be ga\n")
+
+        for wd in self.cell_and_files:
+            cell, xas = self.cell_and_files[wd]
+            ofs_lst.write(xas+"\n")
+            ofs_dat.write(xas+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
+
+        ofs_dat.close()
+        ofs_lst.close()
+
+        return msg_reindex
+    # prep_merging()
+
+    def write_merging_scripts(self, workdir, sge_pe_name="par", prep_dials_files=True):
+        open(os.path.join(workdir, "merge_blend.sh"), "w").write("""\
+#!/bin/sh
+# settings
+dmin=2.8 # resolution
+anomalous=false # true or false
+lstin=formerge.lst # list of XDS_ASCII.HKL files
+use_ramdisk=true # set false if there is few memory or few space in /tmp
+# _______/setting
+
+kamo.multi_merge \\
+        workdir=blend_${dmin}A_framecc_b \\
+        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
+        space_group=None reference.data=None \\
+        program=xscale xscale.reference=bmin \\
+        reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
+        clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
+        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
+""" % sge_pe_name)
+        os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
+        
+        open(os.path.join(workdir, "merge_ccc.sh"), "w").write("""\
+#!/bin/sh
+# settings
+dmin=2.8 # resolution
+clustering_dmin=3.5  # resolution for CC calculation
+anomalous=false # true or false
+lstin=formerge.lst # list of XDS_ASCII.HKL files
+use_ramdisk=true # set false if there is few memory or few space in /tmp
+# _______/setting
+
+kamo.multi_merge \\
+        workdir=ccc_${dmin}A_framecc_b \\
+        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
+        space_group=None reference.data=None \\
+        program=xscale xscale.reference=bmin \\
+        reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
+        clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
+        cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
+        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
+""" % sge_pe_name)
+        os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
+
+        open(os.path.join(workdir, "filter_cell.R"), "w").write(r"""iqrf <- 2.5
+
+myhist <- function(v, title) {
+ if(sd(v)==0) {
+  plot.new()
+  return()
+ }
+ hist(v, main=paste("Histogram of", title), xlab=title)
+ abline(v=c(median(v)-IQR(v)*iqrf, median(v)+IQR(v)*iqrf), col="blue")
+}
+
+cells <- read.table("cells.dat", h=T)
+good <- subset(cells, abs(a-median(a))<=IQR(a)*iqrf & abs(b-median(b))<=IQR(b)*iqrf & abs(c-median(c))<=IQR(c)*iqrf & abs(al-median(al))<=IQR(al)*iqrf & abs(be-median(be))<=IQR(be)*iqrf & abs(ga-median(ga))<=IQR(ga)*iqrf)
+write.table(good$file, "formerge_goodcell.lst", quote=F, row.names=F, col.names=F)
+
+pdf("hist_cells.pdf", width=14, height=7)
+par(mfrow=c(2,3))
+myhist(cells$a, "a")
+myhist(cells$b, "b")
+myhist(cells$c, "c")
+myhist(cells$al,"alpha")
+myhist(cells$be,"beta")
+myhist(cells$ga,"gamma")
+dev.off()
+cat("See hist_cells.pdf\n\n")
+
+cat(sprintf("%4d files given.\n", nrow(cells)))
+cat(sprintf("mean: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", mean(cells$a), mean(cells$b), mean(cells$c), mean(cells$al), mean(cells$be), mean(cells$ga)))
+cat(sprintf(" std: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", sd(cells$a), sd(cells$b), sd(cells$c), sd(cells$al), sd(cells$be), sd(cells$ga)))
+cat(sprintf(" iqr: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", IQR(cells$a), IQR(cells$b), IQR(cells$c), IQR(cells$al), IQR(cells$be), IQR(cells$ga)))
+
+cat(sprintf("\n%4d files removed.\n", nrow(cells)-nrow(good)))
+cat(sprintf("mean: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", mean(good$a), mean(good$b), mean(good$c), mean(good$al), mean(good$be), mean(good$ga)))
+cat(sprintf(" std: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", sd(good$a), sd(good$b), sd(good$c), sd(good$al), sd(good$be), sd(good$ga)))
+cat(sprintf(" iqr: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", IQR(good$a), IQR(good$b), IQR(good$c), IQR(good$al), IQR(good$be), IQR(good$ga)))
+
+cat("\nUse formerge_goodcell.lst instead!\n")
+""")
+
+        if prep_dials_files:
+            wd_jref = os.path.join(workdir, "dials_joint_refine")
+            os.mkdir(wd_jref)
+
+            ofs_phil = open(os.path.join(wd_jref, "experiments_and_reflections.phil"), "w")
+            ofs_phil.write("input {\n")
+            for wd in self.cell_and_files:
+                fe = os.path.join(wd, "experiments.json")
+                fp = os.path.join(wd, "integrate_hkl.pickle")
+                if os.path.isfile(fe) and os.path.isfile(fp):
+                    ofs_phil.write(' experiments = "%s"\n' % fe)
+                    ofs_phil.write(' reflections = "%s"\n' % fp)
+            ofs_phil.write("}\n")
+            ofs_phil.close()
+
+            open(os.path.join(wd_jref, "joint_refine.sh"), "w").write("""\
+#!/bin/sh
+
+dials.combine_experiments experiments_and_reflections.phil reference_from_experiment.beam=0 reference_from_experiment.goniometer=0 average_detector=true compare_models=false
+dials.refine combined_experiments.json combined_reflections.pickle auto_reduction.action=remove verbosity=9
+""")
+
+    # write_merging_scripts()
+# class PrepMerging
 
 def run(params):
-    out = multi_out()
-    out.register("log", open(os.path.join(os.path.dirname(params.lstout), "multi_prep_merging.log"), "w"), atexit_send_to=None)
-    out.register("stdout", sys.stdout)
+    if not params.workdir:
+        print "Give workdir="
+        return
+    if os.path.exists(params.workdir):
+        print "workdir already exists:", params.workdir
+        return
 
-    cell_params = libtbx.phil.parse(input_string=multi_check_cell_consistency.master_params_str).extract()
-    cell_params.topdir = params.topdir
-    cm = multi_check_cell_consistency.run(cell_params, out=out)
+    params.workdir = os.path.abspath(params.workdir)
+    
+    if None not in (params.unit_cell, params.space_group):
+        user_xs = crystal.symmetry(params.unit_cell, params.space_group)
+    else:
+        user_xs = None
+        
+    from yamtbx.dataproc.auto.command_line.multi_check_cell_consistency import CellGraph
+
+    cm = CellGraph(tol_length=params.cell_grouping.tol_length,
+                   tol_angle=params.cell_grouping.tol_angle)
+
+    if len(params.xdsdir) == 1 and os.path.isfile(params.xdsdir[0]):
+        params.xdsdir = util.read_path_list(params.xdsdir[0])
+        
+    xds_dirs = []
+    for xd in params.xdsdir:
+        xds_dirs.extend(map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2] or "DIALS.HKL" in x[2],
+                                                   os.walk(os.path.abspath(xd)))))
+    
+    for i, xd in enumerate(xds_dirs):
+        cm.add_proc_result(i, xd)
+
+    pm = PrepMerging(cm)
+    print pm.find_groups()
 
     if len(cm.groups) == 0:
         print "Oh, no. No data."
         return
 
-    if params.space_group is not None and params.group_choice is None:
-        params.group_choice = 1 # maybe the largest group.
+    if params.group_choice is None:
+        while True:
+            try:
+                val = int(raw_input("Input group number [%d..%d]: " % (1, len(cm.groups))))
+                if not 0 < val <= len(cm.groups): raise ValueError
+                params.group_choice = val
+                break
+            except ValueError:
+                continue
 
-    if params.group_choice < 1 or len(cm.groups) < params.group_choice:
-        print "Invalid group_choice=. Should be in 1..%d" % len(cm.groups)
-        return
+    symms = cm.get_selectable_symms(params.group_choice-1)
+    symmidx = -1
+    
+    if user_xs:
+        #for xs in cm.get_selectable_symms(params.group_choice):
+        raise "Not supported now."
 
-    possible_sgs = set(map(lambda x: cm.symms[x].space_group(), cm.groups[params.group_choice-1]))
-    if params.space_group is None:
-        print "Please specify space_group=. The possible choice is:"
-        print "\n".join(map(lambda x: x.info().symbol_and_number(), possible_sgs))
-        return
-    try:
-        if sgtbx.space_group_info(params.space_group).group() not in possible_sgs:
-            print "Invalid space group choice. The possible choice is:"
-            print "\n".join(map(lambda x: x.info().symbol_and_number(), possible_sgs))
-            return
-    except RuntimeError:
-        print "Invalid space group name or number (%s)" % params.space_group
-        return
+    while True:
+        try:
+            val = int(raw_input("Input symmetry number [%d..%d]: " % (0, len(symms)-1)))
+            if not 0 <= val < len(symms): raise ValueError
+            symmidx = val
+            break
+        except ValueError:
+            continue
 
-    symms = map(lambda i: cm.symms[i], cm.groups[params.group_choice-1])
-    dirs = map(lambda i: cm.dirs[i], cm.groups[params.group_choice-1])
-
-    sgnum = sgtbx.space_group_info(params.space_group).group().type().number()
-
-    # 1. Scale with specified symmetry
-    rescale_with_specified_symm(params.topdir, dirs, symms, out, sgnum=sgnum)
-
-    # 2. Resolve reindexing problem
-    # TODO: reconstruct unit cell by averaging
-    reference_symm = filter(lambda x:x.reflection_intensity_symmetry(False).space_group_info().type().number()==sgnum_laue, symms)[0]
-
-    cosets = reindex.reindexing_operators(reference_symm, reference_symm)
-    reidx_ops = cosets.combined_cb_ops()
-    print " Reference symmetry:", reference_symm.unit_cell(), reference_symm.space_group_info().symbol_and_number(), 
-    print " Possible reindex operators:", map(lambda x: str(x.as_hkl()), reidx_ops)
-    if len(reidx_ops) == 1:
-        print " No reindexing problem exists."
-    elif params.reference_for_reindex is not None:
-        resolve_indexing_ambiguity_using_reference(dirs, reidx_ops, params.reference_for_reindex)
-    else:
-        resolve_indexing_ambiguity(dirs, reidx_ops)
-
-    ofs = open(params.lstout, "w")
-    for wd in dirs:
-        xas_full = os.path.join(wd, "XDS_ASCII_fullres.HKL")
-        if os.path.isfile(xas_full): # if _fullres.HKL exists, use it.
-            ofs.write("%s\n" % xas_full)
-        else:
-            ofs.write("%s\n" % os.path.join(wd, "XDS_ASCII.HKL"))
+    os.mkdir(params.workdir)
+                
+    topdir = os.path.dirname(os.path.commonprefix(xds_dirs))
+    
+    pm.prep_merging(params.group_choice, symmidx, params.workdir, topdir,
+                    params.cell_method, params.nproc, params.prep_dials_files, params.copy_into_workdir)
+    pm.write_merging_scripts(params.workdir, "par", params.prep_dials_files)
 # run()
 
 if __name__ == "__main__":
@@ -520,11 +608,4 @@ if __name__ == "__main__":
     params = cmdline.work.extract()
     args = cmdline.remaining_args
     
-    for arg in args:
-        if os.path.isdir(arg) and params.topdir is None:
-            params.topdir = arg
-
-    if params.topdir is None:
-        params.topdir = os.getcwd()
-
     run(params)

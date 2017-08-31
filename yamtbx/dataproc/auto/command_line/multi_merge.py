@@ -8,6 +8,7 @@ from yamtbx.dataproc.xds import xscalelp
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.xds.xparm import XPARM
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
+from yamtbx.dataproc.xds.command_line import xds_aniso_analysis
 from yamtbx.dataproc.pointless import Pointless
 from yamtbx.dataproc import aimless
 from yamtbx.dataproc import xtriage
@@ -78,8 +79,11 @@ xscale {
   .type = choice(multi=False)
   .help = Reference selection for final scaling
  frames_per_batch = None
-  .type = int
+  .type = int(value_min=1)
   .help = affects NBATCH=. When 1, NBATCH= matches the number of frames in the dataset.
+ degrees_per_batch = None
+  .type = float(value_min=0.0001)
+  .help = "angle version of frames_per_batch"
  corrections = *MODPIX *ABSORP *DECAY
   .type = choice(multi=True)
   .help = controls CORRECTIONS=. Use lower case to specify
@@ -280,6 +284,7 @@ def merge_datasets(params, workdir, xds_files, cells, space_group):
             table = xscalelp.read_stats_table(xscale_lp)
             num_files = len(xscalelp.get_read_data(xscale_lp))
             xtriage_logfile = os.path.join(wd, "ccp4", "logfile.log")
+            aniso =  xds_aniso_analysis.parse_logfile(os.path.join(wd, "aniso.log"))
             cellinfo = cycles.cell_info_at_cycles[i]
             ret.append([i, wd, num_files, 
                         dict(cmpl=tkvals(table["cmpl"]),
@@ -292,6 +297,7 @@ def merge_datasets(params, workdir, xds_files, cells, space_group):
                              drange=tkvals(table["d_range"]),
                              lp=xscale_lp,
                              xtriage_log=xtriage.XtriageLogfile(xtriage_logfile),
+                             aniso=aniso,
                              lcv=cellinfo[1],
                              alcv=cellinfo[2],
                              dmin_est=cycles.dmin_est_at_cycles.get(i, float("nan")))
@@ -388,6 +394,13 @@ def run(params):
         print "Directory already exists and not empty:", params.workdir
         return
 
+    # Check parameters
+    if params.program == "xscale":
+        if (params.xscale.frames_per_batch, params.xscale.degrees_per_batch).count(None) == 0:
+            print "ERROR! You can't specify both of xscale.frames_per_batch and xscale.degrees_per_batch"
+            return
+            
+    
     if params.reference_file is not None and params.program != "xscale":
         print "WARNING - reference file is not used unless program=xscale."
 
@@ -605,8 +618,8 @@ def run(params):
             print >>out, "Here is the table of completeness and redundancy for each cluster:\n"
             print >>out, open(summary_out).read()
 
-        for clno, IDs, clh, cmpl, redun, acmpl, aredun in clusters: # process largest first
-            print >>out, " Cluster_%.4d NumDS= %4d CLh= %5.1f Cmpl= %6.2f Redun= %4.1f ACmpl=%6.2f ARedun=%4.1f" % (clno, len(IDs), clh, cmpl, redun, acmpl, aredun)
+        for clno, IDs, clh, cmpl, redun, acmpl, aredun, ccmean, ccmin in clusters: # process largest first
+            print >>out, " Cluster_%.4d NumDS= %4d CLh= %5.1f Cmpl= %6.2f Redun= %4.1f ACmpl=%6.2f ARedun=%4.1f CCmean=% .4f CCmin=% .4f" % (clno, len(IDs), clh, cmpl, redun, acmpl, aredun, ccmean, ccmin)
             data_for_merge.append((os.path.join(params.workdir, "cluster_%.4d"%clno),
                                    map(lambda x: xds_ascii_files[x-1], IDs),
                                    float("nan"),float("nan"),clh))
@@ -622,12 +635,12 @@ def run(params):
     ofs_summary = open(os.path.join(params.workdir, "cluster_summary.dat"), "w")
     ofs_summary.write("# d_min= %.3f A\n" % (params.d_min if params.d_min is not None else float("nan")))
     ofs_summary.write("# LCV and aLCV are values of all data\n")
-    ofs_summary.write("     cluster  ClH   LCV aLCV run ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso   dmin.est\n")
+    ofs_summary.write("     cluster    ClH  LCV aLCV run ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso.bst Aniso.wst dmin.est\n")
 
     out.flush()
 
     def write_ofs_summary(workdir, cycle, clh, LCV, aLCV, xds_files, num_files, stats):
-        tmps = "%12s %5.2f %4.1f %4.1f %3d %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %7.1e %.2f\n"
+        tmps = "%12s %6.2f %4.1f %4.1f %3d %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %9.2f %9.2f %.2f\n"
         ofs_summary.write(tmps % (os.path.relpath(workdir, params.workdir), clh, LCV, aLCV, cycle,
                                   len(xds_files), num_files,
                                   stats["cmpl"][0],
@@ -648,7 +661,9 @@ def run(params):
                                   stats["sig_ano"][1],
                                   stats["cc_ano"][1],
                                   stats["xtriage_log"].wilson_b,
-                                  stats["xtriage_log"].anisotropy,
+                                  #stats["xtriage_log"].anisotropy,
+                                  stats["aniso"]["d_min_best"],
+                                  stats["aniso"]["d_min_worst"],
                                   stats["dmin_est"],
                                   ))
         ofs_summary.flush()
@@ -743,13 +758,19 @@ All parameters:
                                               master_string=master_params_str)
     params = cmdline.work.extract()
     args = cmdline.remaining_args
+    flag_unrecognized = False
     
     for arg in args:
         if os.path.isdir(arg) and params.topdir is None:
             params.topdir = arg
-        if os.path.isfile(arg) and params.lstin is None:
+        elif os.path.isfile(arg) and params.lstin is None:
             params.lstin = arg
+        else:
+            print "ERROR: unrecognized arg:", arg
+            flag_unrecognized = True
 
+    if flag_unrecognized:
+        return
 
     if params.lstin is None:
         print "Give lstin="

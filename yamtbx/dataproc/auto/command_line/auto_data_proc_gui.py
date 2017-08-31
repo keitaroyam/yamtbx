@@ -1048,7 +1048,7 @@ class MultiPrepDialog(wx.Dialog):
         self.rbReindex = wx.RadioButton(mpanel, wx.ID_ANY, "reindexing only", style=wx.RB_GROUP)
         self.rbReindex.SetToolTipString("Just change H,K,L columns and unit cell parameters in HKL file")
         self.rbReindex.SetValue(True)
-        self.rbPostref = wx.RadioButton(mpanel, wx.ID_ANY, "post-refinement")
+        self.rbPostref = wx.RadioButton(mpanel, wx.ID_ANY, "refinement")
         self.rbPostref.SetToolTipString("Run CORRECT job of XDS to refine unit cell and geometric parameters")
         hbox2.Add(self.rbReindex, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         hbox2.Add(self.rbPostref, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
@@ -1127,7 +1127,7 @@ class MultiPrepDialog(wx.Dialog):
                              "Error", style=wx.OK).ShowModal()
             return
 
-        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "postrefine", nproc, self.chkPrepDials.GetValue(), self.chkPrepFilesInWorkdir.GetValue()
+        self.selected = group, symmidx, workdir, "reindex" if self.rbReindex.GetValue() else "refine", nproc, self.chkPrepDials.GetValue(), self.chkPrepFilesInWorkdir.GetValue()
         self.EndModal(wx.OK)
     # btnProceed_click()
 
@@ -1315,9 +1315,10 @@ class ControlPanel(wx.Panel):
                              "Error", style=wx.OK).ShowModal()
             return
 
-        sio = StringIO.StringIO()
         cm = bssjobs.cell_graph.get_subgraph(keys)
-        cm.group_xds_results(sio)
+        from yamtbx.dataproc.auto.command_line.multi_prep_merging import PrepMerging
+        pm = PrepMerging(cm)
+        ask_str = pm.find_groups()
         
         if len(cm.groups) == 0:
             wx.MessageDialog(None, "Oh, no. No data",
@@ -1325,185 +1326,24 @@ class ControlPanel(wx.Panel):
             return
         
         mpd = MultiPrepDialog(cm=cm)
-        group, symmidx, workdir, cell_method, nproc, prep_dials_files, into_workdir = mpd.ask(sio.getvalue())
+        group, symmidx, workdir, cell_method, nproc, prep_dials_files, into_workdir = mpd.ask(ask_str)
         mpd.Destroy()
 
         if None in (group,symmidx):
             mylog.info("Canceled")
             return
 
-        prep_log_out = multi_out()
-        prep_log_out.register("log", open(os.path.join(workdir, "prep_merge.log"), "w"), atexit_send_to=None)
-        prep_log_out.register("stdout", sys.stdout)
-        prep_log_out.write(sio.getvalue())
-        prep_log_out.flush()
 
-        reference_symm = cm.get_reference_symm(group-1, symmidx)
-
-        prep_log_out.write("\n\ngroup_choice= %d, symmetry= %s (%s)\n" % (group, reference_symm.space_group_info(),
-                                                                          format_unit_cell(reference_symm.unit_cell())))
-        prep_log_out.flush()
-
-        # Scale with specified symmetry
-        from yamtbx.dataproc.auto.command_line.multi_prep_merging import rescale_with_specified_symm, reindex_with_specified_symm
-
-        symms = map(lambda i: cm.symms[i], cm.groups[group-1])
-        dirs = map(lambda i: cm.dirs[i], cm.groups[group-1])
-        copyto_root = os.path.join(workdir, "input_files") if into_workdir else None
-        mylog.info("group choice: %d, symmetry choice: %s (%s)" % (group, reference_symm.space_group_info(),
-                                                                   format_unit_cell(reference_symm.unit_cell())))
-
-        if cell_method == "reindex":
-            cell_and_files = reindex_with_specified_symm(config.params.workdir, reference_symm, dirs, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files, copyto_root=copyto_root)
-        elif cell_method == "postrefine":
-            cell_and_files, reference_symm = rescale_with_specified_symm(config.params.workdir, dirs, symms, reference_symm=reference_symm, out=prep_log_out, nproc=nproc, prep_dials_files=prep_dials_files, copyto_root=copyto_root)
-        else:
-            raise "Don't know this choice: %s" % cell_method
-
-        prep_log_out.flush()
-
-        cosets = reindex.reindexing_operators(reference_symm, reference_symm, max_delta=5)
-        reidx_ops = cosets.combined_cb_ops()
-
-        print >>prep_log_out, "\nReference symmetry:", reference_symm.unit_cell(), reference_symm.space_group_info().symbol_and_number()
-        msg_reindex = "\n"
-        if len(reidx_ops) > 1:
-            msg_reindex += "!! ATTENTION !! Reindex operators found. You may need to reindex some files before merging.\n"
-            for rop in reidx_ops:
-                msg_reindex += " operator: %-16s Cell: (%s)\n" % (rop.as_hkl(),
-                                                                format_unit_cell(reference_symm.unit_cell().change_basis(rop)))
-            msg_reindex += "Try kamo.resolve_indexing_ambiguity command before merging!!"
-
-        else:
-            msg_reindex += "No reindex operators found."
-
-        print >>prep_log_out, "%s\n\n" % msg_reindex
-        prep_log_out.close()
-
-        # Make list for merging
-        ofs_lst = open(os.path.join(workdir, "formerge.lst"), "w")
-        ofs_dat = open(os.path.join(workdir, "cells.dat"), "w")
-        ofs_dat.write("file a b c al be ga\n")
-
-        for wd in cell_and_files:
-            cell, xas = cell_and_files[wd]
-            ofs_lst.write(xas+"\n")
-            ofs_dat.write(xas+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
-
-        ofs_dat.close()
-        ofs_lst.close()
-
-        open(os.path.join(workdir, "merge_blend.sh"), "w").write("""\
-#!/bin/sh
-# settings
-dmin=2.8 # resolution
-anomalous=false # true or false
-lstin=formerge.lst # list of XDS_ASCII.HKL files
-use_ramdisk=true # set false if there is few memory or few space in /tmp
-# _______/setting
-
-kamo.multi_merge \\
-        workdir=blend_${dmin}A_framecc_b \\
-        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
-        space_group=None reference.data=None \\
-        program=xscale xscale.reference=bmin \\
-        reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
-        clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
-        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
-#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
-""" % config.params.batch.sge_pe_name)
-        os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
-        open(os.path.join(workdir, "merge_ccc.sh"), "w").write("""\
-#!/bin/sh
-# settings
-dmin=2.8 # resolution
-clustering_dmin=3.5  # resolution for CC calculation
-anomalous=false # true or false
-lstin=formerge.lst # list of XDS_ASCII.HKL files
-use_ramdisk=true # set false if there is few memory or few space in /tmp
-# _______/setting
-
-kamo.multi_merge \\
-        workdir=ccc_${dmin}A_framecc_b \\
-        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
-        space_group=None reference.data=None \\
-        program=xscale xscale.reference=bmin \\
-        reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
-        clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
-        cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
-        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
-#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
-""" % config.params.batch.sge_pe_name)
-        os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
-
-        open(os.path.join(workdir, "filter_cell.R"), "w").write("""\
-iqrf <- 2.5
-
-myhist <- function(v, title) {
- if(sd(v)==0) {
-  plot.new()
-  return()
- }
- hist(v, main=paste("Histogram of", title), xlab=title)
- abline(v=c(median(v)-IQR(v)*iqrf, median(v)+IQR(v)*iqrf), col="blue")
-}
-
-cells <- read.table("cells.dat", h=T)
-good <- subset(cells, abs(a-median(a))<=IQR(a)*iqrf & abs(b-median(b))<=IQR(b)*iqrf & abs(c-median(c))<=IQR(c)*iqrf & abs(al-median(al))<=IQR(al)*iqrf & abs(be-median(be))<=IQR(be)*iqrf & abs(ga-median(ga))<=IQR(ga)*iqrf)
-write.table(good$file, "formerge_goodcell.lst", quote=F, row.names=F, col.names=F)
-
-pdf("hist_cells.pdf", width=14, height=7)
-par(mfrow=c(2,3))
-myhist(cells$a, "a")
-myhist(cells$b, "b")
-myhist(cells$c, "c")
-myhist(cells$al,"alpha")
-myhist(cells$be,"beta")
-myhist(cells$ga,"gamma")
-dev.off()
-cat("See hist_cells.pdf\n\n")
-
-cat(sprintf("%4d files given.\n", nrow(cells)))
-cat(sprintf("mean: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", mean(cells$a), mean(cells$b), mean(cells$c), mean(cells$al), mean(cells$be), mean(cells$ga)))
-cat(sprintf(" std: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", sd(cells$a), sd(cells$b), sd(cells$c), sd(cells$al), sd(cells$be), sd(cells$ga)))
-cat(sprintf(" iqr: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", IQR(cells$a), IQR(cells$b), IQR(cells$c), IQR(cells$al), IQR(cells$be), IQR(cells$ga)))
-
-cat(sprintf("\n%4d files removed.\n", nrow(cells)-nrow(good)))
-cat(sprintf("mean: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", mean(good$a), mean(good$b), mean(good$c), mean(good$al), mean(good$be), mean(good$ga)))
-cat(sprintf(" std: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", sd(good$a), sd(good$b), sd(good$c), sd(good$al), sd(good$be), sd(good$ga)))
-cat(sprintf(" iqr: %6.2f %6.2f %6.2f %6.2f %6.2f %6.2f\n", IQR(good$a), IQR(good$b), IQR(good$c), IQR(good$al), IQR(good$be), IQR(good$ga)))
-
-cat("\nUse formerge_goodcell.lst instead!\n")
-""")
-
-        if prep_dials_files:
-            wd_jref = os.path.join(workdir, "dials_joint_refine")
-            os.mkdir(wd_jref)
-
-            ofs_phil = open(os.path.join(wd_jref, "experiments_and_reflections.phil"), "w")
-            ofs_phil.write("input {\n")
-            for wd in cell_and_files:
-                fe = os.path.join(wd, "experiments.json")
-                fp = os.path.join(wd, "integrate_hkl.pickle")
-                if os.path.isfile(fe) and os.path.isfile(fp):
-                    ofs_phil.write(' experiments = "%s"\n' % fe)
-                    ofs_phil.write(' reflections = "%s"\n' % fp)
-            ofs_phil.write("}\n")
-            ofs_phil.close()
-
-            open(os.path.join(wd_jref, "joint_refine.sh"), "w").write("""\
-#!/bin/sh
-
-dials.combine_experiments experiments_and_reflections.phil reference_from_experiment.beam=0 reference_from_experiment.goniometer=0 average_detector=true compare_models=false
-dials.refine combined_experiments.json combined_reflections.pickle auto_reduction.action=remove verbosity=9
-""")
+        msg = pm.prep_merging(group, symmidx, workdir, config.params.workdir,
+                              cell_method, nproc, prep_dials_files, into_workdir)
+        pm.write_merging_scripts(workdir, config.params.batch.sge_pe_name, prep_dials_files)
 
         print "\nFrom here, Do It Yourself!!\n"
         print "cd", workdir
         print "..then edit and run merge_blend.sh and/or merge_ccc.sh"
         print
 
-        wx.MessageDialog(None, "Now ready. From here, please use command-line. Look at your terminal..\n" + msg_reindex,
+        wx.MessageDialog(None, "Now ready. From here, please use command-line. Look at your terminal..\n" + msg,
                          "Ready for merging", style=wx.OK).ShowModal()
 
 

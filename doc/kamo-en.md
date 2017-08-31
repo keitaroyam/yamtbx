@@ -259,6 +259,9 @@ rotation_axis= -1 0 0
 Please use run_03/ccp4/xscale.mtz. If run_03/ is not there, run_\* with the largest number is the final one.
 
 ## How can I use KAMO at home?
+
+You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX includes CCTBX and its dependencies (No need to install CCTBX by yourself).
+
 ### Installation
 
 1. Install CCP4, R (with rjson package), XDS
@@ -333,6 +336,12 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2017-08-31
+   * kamo.multi\_merge: show anisotropic resolution cutoffs in HTML report.
+   * kamo.multi\_merge: add degrees\_per\_batch= parameter (degrees version of frames\_per\_batch=).
+   * kamo.multi\_merge: show minimum and average value of CC when cc\_clustering.
+   * kamo.auto\_multi\_merge: root\_dir now can be omitted in CSV file (specify datadir= for global value)
+   * kamo.auto\_multi\_merge: select best result from final runs only. use outershell CC1/2 for decision as well as overall CC1/2.
 * 2017-07-22
    * Support MarCCD's no-extension format like foo.0001
 * 2017-07-20

@@ -78,6 +78,7 @@ class HtmlReportMulti:
 <style>
 pre {
     font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+    font-size: 1.1em;
 }
 
 .cells_table {
@@ -350,8 +351,8 @@ created on %(cdate)s
         IDs_set = set()
         for vv in clusters:
             if method == "cc_clustering":
-                clno, IDs, clh, cmpl, redun, acmpl, aredun = vv
-                cluster_descr.append('"%s":"Cluster_%.4d (%d files)<br />ClH: %5.2f<br />Cmpl= %5.1f%%, Redun=%5.1f<br />ACmpl= %5.1f%%, ARedun=%5.1f"' % (clno, clno, len(IDs), clh, cmpl, redun, acmpl, aredun))
+                clno, IDs, clh, cmpl, redun, acmpl, aredun, ccmean, ccmin = vv
+                cluster_descr.append('"%s":"Cluster_%.4d (%d files)<br />ClH: %5.2f<br />Cmpl= %5.1f%%, Redun=%5.1f<br />ACmpl= %5.1f%%, ARedun=%5.1f<br />CCmean=%.4f, CCmin=%.4f"' % (clno, clno, len(IDs), clh, cmpl, redun, acmpl, aredun, ccmean, ccmin))
             else:
                 clno, IDs, clh, cmpl, redun, acmpl, aredun, LCV, aLCV = vv
                 cluster_descr.append('"%s":"Cluster_%.4d (%d files)<br />ClH: %5.2f, LCV: %5.2f%%, aLCV: %5.2f &Aring;<br />Cmpl= %5.1f%%, Redun=%5.1f<br />ACmpl= %5.1f%%, ARedun=%5.1f"' % (clno, clno, len(IDs), clh, LCV, aLCV, cmpl, redun, acmpl, aredun))
@@ -652,13 +653,14 @@ svg.append("g")
   <th colspan="5">Outer shell</th>
   <th colspan="7">Inner shell</th>
   <th rowspan="2" title="ML estimate of isotropic Wilson B-factor by phenix.xtriage"><i>B</i><sub>Wilson</sub></th>
-  <th rowspan="2" title="Anisotropy defined in phenix.xtriage">Aniso</th>
+  <th colspan="2" title="Anisotropic resolution cutoffs (based on CC1/2=0.5) for best and worst directions">Aniso resol</th>
   <th rowspan="2" title="Resolution estimate"><i>d</i><sub>min</sub><br>est.</th>
  </tr>
  <tr>
   <th>Cmpl</th><th>Redun</th><th>I/&sigma;(I)</th><th><i>R</i><sub>meas</sub></th><th>CC<sub>1/2</sub></th>
   <th>Cmpl</th><th>Redun</th><th>I/&sigma;(I)</th><th><i>R</i><sub>meas</sub></th><th>CC<sub>1/2</sub></th>
   <th>Cmpl</th><th>Redun</th><th>I/&sigma;(I)</th><th><i>R</i><sub>meas</sub></th><th>CC<sub>1/2</sub></th><th>SigAno</th><th>CC<sub>ano</sub></th>
+  <th>best</th><th>wrst</th>
  </tr>
  %s
 </table>
@@ -666,7 +668,7 @@ svg.append("g")
     # _make_merge_table_framework()
 
     def _make_merge_plot_framework(self):
-        axis_opts = "ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso dmin.est".split()
+        axis_opts = "ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB aniso.best aniso.worst dmin.est".split()
 
         axis_opts_x, axis_opts_y = [], []
         for a in axis_opts:
@@ -734,10 +736,10 @@ svg.append("g")
     # _make_merge_plot_framework()
 
     def add_merge_result(self, workdir, clh, LCV, aLCV, xds_files, num_files, stats):
-        axis_opts = "cls ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB Aniso dmin.est".split()
+        axis_opts = "cls ClH   LCV aLCV ds.all ds.used  Cmpl Redun I/sigI Rmeas CC1/2 Cmpl.ou Red.ou I/sig.ou Rmeas.ou CC1/2.ou Cmpl.in Red.in I/sig.in Rmeas.in CC1/2.in SigAno.in CCano.in WilsonB aniso.best aniso.worst dmin.est".split()
 
         cls = os.path.relpath(workdir, self.params.workdir)
-        tmps = "%12s %5.2f %4.1f %4.1f %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %.1e %.2f"
+        tmps = "%12s %5.2f %4.1f %4.1f %6d %7d %5.1f %5.1f %6.2f %5.1f %5.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %7.1f %6.1f % 8.2f % 8.1f %8.1f %9.1f %8.1f %7.2f %.2f %.2f %.2f"
         tmps = tmps % (cls, clh, LCV, aLCV,
                        len(xds_files), num_files,
                        stats["cmpl"][0],
@@ -758,7 +760,9 @@ svg.append("g")
                        stats["sig_ano"][1],
                        stats["cc_ano"][1],
                        stats["xtriage_log"].wilson_b,
-                       stats["xtriage_log"].anisotropy,
+                       #stats["xtriage_log"].anisotropy,
+                       stats["aniso"]["d_min_best"],
+                       stats["aniso"]["d_min_worst"],
                        stats["dmin_est"],
                        )
 
@@ -771,10 +775,22 @@ svg.append("g")
         if self.params.program == "xscale":
             table_snip = xscalelp.snip_symm_and_cell(stats["lp"]) + "\n"
             table_snip += xscalelp.snip_stats_table(stats["lp"])
+            if stats["aniso"]:
+                table_snip += "\nAnisotropy:\n"
+                if stats["aniso"]["has_anisotropy"]:
+                    lab_maxlen = max(len("direction"), max(map(lambda x: len(x[1]), stats["aniso"]["eigen_values"])))
+                    table_snip += ("%"+str(lab_maxlen)+"s B_eigen Resol(CC1/2=0.5)\n")%"direction" # XXX if not 0.5?
+                    for eig, lab in stats["aniso"]["eigen_values"]:
+                        fltr = filter(lambda x: x[1]==lab, stats["aniso"]["aniso_cutoffs"])
+                        reso = fltr[0][2] if fltr else float("nan")
+                        table_snip += ("%"+str(lab_maxlen)+"s %7.2f %.2f\n") % (lab, eig, reso)
+                else:
+                    table_snip += " No anisotropy in this symmetry.\n"
+                    
         else:
             table_snip = ""
         tmps2 = """ <tr><td onClick="toggle_show2(this, 'merge-td-%d');" id="merge-td-mark-%d"">&#x25bc;</td>%s</tr>\n""" %(idno,idno,tmps)
-        tmps2 += """ <tr><td style="padding: 0px;"><td colspan="26" style="display:none;padding:0px;" id="merge-td-%d"><pre style="font-size: 1.1em;">%s</pre></td></tr>""" % (idno, table_snip)
+        tmps2 += """ <tr><td style="padding: 0px;"><td colspan="27" style="display:none;padding:0px;" id="merge-td-%d"><pre>%s</pre></td></tr>""" % (idno, table_snip)
 
         self.html_merge_results.append(tmps2)
         

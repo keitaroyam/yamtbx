@@ -111,7 +111,7 @@ class CellGraph:
                                                       self.tol_length, self.tol_angle)
                 if cosets.double_cosets is not None:
                     self.cbops[(node,key)] = cosets.combined_cb_ops()[0]
-                    print other_cell, p1cell, self.cbops[(node,key)]
+                    print p1cell, other_cell, self.cbops[(node,key)], other_cell.change_basis(self.cbops[(node,key)])
                     connected_nodes.append(node)
 
         # Add nodes and edges
@@ -137,6 +137,8 @@ class CellGraph:
     # _average_p1_cell()
 
     def group_xds_results(self, out, show_details=True):
+        print >>out, "Making groups from %d results\n" % len(self.p1cells)
+        
         self.groups = map(lambda g: list(g), nx.connected_components(self.G))
         self.groups.sort(key=lambda x:-len(x))
         self.grouped_dirs = []

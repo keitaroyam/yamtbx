@@ -284,10 +284,15 @@ OUTPUT_FILE= xscale.hkl
             inp_out.write(" INPUT_FILE=%s%s\n" % (refstr,tmp))
             if len(self.xscale_params.corrections) != 3:
                 inp_out.write("  CORRECTIONS= %s\n" % " ".join(self.xscale_params.corrections))
-            if self.xscale_params.frames_per_batch is not None:
-                frame_range = XDS_ASCII(f, read_data=False).get_frame_range()
-                nframes = frame_range[1] - frame_range[0]
-                nbatch = int(numpy.ceil(nframes / self.xscale_params.frames_per_batch))
+            if (self.xscale_params.frames_per_batch, self.xscale_params.degrees_per_batch).count(None) < 2:
+                xactmp = XDS_ASCII(f, read_data=False)
+                frame_range = xactmp.get_frame_range()
+                osc_range = xactmp.osc_range
+                nframes = frame_range[1] - frame_range[0] + 1
+                if self.xscale_params.frames_per_batch is not None:
+                    nbatch = int(numpy.ceil(nframes / self.xscale_params.frames_per_batch))
+                else:
+                    nbatch = int(numpy.ceil(nframes / self.xscale_params.degrees_per_batch * osc_range))
                 print >>self.out, "frame range of %s is %d,%d setting NBATCH= %d" % (f, frame_range[0], frame_range[1], nbatch)
                 inp_out.write("  NBATCH= %d\n" % nbatch)
 

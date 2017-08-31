@@ -1,19 +1,48 @@
 """
-(c) RIKEN 2015. All rights reserved. 
+(c) RIKEN 2015-2017. All rights reserved. 
 Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
 
-
 import sys
-
 from libtbx import slots_getstate_setstate
 from iotbx import merging_statistics
 from libtbx.utils import null_out
 from libtbx import adopt_init_args
-
 import numpy
+
+def fun_ed_aimless(s, d0, r):
+    # CC1/2 fitting equation used in Aimless, suggested by Ed Pozharski
+    return 0.5 * (1 - numpy.tanh((s-d0)/r))
+# fun_ed_aimless()
+
+def resolution_fitted(d0, r, cchalf_min=0.5):
+    return 1./numpy.sqrt((numpy.arctanh(1.-2.*cchalf_min)*r + d0))
+# resolution_fitted()
+
+def fit_curve_for_cchalf(s2_list, cc_list, log_out, verbose=True):
+    import scipy.optimize
+
+    def fun(x, s, cc):
+        d0, r = x
+        return fun_ed_aimless(s,d0,r) - cc
+    # fun()
+
+    x0 = [0.5*min(s2_list), 1.] #Initial d0, r
+    log_out.write("  Initial d0, r = %s\n" % x0)
+    lsq = scipy.optimize.least_squares(fun, x0, args=(s2_list, cc_list), loss="soft_l1", f_scale=.1)
+    #lsq = fit_ed(s_list, cc_list)
+
+    if verbose:
+        log_out.write("Least-square result:\n")
+        log_out.write(str(lsq))
+        log_out.write("\n")
+
+    d0, r = lsq.x
+    log_out.write("  Final d0, r = %s\n" % lsq.x)
+    return lsq.x
+# fit_curve_for_cchalf()
 
 class estimate_resolution_based_on_cc_half:
   def __init__(self, i_obs, cc_half_min, cc_half_tol, n_bins, anomalous_flag=False, log_out=null_out()):
@@ -24,15 +53,7 @@ class estimate_resolution_based_on_cc_half:
     self.d_min, self.cc_at_d_min = self.estimate_resolution()
   # __init__()
 
-  @staticmethod
-  def fun_ed_aimless(s, d0, r):
-    # CC1/2 fitting equation used in Aimless, suggested by Ed Pozharski
-    return 0.5 * (1 - numpy.tanh((s-d0)/r))
-  # fun_ed_aimless()
-
   def initial_est_byfit(self):
-    import scipy.optimize
-
     # Up to 200 bins. If few reflections, 50 reflections per bin. At least 9 shells.
     n_bins = max(min(int(self.i_obs.size()/50. + .5), 200), 9)
     self.log_out.write("Using %d bins for initial estimate\n" % n_bins)
@@ -51,26 +72,10 @@ class estimate_resolution_based_on_cc_half:
       except RuntimeError: # complains that no reflections left after sigma-filtering.
         continue
 
-    # Fit curve
-    def fun(x, s, cc):
-      d0, r = x
-      return self.fun_ed_aimless(s,d0,r) - cc
-    # fun()
+    d0, r = fit_curve_for_cchalf(s_list, cc_list, self.log_out)
+    self.shells_and_fit = (s_list, cc_list, (d0, r))
 
-    x0 = [0.5*min(s_list), 1.] #Initial d0, r
-    self.log_out.write("  Initial d0, r = %s\n" % x0)
-    lsq = scipy.optimize.least_squares(fun, x0, args=(s_list, cc_list), loss="soft_l1", f_scale=.1)
-    #lsq = fit_ed(s_list, cc_list)
-
-    self.shells_and_fit = (s_list, cc_list, lsq.x)
-
-    self.log_out.write("Least-square result:\n")
-    self.log_out.write(str(lsq))
-    self.log_out.write("\n")
-
-    d0, r = lsq.x
-    self.log_out.write("  Final d0, r = %s\n" % lsq.x)
-    d_min = 1./numpy.sqrt((numpy.arctanh(1.-2.*self.cc_half_min)*r + d0))
+    d_min = resolution_fitted(d0, r, self.cc_half_min)
     return d_min
   # initial_est_byfit()
 
@@ -84,7 +89,7 @@ class estimate_resolution_based_on_cc_half:
 
     s2_formatter = lambda x,pos: "inf" if x == 0 else "%.2f" % (1./numpy.sqrt(x))
     s_list, cc_list, (d0, r) = self.shells_and_fit
-    fitted = self.fun_ed_aimless(s_list, d0, r)
+    fitted = fun_ed_aimless(s_list, d0, r)
     
     fig, ax1 = pylab.plt.subplots()
 

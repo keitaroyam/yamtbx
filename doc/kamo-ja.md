@@ -263,6 +263,8 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 ### DIALSを利用した環境構築
 注: これまでPHENIXの環境を利用することを推奨していましたが，最新機能の一部がDIALSのモジュールを利用するようになったため，今後はDIALSを利用することを推奨します．基本的にはPHENIX環境でも動かせます(以下のDIALSをPHENIXに読み替えてください)．
 
+DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，DIALS/PHENIXを利用することで簡単にKAMOを導入できます(CCTBXを手動で導入する必要がありません)．
+
 1. CCP4, R (rjson packageも含め), XDSをインストールする
    * XDS/XDSSTATのインストールは[XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)を参照
    * EIGERデータを処理する場合は[H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換)も必要です
@@ -339,6 +341,12 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-08-31
+   * kamo.multi\_merge: 異方性分析の結果をHTMLレポートに追加．Anisoカラムを廃止して最良／最悪の軸沿いの分解能を表示．
+   * kamo.multi\_merge: degrees\_per\_batch=パラメータを追加(frames\_per\_batch=の角度量版)
+   * kamo.multi\_merge: cc\_clustering時にCCの平均・最小値を表示
+   * kamo.auto\_multi\_merge: root\_dirをCSVの非必須パラメータに(datadir=引数でグローバル設定可能)
+   * kamo.auto\_multi\_merge: 最良結果を最終runのみから選択するように変更．基準にOverall CC1/2に加えてOutershell CC1/2も使用．
 * 2017-07-22
    * MarCCDの拡張子なし形式(hoge.0001など)に対応
 * 2017-07-20
