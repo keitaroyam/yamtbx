@@ -244,19 +244,25 @@ def check_disk_free_bytes(d):
         return -1
 # check_disk_free_bytes()
 
-def get_temp_local_dir(prefix, min_kb=None, min_mb=None, min_gb=None):
-    assert (min_kb, min_mb, min_gb).count(None) >= 2
+def get_temp_local_dir(prefix, min_bytes=None, min_kb=None, min_mb=None, min_gb=None, additional_tmpd=None):
+    assert (min_bytes, min_kb, min_mb, min_gb).count(None) >= 2
 
     min_free_bytes = 0
 
+    if min_bytes is not None: min_free_bytes = min_bytes
     if min_kb is not None: min_free_bytes = min_kb * 1024
     if min_mb is not None: min_free_bytes = min_mb * 1024**2
     if min_gb is not None: min_free_bytes = min_gb * 1024**3
 
     ramdisk = "/dev/shm"
 
-    if os.path.isdir(ramdisk): tmpdirs = (ramdisk, tempfile.gettempdir())
-    else: tmpdirs = (tempfile.gettempdir(), )
+    if os.path.isdir(ramdisk): tmpdirs = [ramdisk, tempfile.gettempdir()]
+    else: tmpdirs = [tempfile.gettempdir()]
+
+    if type(additional_tmpd) is str:
+        tmpdirs.append(additional_tmpd)
+    elif type(additional_tmpd) in (list, tuple):
+        tmpdirs.extend(additional_tmpd)
 
     for tmpdir in tmpdirs:
         if check_disk_free_bytes(tmpdir) >= min_free_bytes:
@@ -264,6 +270,12 @@ def get_temp_local_dir(prefix, min_kb=None, min_mb=None, min_gb=None):
 
     return None
 # get_temp_local_dir()
+
+def get_temp_filename(prefix="tmp", suffix="", wdir=None):
+    tmpfd, tmp = tempfile.mkstemp(prefix=prefix, suffix=suffix, dir=wdir)
+    os.close(tmpfd)
+    return tmp
+# get_temp_filename()
 
 def replace_forbidden_chars(filename, repl="-"):
     return re.sub(r"[/><\*\\\?%:]", repl, filename)
