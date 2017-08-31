@@ -5,11 +5,12 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 import os
+import math
+import numpy
 from yamtbx.dataproc.xds import get_xdsinp_keyword
 from yamtbx.dataproc.xds import xds_ascii
 from yamtbx.dataproc.xds.command_line.eval_resolution_hkl_files import eval_resolution
 from cctbx.array_family import flex
-
 
 def run(hklin):
     xscaled = xds_ascii.XDS_ASCII(hklin) # Must be XSCALE output
@@ -30,37 +31,50 @@ def run(hklin):
         cutoffs = eval_resolution(data_i, 100, cut_ios)
         print "%3d %s %s" % (iset, xscaled.input_files[iset][0], " ".join(map(lambda x: "%.2f"%x, cutoffs)))
 
-        name = "data%.2d" % iset
         for i_bin in binner.range_used():
             dmax, dmin = binner.bin_d_range(i_bin)
             Isel = data_i.resolution_filter(d_max=dmax, d_min=dmin)
-            for_plot.setdefault(name, []).append(flex.mean(Isel.data()) if Isel.size()>0 else 0)
+            for_plot.setdefault(iset, []).append(flex.mean(Isel.data()) if Isel.size()>0 else 0)
 
     import matplotlib
     matplotlib.use('Agg') # Allow to work without X
     import pylab
     import math
     from matplotlib.ticker import FuncFormatter
-    s2_formatter = lambda x,pos: "inf" if x == 0 else "%.2f" % (1./math.sqrt(x))
+    s2_formatter = lambda x,pos: "inf" if x == 0 else "%.2f" % (1./numpy.sqrt(x))
+    exp_formatter = lambda x,pos: "%.1e" % x
 
-    fig, ax1 = pylab.plt.subplots()
     plot_x = [binner.bin_d_range(i)[1]**(-2) for i in binner.range_used()]
 
-    plots = {}
-    for name, vals in for_plot.items():
-        name = name[-30:].lstrip("_")
-        plots[name] = pylab.plot(plot_x, vals, label=name)
+    from matplotlib.backends.backend_pdf import PdfPages
+    pp = PdfPages("test.pdf")
 
-    pylab.legend()
-    pylab.xlabel('resolution (d^-3)')
-    pylab.ylabel('<I>')
-    pylab.setp(pylab.gca().get_legend().get_texts(), fontsize="small")
-    plot_title = ""
-    pylab.title(plot_title)
+    keys = sorted(for_plot)
+    for names in (keys[i:i+100] for i in xrange(0, len(keys), 100)):
+        ncols = 5
+        nrows = int(math.ceil(len(names)/float(ncols)))
+        
+        fig, axes = pylab.plt.subplots(ncols=ncols, nrows=nrows, figsize=(5*ncols, 5*nrows),
+                                       sharex=False, sharey=False)
+        axes = axes.flatten()
+        for name, ax in zip(names, axes):
+            ax.plot(plot_x, for_plot[name], linewidth=1, )
+            ax.axhline(y=0, color="red", linestyle="-")
+            ax.set_xlabel('(d^-2)')
+            ax.set_ylabel('<I>')
+            ax.xaxis.set_major_formatter(FuncFormatter(s2_formatter))
+            ax.yaxis.set_major_formatter(FuncFormatter(exp_formatter))
+            ax.set_title("data%.4d"%name)
+            ax.grid(True)
 
-    pylab.gca().xaxis.set_major_formatter(FuncFormatter(s2_formatter))
-    pylab.savefig("test.pdf")
-    pylab.show()
+        pylab.plt.tight_layout()
+        plot_title = ""
+        pylab.title(plot_title)
+        pp.savefig()
+        #pylab.savefig("test_%.3d.png"%i)
+        #pylab.show()
+
+    pp.close()
 
 if __name__ == "__main__":
     import sys
