@@ -202,7 +202,7 @@ PILATUS 2M, S/N 24-0109
                 if reverse_phi:
                     rotation_axis = map(lambda x:-1*x, rotation_axis)
 
-        rotation_axis = " ".join(map(lambda x: "%.2f"%x, rotation_axis))
+        rotation_axis = " ".join(map(lambda x: "%.6f"%x, rotation_axis))
 
         nx, ny = im.header["Width"], im.header["Height"],
         qx, qy = im.header["PixelX"], im.header["PixelY"]
