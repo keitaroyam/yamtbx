@@ -38,6 +38,10 @@ class reader:
             elif l.startswith("!SPACE_GROUP_NUMBER="):
                 self.space_group_number = int(l[len("!SPACE_GROUP_NUMBER="):].strip())
                 assert 1 <= self.space_group_number <= 230
+            elif l.startswith("!ROTATION_AXIS="):
+                self.rotation_axis = map(float, l[len("!ROTATION_AXIS="):].strip().split())
+            elif l.startswith("!INCIDENT_BEAM_DIRECTION="):
+                self.beam_direction = map(float, l[len("!INCIDENT_BEAM_DIRECTION="):].strip().split())
             elif l.startswith("!X-RAY_WAVELENGTH="):
                 self.wavelength = float(l[len("!X-RAY_WAVELENGTH="):].strip())
             elif "DETECTOR_DISTANCE=" in l:
