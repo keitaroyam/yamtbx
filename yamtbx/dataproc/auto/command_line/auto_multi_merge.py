@@ -39,6 +39,9 @@ csv = None
 workdir = None
  .type = path
  .help = top directory where merging directories are created. current directory by default.
+datadir = None
+ .type = path
+ .help = the root directory where the processed results exist.
 prefix = merge_
  .type = str
  .help = Prefix of directory names
@@ -79,11 +82,11 @@ batch {
 }
 """ % multi_merge.master_params_str
 
-def read_sample_info(csvin):
-    reader = csv.reader(open(csvin))
+def read_sample_info(csvin, datadir=None):
+    reader = csv.reader(open(csvin, "rU"))
     header = map(lambda x: x.strip(), next(reader))
     hidxes = dict(map(lambda x:(x[1],x[0]), enumerate(header)))
-    puck_flag = set(["uname","puck","pin","name","root_dir"]).issubset(header)
+    puck_flag = set(["uname","puck","pin","name"]).issubset(header)
 
     ret = collections.OrderedDict()
 
@@ -95,11 +98,16 @@ def read_sample_info(csvin):
         if not vals: continue
 
         if puck_flag:
-            rdir = vals[hidxes["root_dir"]].strip()
+            if "root_dir" in hidxes: rdir = vals[hidxes["root_dir"]].strip()
+            else: rdir = datadir
+
+            if datadir is None:
+                raise Exception("Provide datadir= parameter or give root_dir column in csv file!")
+
             uname = vals[hidxes["uname"]].strip()
             puck = vals[hidxes["puck"]].strip()
             pin = int(vals[hidxes["pin"]])
-            ddirs = [os.path.join(rdir, "%s-%s-%.2d" % (uname, puck, pin))]
+            ddirs = glob.glob(os.path.join(rdir, "%s-%s-%.2d" % (uname, puck, pin)))
         else:
             tmp = os.path.expanduser(vals[hidxes["topdir"]].strip())
             if "*" in tmp: ddirs = glob.glob(tmp)
@@ -125,13 +133,12 @@ def read_sample_info(csvin):
     return ret
 # read_sample_info()
 
-def choose_best_result(summarydat):
+def choose_best_result(summarydat, log_out):
     wdir = os.path.dirname(summarydat)
 
-    ifs = open(summarydat)
-    ifs.readline()
-    ifs.readline()
-    header = ifs.readline().split()
+    lines = filter(lambda x: not x.startswith("#"), open(summarydat))
+    
+    header = lines[0].split()
     i_cchalf = header.index("CC1/2")
     i_cchalf_ou = header.index("CC1/2.ou")
     i_redun = header.index("Redun")
@@ -139,25 +146,36 @@ def choose_best_result(summarydat):
     i_run = header.index("run")
 
     results = []
-
-    for l in ifs:
+    cls_runs = {}
+    
+    for l in lines[1:]:
         if l.startswith("#"): continue
         sp = l.split()
-        hklfile = os.path.join(wdir, sp[i_cls], "run_%.2d" % int(sp[i_run]), "xscale.hkl")
-        results.append((hklfile, float(sp[i_cchalf]), float(sp[i_redun])))
+        run = int(sp[i_run])
+        hklfile = os.path.join(wdir, sp[i_cls], "run_%.2d" % run, "xscale.hkl")
+        results.append((hklfile, sp[i_cls], run, # 0,1,2
+                        float(sp[i_cchalf]), float(sp[i_cchalf_ou]), float(sp[i_redun]) # 3,4,5
+                        ))
+        cls_runs.setdefault(sp[i_cls], []).append(run)
 
     if not results: return None
 
-    results.sort(key=lambda x:x[2], reverse=True)
+    # Remove non-final runs
+    results = filter(lambda x: x[2]==max(cls_runs[x[1]]), results)
+
+    results.sort(key=lambda x:x[5], reverse=True)
     results = results[:len(results)//2] # First half of top redundancy
 
-    results.sort(key=lambda x:x[1], reverse=True)
-    open(os.path.join(os.path.dirname(results[0][0]), "THIS_MAY_BE_THE_BEST"), "w")
-    return results[0][0]
+    results.sort(key=lambda x:(x[3], x[4]), reverse=True)
+    best_result = results[0][0]
+    #open(os.path.join(os.path.dirname(best_result), "THIS_MAY_BE_THE_BEST"), "w")
+    log_out.write("The best result chosen from %s is %s (CC1/2=%s CC1/2.ou=%s Red=%s)" % (summarydat, best_result,
+                                                                                          results[0][3], results[0][4], results[0][5]))
+    return best_result
 # choose_best_result()
 
 def decide_resolution(summarydat, params, log_out):
-    best = choose_best_result(summarydat)
+    best = choose_best_result(summarydat, log_out)
     if best is None:
         log_out.write("No data for deciding resolution cutoff.\n")
         return None
@@ -284,7 +302,7 @@ def auto_merge(workdir, topdirs, do_postrefine, ref_array, merge_params, rescut_
                 merge_params.workdir = tmp
                 merge_params.d_min = rescut
                 multi_merge.run(merge_params)
-                choose_best_result(os.path.join(merge_params.workdir, "cluster_summary.dat"))
+                choose_best_result(os.path.join(merge_params.workdir, "cluster_summary.dat"), log_out)
             else:
                 break
 
@@ -341,7 +359,7 @@ def run(params):
     if params.reference:
         ref_arrays[params.reference] = read_reference_data(params.reference, log_out)
 
-    samples = read_sample_info(params.csv)
+    samples = read_sample_info(params.csv, params.datadir)
 
     log_out.write("Loaded from %s\n"%params.csv)
     for k in samples:

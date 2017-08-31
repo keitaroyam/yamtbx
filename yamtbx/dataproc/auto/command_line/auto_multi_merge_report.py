@@ -9,9 +9,11 @@ import glob
 import time
 import re
 from yamtbx.dataproc.xds import get_xdsinp_keyword
-from yamtbx.dataproc.auto.command_line.auto_multi_merge import read_sample_info
+from yamtbx.dataproc.auto.command_line import auto_multi_merge
+from yamtbx.dataproc.xds import xscalelp
 from yamtbx.util import replace_forbidden_chars
 from yamtbx.dataproc.command_line import beam_direction_plot
+from libtbx.utils import null_out
 
 def total_deg_from_xds_inp(xdsinp):
     kwds = dict(get_xdsinp_keyword(xdsinp))
@@ -20,7 +22,7 @@ def total_deg_from_xds_inp(xdsinp):
     return (dr[1]-dr[0]+1)*osc
 # total_deg_from_xds_inp()
 
-def run(csvin, prefix, rootdir):
+def run(csvin, prefix, rootdir, datadir=None):
     html_head = """\
 <!DOCTYPE html>
 <html>
@@ -42,6 +44,10 @@ def run(csvin, prefix, rootdir):
 </script>
 
 <style>
+pre {
+    font-family: Consolas, 'Courier New', Courier, Monaco, monospace;
+}
+
 .cells td, .dataset_table th,
 .merge td {
     font-size: 1em;
@@ -107,7 +113,7 @@ created on %(cdate)s
     ofs = open(os.path.join(rootdir, "report.html"), "w")
     ofs.write(html_head)
 
-    samples = read_sample_info(csvin)
+    samples = auto_multi_merge.read_sample_info(csvin, datadir)
     
     for name in samples:
         workdir_rel = "%s%s" % (prefix,
@@ -120,7 +126,7 @@ created on %(cdate)s
         symm, cell = "?", "?"
         rephtml = "#"
         cmpl, redun, dmin = 0, 0, float("nan")
-        symm_group_info = "n/a"
+        symm_group_info = "n/a" # now useless
         deg_dict = {}
         for topdir in topdirs:
             for root, dirnames, filenames in os.walk(topdir):
@@ -141,8 +147,8 @@ created on %(cdate)s
             dmrg = sum(map(lambda x: deg_dict[x], mrg_dirs))
 
             beam_plot_png = os.path.join(workdir, "beam_plot.png")
-            if not os.path.isfile(beam_plot_png):
-                beam_direction_plot.run_from_args([mrg_lst, 'plot_out="%s"'%beam_plot_png])
+            #if not os.path.isfile(beam_plot_png):
+            #    beam_direction_plot.run_from_args([mrg_lst, 'plot_out="%s"'%beam_plot_png])
 
         mrg_log = os.path.join(workdir, "multi_merge.log")
         if os.path.isfile(mrg_log):
@@ -162,6 +168,7 @@ created on %(cdate)s
                     symm, cell = re.search("symmetry= ([^\(]+) \((.+)\)", l).groups()
 
         mrg_dirs = glob.glob(os.path.join(workdir, "*final/"))
+        best_result_loc, best_table_snip = "N/A", ""
         if mrg_dirs:
             mrg_dir = mrg_dirs[0]
             dmin = float(re.search("_([0-9\.]+)A_final/", mrg_dir).group(1))
@@ -169,7 +176,15 @@ created on %(cdate)s
             tmp = open(cls_dat).readlines()[3].split()
             cmpl, redun = float(tmp[3]), float(tmp[4])
             rephtml = os.path.relpath(os.path.join(mrg_dir, "report.html"), rootdir)
+            summary_dat = os.path.join(mrg_dir, "cluster_summary.dat")
+            best_result = auto_multi_merge.choose_best_result(summary_dat, null_out())
+            if best_result:
+                best_result_loc = os.path.dirname(best_result)
+                lp = os.path.join(best_result_loc, "XSCALE.LP")
+                best_table_snip = xscalelp.snip_symm_and_cell(lp) + "\n" + xscalelp.snip_stats_table(lp)
+                best_result_loc = os.path.relpath(best_result_loc, rootdir) # to show in html
 
+            
         html_tr = """\
 <tr>
  <td onClick="toggle_show(this, 'sample-td-%(name)s');" id="sample-td-mark-%(name)s"">&#x25bc;</td>
@@ -186,17 +201,17 @@ created on %(cdate)s
 <tr>
  <td style="padding: 0px;"></td>
   <td colspan="9" style="display:none;padding:0px;" id="sample-td-%(name)s">
-   <table>
-    <tr style="background-color:transparent;">
-      <td><pre style="font-size: 0.8em;">%(symm_group_info)s</pre></td>
-      <td><img src="%(workdir_rel)s/beam_plot.png" height="500" /></td>
-    </tr>
-   </table>
+  BEST RESULT: <a href="%(best_result_loc)s">%(best_result_loc)s</a> <br><br>
+<pre>
+ %(best_table_snip)s
+</pre>
+  
  </td>
 </tr>
 
 """ % locals()
         ofs.write(html_tr)
+        ofs.flush()
         #break
 
     ofs.write("\n</table>\n")
@@ -208,8 +223,13 @@ created on %(cdate)s
 # run()
 
 def run_from_args(argv):
-    csvin, prefix = argv
-    run(csvin, prefix, os.getcwd())
+    if len(argv) == 2:
+        csvin, prefix = argv
+        datadir = None
+    elif len(argv) == 3:
+        csvin, prefix,datadir = argv
+
+    run(csvin, prefix, os.getcwd(), datadir)
 
 # run_from_args()
 
