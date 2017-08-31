@@ -1,7 +1,7 @@
 # yamtbx
 This is my crystallographic toolbox. This may contain some useful codes for you, but yamtbx comes with NO WARRANTY of any kind.
 
-Most of python scripts or C++ programs in yamtbx/ are designed to work with [CCTBX](http://cctbx.sourceforge.net/).
+Most of python scripts or C++ programs in yamtbx/ are designed to work with [CCTBX](https://cctbx.github.io/).
 For installation, please read [INSTALL.md](INSTALL.md).
 
 ### Documents
