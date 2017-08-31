@@ -432,6 +432,10 @@ def mc_integration(params, input_files, input_type, scale_ref=None, split_idxes=
     iobs = miller.array(miller_set, data=merger.data, sigmas=merger.sigmas).set_observation_type_xray_intensity()
     reds = miller.array(miller_set, data=merger.redundancies)
 
+    sel = iobs.resolution_filter_selection(d_min=params.dmin)
+    iobs = iobs.select(sel)
+    reds = reds.select(sel)
+
     if len(bs) > 0 and params.scaling.bscale_ref != "asis":
         if params.scaling.bscale_ref == "mean": bref = sum(bs)/float(len(bs))
         elif params.scaling.bscale_ref == "min": bref = min(bs)
