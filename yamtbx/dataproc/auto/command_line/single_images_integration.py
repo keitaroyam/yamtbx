@@ -33,6 +33,7 @@ from libtbx.utils import multi_out
 from libtbx.utils import null_out
 from cctbx.crystal import reindex
 from cctbx import crystal
+from cctbx import uctbx
 
 
 master_params_str = """
@@ -91,6 +92,8 @@ index_quality = 0.8
  .type = float
 refine_idxref = POSITION *BEAM *AXIS *ORIENTATION *CELL SEGMENT
  .type = choice(multi=True)
+refine_integrate = POSITION *BEAM *AXIS *ORIENTATION *CELL SEGMENT
+ .type = choice(multi=True)
 idxref_d_min = 0
  .type = float
 
@@ -107,6 +110,9 @@ distance = None
 rotation_axis = None
  .type = floats(size=3)
  .help = Override ROTATION_AXIS=
+incident_beam_direction = 0,0,1
+ .type = floats(size=3)
+ .help = Override INCIDENT_BEAM_DIRECTION=
 extra_inp_str = None
  .type = str
  .multiple = True
@@ -230,7 +236,7 @@ POLARIZATION_PLANE_NORMAL=0 1 0
 # sfx_xds_inp()
 
 def remove_heavy_unuseful_files(wdir, keep_files=[]):
-    files = filter(lambda x: "data_" not in x, glob.glob(os.path.join(wdir, "*.cbf")))
+    files = filter(lambda x: "data_" not in os.path.basename(x), glob.glob(os.path.join(wdir, "*.cbf")))
     files += glob.glob(os.path.join(wdir, "INTEGRATE.HKL"))
 
     for f in files:
@@ -238,12 +244,24 @@ def remove_heavy_unuseful_files(wdir, keep_files=[]):
             os.remove(f)
 # remove_heavy_unuseful_files
 
-def check_cell(params, xs):
+def check_reidx(params, xs):
     assert params.checkcell.check and params.sgnum > 0
     xsref = crystal.symmetry(params.cell, params.sgnum)
     cosets = reindex.reindexing_operators(xsref, xs,
                                           params.checkcell.tol_length, params.checkcell.tol_angle)
-    return cosets
+
+    if cosets.double_cosets is None:
+        return None
+
+    return cosets.combined_cb_ops()[0]
+# check_reidx()
+
+def check_cell(params, xs):
+    assert params.checkcell.check and params.sgnum > 0
+    cellref = uctbx.unit_cell(params.cell)
+    return cellref.is_similar_to(xs.unit_cell(),
+                                     relative_length_tolerance=params.checkcell.tol_length,
+                                     absolute_angle_tolerance=params.checkcell.tol_angle)
 # check_cell()
 
 def xds_sequence(img_in, topdir, data_root_dir, params):
@@ -323,9 +341,11 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
                                           ("INDEX_ERROR", "%.4f"%params.index_error),
                                           ("INDEX_MAGNITUDE", "%d"%params.index_magnitude),
                                           ("INDEX_QUALITY", "%.2f"%params.index_quality),
-                                          ("REFINE(IDXREF)", " ".join(params.refine_idxref)),
+                                          ("REFINE(IDXREF)", " ".join(map(lambda s: s.upper(), params.refine_idxref))),
+                                          ("REFINE(INTEGRATE)", " ".join(map(lambda s: s.upper(), params.refine_integrate))),
                                           ("INCLUDE_RESOLUTION_RANGE", "%.2f %.2f" % (params.d_max, params.idxref_d_min)),
-                                          ("VALUE_RANGE_FOR_TRUSTED_DETECTOR_PIXELS", "%.1f %.1f" % tuple(params.value_range_for_trusted_detector_pixels))
+                                          ("VALUE_RANGE_FOR_TRUSTED_DETECTOR_PIXELS", "%.1f %.1f" % tuple(params.value_range_for_trusted_detector_pixels)),
+                                          ("INCIDENT_BEAM_DIRECTION", "%.6f %.6f %.6f" % tuple(params.incident_beam_direction))
                                           ])
 
         if len(params.extra_inp_str) > 0:
@@ -345,8 +365,8 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
                     flag_try_cell_hint = True
                 else:
                     xsxds = XPARM(xparm).crystal_symmetry()
-                    cosets = check_cell(params, xsxds)
-                    if cosets.double_cosets is None: flag_try_cell_hint = True
+                    reidx_op = check_reidx(params, xsxds)
+                    if reidx_op is None: flag_try_cell_hint = True
 
                 if flag_try_cell_hint:
                     print >>decilog, " Worth trying to use prior cell for indexing."
@@ -364,18 +384,23 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
 
         if params.checkcell.check and params.sgnum > 0:
             xsxds = XPARM(xparm).crystal_symmetry()
-            cosets = check_cell(params, xsxds)
-            if cosets.double_cosets is None:
+            reidx_op = check_reidx(params, xsxds)
+            if reidx_op is None:
                 raise ProcFailed("Incompatible cell. Indexing failed.")
 
-            if not cosets.combined_cb_ops()[0].is_identity_op():
+            if not reidx_op.is_identity_op():
                 print >>decilog, "Re-idxref to match reference symmetry."
-                xsxds_cb = xsxds.change_basis(cosets.combined_cb_ops()[0]) # Really OK??
+                xsxds_cb = xsxds.change_basis(reidx_op) # Really OK??
                 modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
                                                   ("SPACE_GROUP_NUMBER", "%d"%params.sgnum),
                                                   ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x: "%.3f"%x, xsxds_cb.unit_cell().parameters())))
                                                   ])
                 run_xds(wdir=tmpdir, show_progress=False)
+
+        # Final check
+        if params.checkcell.check and params.sgnum > 0:
+            if not check_cell(params, xsxds):
+                raise ProcFailed(" Incompatible cell. Stop before integration.")
 
         modify_xdsinp(xdsinp, inp_params=[("INCLUDE_RESOLUTION_RANGE", "%.2f %.2f" % (params.d_max, params.d_min)),
                                           ])
@@ -394,11 +419,11 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
         else:
             # XXX What if CELL is refined in INTEGRATE?
             xsxds = XPARM(xparm).crystal_symmetry()
-            cosets = check_cell(params, xsxds)
-            if cosets.double_cosets is None:
+            reidx_op = check_reidx(params, xsxds)
+            if reidx_op is None:
                 raise ProcFailed(" Incompatible cell. Failed before CORRECT.")
 
-            xsxds_cb = xsxds.change_basis(cosets.combined_cb_ops()[0]) # Really OK??
+            xsxds_cb = xsxds.change_basis(reidx_op) # Really OK??
             tmp = [("REFINE(CORRECT)", ""),
                    ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x: "%.3f"%x, xsxds_cb.unit_cell().parameters())))]
 
