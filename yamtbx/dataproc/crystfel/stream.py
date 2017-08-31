@@ -58,12 +58,13 @@ from cctbx.array_family import flex
 
 import cPickle as pickle
 import sys
+import numpy
 #import msgpack
 
 re_abcstar = re.compile("([-\+][0-9\.]+ )([-\+][0-9\.]+ )([-\+][0-9\.]+ )")
 
 class Chunk:
-    def __init__(self):
+    def __init__(self, read_reflections=True):        
         filename, event, serial = None, None, None
         indexed_by = None
         photon_e, beam_div, beam_bw = None, None, None
@@ -72,7 +73,7 @@ class Chunk:
         n_sat_peaks = 0
         cell = None # 
         astar, bstar, cstar = None, None, None
-        latt_type, centering = None, None
+        latt_type, centering, unique_axis = None, None, None
         profile_radius = None
         res_lim = None
         det_shift = 0, 0
@@ -93,6 +94,7 @@ class Chunk:
         if l.startswith("End of reflections"):
             self.parsing = None
         elif self.parsing == "hkls":
+            if not self.read_reflections: return
             sp = l.split()
             self.indices.append(tuple(map(int, sp[:3])))
             self.iobs.append(float(sp[3]))
@@ -145,6 +147,8 @@ class Chunk:
             self.latt_type = l[l.index("=")+1:].strip()
         elif l.startswith("centering ="):
             self.centering = l[l.index("=")+1:].strip()
+        elif l.startswith("unique_axis ="):
+            self.unique_axis = l[l.index("=")+1:].strip()
         elif l.startswith("profile_radius ="):
             tmp = l[l.index("=")+1:].strip().split()
             assert len(tmp) == 2
@@ -164,6 +168,37 @@ class Chunk:
         elif l.startswith("num_saturated_reflections ="):
             self.n_sat_refl = int(l[l.index("=")+1:].strip())
     # parse_line()
+
+    def indexed_symmetry(self):
+        if not self.cell: return None
+        
+        if self.latt_type == "triclinic":
+             sgstr = "P1"
+        elif self.latt_type == "monoclinic":
+             tmp = dict(a="211", b="121", c="112")
+             sgstr = self.centering + tmp[self.unique_axis]
+        elif self.latt_type == "orthorhombic":
+             sgstr = self.centering + "222"
+        elif self.latt_type == "tetragonal":
+             sgstr = self.centering + "422"
+        elif self.latt_type == "rhombohedral":
+             sgstr = self.centering + "32"
+        elif self.latt_type == "hexagonal":
+             sgstr = self.centering + "622"
+        elif self.latt_type == "cubic":
+             sgstr = self.centering + "432"
+        else:
+             raise RuntimeError("Unknown lattice type (%s)" % self.latt_type)
+
+        return crystal.symmetry(self.cell, sgstr, assert_is_compatible_unit_cell=False)
+    # indexed_symmetry()
+
+    def ub_matrix(self):
+        if None in (self.astar, self.bstar, self.cstar): return None
+        ub = numpy.array([self.astar, self.bstar, self.cstar]).transpose()
+        # numpy.linalg.inv(ub) to get abc matrix (avector = abc[0,:])
+        return ub
+    # ub_matrix()
 
     def miller_set(self, space_group, anomalous_flag):
         return miller.set(crystal_symmetry=crystal.symmetry(unit_cell=self.cell,
@@ -204,6 +239,7 @@ class Chunk:
 
         if self.latt_type is not None: ret.append("lattice_type = %s" % self.latt_type)
         if self.centering is not None: ret.append("centering = %s" % self.centering)
+        if self.unique_axis is not None: ret.append("unique_axis = %s" % self.unique_axis)
         if self.profile_radius is not None: ret.append("profile_radius = %.5f nm^-1" % (self.profile_radius*10.))
 
         if self.res_lim is not None: ret.append("diffraction_resolution_limit = %.2f nm^-1 or %.2f A" % (10./self.res_lim, self.res_lim))
@@ -239,6 +275,9 @@ class Chunk:
         # sg must be space_group object
         self.latt_type = sg.crystal_system().lower()
         self.centering = sg.conventional_centring_type_symbol()
+
+        q = sgtbx.space_group_symbols(str(sg.info())).qualifier()
+        self.unique_axis = q if q else "*" # XXX should return c for P4 etc??
 # class Chunk
 
 class Streamfile:
@@ -288,6 +327,32 @@ class Streamfile:
     # load_msgpack()
     """
 # class Streamfile
+
+def stream_iterator(stream, start_at=0, read_reflections=True):
+    if stream.endswith(".bz2"):
+        fin = bz2.BZ2File(stream)
+    else:
+        fin = open(stream)
+
+    line = fin.readline()
+    format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
+    print "# format version:", format_ver
+    assert float(format_ver) >= 2.2 # TODO support other version
+    chunk = None
+    count = 0
+    read_flag = False
+    for l in fin:
+        if "----- Begin chunk -----" in l:
+            read_flag = True
+            chunk = Chunk(read_reflections=read_reflections)
+        elif "----- End chunk -----" in l:
+            read_flag = False
+            if chunk.indexed_by is not None:
+                if start_at <= count: yield chunk
+                count += 1
+        elif read_flag:
+            chunk.parse_line(l)
+# stream_iterator()
 
 if __name__ == "__main__":
     import sys

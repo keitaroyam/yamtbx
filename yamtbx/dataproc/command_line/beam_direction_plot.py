@@ -92,6 +92,21 @@ def from_xparm(xpin, ref_xs):
                       xpin)
 # from_xparm()
 
+def from_crystfel_stream(stin, ref_xs): # XXX Not tested!!
+    from yamtbx.dataproc.crystfel import stream
+    ret = []
+    ib = numpy.array([0., 0., 1.])
+    for chunk in stream.stream_iterator(stin, read_reflections=False):
+        xs = chunk.indexed_symmetry()
+        if xs is None: continue
+        ub = chunk.ub_matrix()
+        avec, bvec, cvec = numpy.linalg.inv(ub)
+        ret.extend(get_angles(ib, avec, bvec, cvec,
+                              xs, ref_xs, "%s:%s:%s" % (stin, chunk.filename, chunk.event)))
+
+    return ret
+# from_crystfel_stream()
+                              
 def make_dat(angles, dat_out):
     ofs = open(dat_out, "w")
     ofs.write("theta phi\n")
@@ -145,7 +160,9 @@ def run(params, args):
     angles = []
 
     for arg in args:
-        if xds_ascii.is_xds_ascii(arg):
+        if ".stream" in arg:            
+            angles.extend(from_crystfel_stream(arg, ref_xs))
+        elif xds_ascii.is_xds_ascii(arg):
             angles.extend(from_xds_ascii(arg, ref_xs))
         else:
             angles.extend(from_xparm(arg, ref_xs))
