@@ -11,6 +11,8 @@ from yamtbx.util.xtal import format_unit_cell
 import iotbx.file_reader
 import iotbx.scalepack.merge
 import iotbx.shelx.hklf
+from cctbx import miller
+from cctbx.array_family import flex
 from iotbx import crystal_symmetry_from_any
 import os
 
@@ -23,7 +25,38 @@ def check_symm(xs_hkl, xs_pdb):
         xs_hkl.show_summary(prefix="  ")
         print " pdbin:"
         xs_pdb.show_summary(prefix="  ")
+# check_symm()
 
+def pha2mtz(phain, xs, mtzout):
+    hkl, f, fom, phi, sigf = [], [], [], [], []
+    
+    for l in open(phain):
+        sp = l.split()
+        if len(sp) != 7: break
+        hkl.append(tuple(map(int, sp[:3])))
+        f.append(float(sp[3]))
+        fom.append(float(sp[4]))
+        phi.append(float(sp[5]))
+        sigf.append(float(sp[6]))
+
+    if not hkl:
+        return
+        
+    f_array  = miller.array(miller.set(xs, flex.miller_index(hkl)),
+                            data=flex.double(f),
+                            sigmas=flex.double(sigf))
+    mtz_ds = f_array.as_mtz_dataset(column_root_label="ANOM", column_types="FQ") # To open with Coot, column type F is required (not D)
+    mtz_ds.add_miller_array(f_array.customized_copy(data=flex.double(phi),
+                                                    sigmas=None),
+                            column_root_label="PANOM",
+                            column_types="P")
+    mtz_ds.add_miller_array(f_array.customized_copy(data=flex.double(fom),
+                                                    sigmas=None),
+                            column_root_label="FOM",
+                            column_types="W")
+
+    mtz_ds.mtz_object().write(mtzout)
+# pha2mtz()
 
 def run(hklin, pdbin):
     arrays = iotbx.file_reader.any_file(hklin).file_server.miller_arrays
@@ -75,7 +108,47 @@ def run(hklin, pdbin):
 
     call(cmd="sh", arg="./run_anode.sh", wdir=wdir)
 
-    print "\nDone. See %s/" % wdir
+    pha_file = os.path.join(wdir, "anode.pha")
+    if os.path.isfile(pha_file):
+        pha2mtz(pha_file, xs, os.path.join(wdir, "anode.pha.mtz"))
+    
+    print "Done. See %s/" % wdir
+
+    fa_file = os.path.join(wdir, "anode_fa.hkl")
+    if os.path.isfile(fa_file):
+        r = iotbx.shelx.hklf.reader(open(fa_file))
+        fa_array = r.as_miller_arrays(crystal_symmetry=xs)[0]
+        print "\nData stats:"
+        print " # Cmpl.o = Anomalous completeness in original data"
+        print " # Cmpl.c = Anomalous completeness in shelxc result (rejections)"
+        print " # SigAno = <d''/sigma> in shelxc result"
+        print " d_max d_min Cmpl.o Cmpl.c SigAno"
+        binner = obs_array.setup_binner(n_bins=12)
+        for i_bin in binner.range_used():
+            d_max_bin, d_min_bin = binner.bin_d_range(i_bin)
+            obs_sel = obs_array.resolution_filter(d_max_bin, d_min_bin)
+            obs_sel_ano = obs_sel.anomalous_differences()
+            fa_sel = fa_array.resolution_filter(d_max_bin, d_min_bin)
+            cmplset = obs_sel_ano.complete_set(d_max=d_max_bin, d_min=d_min_bin).select_acentric()
+            n_acentric = cmplset.size()
+            sigano = flex.mean(fa_sel.data()/fa_sel.sigmas()) if fa_sel.size() else float("nan")
+            print " %5.2f %5.2f %6.2f %6.2f %6.2f" % (d_max_bin, d_min_bin,
+                                                      100.*obs_sel_ano.size()/n_acentric,
+                                                      100.*fa_sel.size()/n_acentric,
+                                                      sigano)
+
+    lsa_file = os.path.join(wdir, "anode.lsa")
+    if os.path.isfile(lsa_file):
+        print ""
+        flag = False
+        for l in open(lsa_file):
+            if "Strongest unique anomalous peaks" in l:
+                flag  = True
+            elif "Reflections written to" in l:
+                flag = False
+            if flag:
+                print l.rstrip()
+        
 # run()
 
 if __name__ == "__main__":
