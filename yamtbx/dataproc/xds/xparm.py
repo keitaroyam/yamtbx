@@ -7,6 +7,7 @@ This software is released under the new BSD License; see LICENSE.
 import os
 import numpy
 import itertools
+import copy
 from yamtbx.dataproc.xds import get_xdsinp_keyword
 from yamtbx.util import safe_float
 
@@ -92,27 +93,30 @@ class XPARM:
         self.c_axis = numpy.array(map(safe_float, (cx, cy, cz)))
     # parse_xparm_file()
 
-    def set_info_from_xdsinp(self, xdsinp):
+    def set_info_from_xdsinp_or_inpstr(self, xdsinp=None, inpstr=None):
+        assert (xdsinp,inpstr).count(None) == 1
         # XXX x, y, z axes
 
-        table = [("STARTING_FRAME", "starting_frame", lambda x: int(x)),
-                 ("STARTING_ANGLE", "starting_angle", lambda x: float(x)),
-                 ("OSCILLATION_RANGE", "osc_range", lambda x: float(x)),
-                 ("ROTATION_AXIS", "rotation_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()))),
-                 ("X-RAY_WAVELENGTH", "wavelength", lambda x: float(x)),
-                 ("INCIDENT_BEAM_DIRECTION", "incident_beam", lambda x: numpy.array(map(lambda y:float(y), x.split()))),
-                 ("NX", "nx", lambda x: int(x)),
-                 ("NY", "ny", lambda x: int(x)),
-                 ("QX", "qx", lambda x: float(x)),
-                 ("QY", "qy", lambda x: float(x)),
-                 ("DETECTOR_DISTANCE", "distance", lambda x: float(x)),
-                 ("SPACE_GROUP_NUMBER", "spacegroup", lambda x: int(x)),
-                 ("UNIT_CELL_CONSTANTS", "unit_cell", lambda x: numpy.array(map(lambda y:float(y), x.split()))),
-                 ("UNIT_CELL_A-AXIS", "a_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()))),
-                 ("UNIT_CELL_B-AXIS", "b_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()))),
-                 ("UNIT_CELL_C-AXIS", "c_axis", lambda x: numpy.array(map(lambda y:float(y), x.split())))
+        t1 = lambda x: x.split()[0] # may have units that should be removed (if read from INTEGRATE.LP header)
+        
+        table = [("STARTING_FRAME", "starting_frame", lambda x: int(t1(x))),
+                 ("STARTING_ANGLE", "starting_angle", lambda x: float(t1(x))),
+                 ("OSCILLATION_RANGE", "osc_range", lambda x: float(t1(x))),
+                 ("ROTATION_AXIS", "rotation_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("X-RAY_WAVELENGTH", "wavelength", lambda x: float(t1(x))),
+                 ("INCIDENT_BEAM_DIRECTION", "incident_beam", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("NX", "nx", lambda x: int(t1(x))),
+                 ("NY", "ny", lambda x: int(t1(x))),
+                 ("QX", "qx", lambda x: float(t1(x))),
+                 ("QY", "qy", lambda x: float(t1(x))),
+                 ("DETECTOR_DISTANCE", "distance", lambda x: float(t1(x))),
+                 ("SPACE_GROUP_NUMBER", "spacegroup", lambda x: int(t1(x))),
+                 ("UNIT_CELL_CONSTANTS", "unit_cell", lambda x: numpy.array(map(lambda y:float(y), x.split()[:6]))),
+                 ("UNIT_CELL_A-AXIS", "a_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("UNIT_CELL_B-AXIS", "b_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("UNIT_CELL_C-AXIS", "c_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3])))
                  ]
-        inp = dict(get_xdsinp_keyword(xdsinp)) # I believe dict() removes duplicated parameters and keeps last.
+        inp = dict(get_xdsinp_keyword(xdsinp=xdsinp, inp_str=inpstr)) # I believe dict() removes duplicated parameters and keeps last.
 
         for k, at, f in table:
             if k in inp and inp[k].strip() != "":
@@ -121,6 +125,21 @@ class XPARM:
             self.origin[0] = float(inp["ORGX"])
         if "ORGY" in inp:
             self.origin[1] = float(inp["ORGY"])
+    # set_info_from_xdsinp()
+
+
+    def parse_integratelp_header(self, lpin):
+        #get_xdsinp_keyword()
+        inp_str = ""
+        for l in open(lpin):
+            inp_str += l
+            if "PROCESSING OF IMAGES" in l: break
+
+        self.set_info_from_xdsinp_or_inpstr(inpstr=inp_str)
+    # parse_integratelp_header()
+
+    def set_info_from_xdsinp(self, xdsinp):
+        self.set_info_from_xdsinp_or_inpstr(xdsinp=xdsinp)
     # set_info_from_xdsinp()
 
     def xparm_str(self, old_format=False):
@@ -176,6 +195,12 @@ class XPARM:
 # class XPARM
 
 def prep_xparm_objects_from_integrate_lp(lpfile, xparm_ref=None):
+    if xparm_ref:
+        xp_ref = XPARM(xparm_ref)
+    else:
+        xp_ref = XPARM()
+        xp_ref.parse_integratelp_header(lpfile)
+    
     keys = {"beam direction": "DIRECT BEAM COORDINATES (REC. ANGSTROEM)",
             "beam center": "DETECTOR ORIGIN (PIXELS) AT",
             "distance": "CRYSTAL TO DETECTOR DISTANCE (mm)",
@@ -210,7 +235,7 @@ def prep_xparm_objects_from_integrate_lp(lpfile, xparm_ref=None):
     ret = []
 
     for r, data in all_data:
-        xp = XPARM(xparm_ref)
+        xp = copy.copy(xp_ref)
         
         if "rotation axis" in data: xp.rotation_axis = numpy.array(data["rotation axis"])
         if "beam direction" in data: xp.incident_beam = numpy.array(data["beam direction"])
