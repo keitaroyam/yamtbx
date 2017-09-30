@@ -216,7 +216,8 @@ OUTPUT_FILE= xscale.hkl
                 worker = Pointless()
                 result = worker.run_for_symm(xdsin=xscale_hkl,
                                              logout=os.path.join(wd, "pointless.log"),
-                                             choose_laue=laue_symm_str)
+                                             choose_laue=laue_symm_str,
+                                             xdsin_to_p1=True)
                 
                 if "symm" in result:
                     print >>self.out, "Pointless suggestion (forcing %s symmetry):" % laue_symm_str

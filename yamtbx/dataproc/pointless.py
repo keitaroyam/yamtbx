@@ -8,7 +8,10 @@ import StringIO
 import os
 import re
 from yamtbx import util
+from libtbx.utils import null_out
+from cctbx import sgtbx
 from cctbx import crystal
+from yamtbx.dataproc.xds import xds_ascii
 
 pointless_comm = "pointless"
 re_cell = re.compile("([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) +([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9])")
@@ -108,8 +111,27 @@ class Pointless:
         return filein+"\n", wdir
     # input_str()
 
-    def run_for_symm(self, hklin=None, xdsin=None, logout=None, tolerance=None, d_min=None, choose_laue=None):
+    def run_for_symm(self, hklin=None, xdsin=None, logout=None, tolerance=None, d_min=None, choose_laue=None, xdsin_to_p1=False):
         assert (hklin, xdsin).count(None) == 1
+        tmpfile = None
+
+        out = open(logout, "w") if logout else null_out()
+        
+        # Merge in P1 before pointless for quick evaluation
+        if xdsin and xdsin_to_p1:
+            out.write("Merging in P1 symmetry before Pointless..\n")
+            xac = xds_ascii.XDS_ASCII(xdsin)
+            xac.remove_rejected()
+            i_obs = xac.i_obs(anomalous_flag=True)
+            i_obs.show_summary(out, "  ")
+            i_obs = i_obs.apply_change_of_basis(change_of_basis="to_niggli_cell", out=out)[0]
+            i_obs = i_obs.customized_copy(space_group_info=sgtbx.space_group_info("P1"))
+            i_obs = i_obs.merge_equivalents(use_internal_variance=False).array()
+            tmpfile = util.get_temp_filename(prefix="", suffix=os.path.basename(xdsin) + "_p1.mtz")
+            i_obs.as_mtz_dataset(column_root_label="I").mtz_object().write(tmpfile)
+            xdsin, hklin = None, tmpfile
+            out.write("\n")
+        
         filein, wdir = self.input_str(hklin, xdsin)
 
         # Need centre keyword?
@@ -129,9 +151,10 @@ SETTING SYMMETRY-BASED
                                           stdin=stdin, wdir=wdir)
         
         parsed = parse_pointless_output_for_symm(output)
+        out.write(output)
 
-        if logout is not None:
-            open(logout, "w").write(output)
+        if tmpfile and os.path.isfile(tmpfile):
+            os.remove(tmpfile)
         
         return parsed
     # run_for_symm()
