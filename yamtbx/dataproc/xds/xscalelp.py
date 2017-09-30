@@ -194,10 +194,10 @@ def read_stats_table(lpin):
         table.setdefault("dmin", []).append(float(sp[0]) if sp[0]!="total" else None)
         table.setdefault("nuniq", []).append(int(sp[2]))
         table.setdefault("redundancy", []).append(float(sp[1])/float(sp[2]) if float(sp[2]) > 0 else 0)
-        table.setdefault("cmpl", []).append(float(sp[4][:-1]))
-        table.setdefault("r_merge", []).append(float(sp[5][:-1]))
+        table.setdefault("cmpl", []).append(float(sp[4]))
+        table.setdefault("r_merge", []).append(float(sp[5]))
         table.setdefault("i_over_sigma", []).append(float(sp[8]))
-        table.setdefault("r_meas", []).append(float(sp[9][:-1]))
+        table.setdefault("r_meas", []).append(float(sp[9]))
         table.setdefault("cc_half", []).append(float(sp[10].replace("*","")))
         table.setdefault("cc_ano", []).append(float(sp[11].replace("*","")))
         table.setdefault("sig_ano", []).append(float(sp[12]))
@@ -297,4 +297,4 @@ def cbf_to_dat(lpin):
             r = xds.re_xds_kwd.findall(l)
             for k, v in r:
                 params.setdefault(k, []).append(v)
-
+# cbf_to_dat()

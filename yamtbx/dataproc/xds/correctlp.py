@@ -43,8 +43,21 @@ def get_P1_cell(lp, force_obtuse_angle=False):
 
 def table_split(l):
     # TODO need to change behavior by version?
+    assert l[50] == l[61] == l[71] == l[98] == "%"
     return map(lambda x:x.strip(),
-               (l[:9], l[9:21], l[21:29], l[29:39], l[39:50], l[51:61], l[62:71], l[72:81], l[81:89], l[89:98], l[99:107], l[108:114], l[115:123], l[123:]))
+               (l[:9], # RESOLUTION LIMIT
+                l[9:21], l[21:29], l[29:39], # NUMBER OF REFLECTIONS: OBSERVED  UNIQUE  POSSIBLE
+                l[39:50], # COMPLETENESS
+                l[51:61], l[62:71], # R-FACTOR: observed  expected
+                l[72:81], # COMPARED
+                l[81:89], # I/SIGMA
+                l[89:98], # R-meas 
+                l[99:107], # CC(1/2)
+                l[108:114], # AnomalCorr
+                l[115:123], # SigAno 
+                l[123:] # Nano
+               ))
+
 # table_split
 
 def errortable_split(l):
