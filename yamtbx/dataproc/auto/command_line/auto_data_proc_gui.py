@@ -138,11 +138,12 @@ known {
  space_group = None
   .type = str
   .help = space group (no. or name)
- method = *not_use_first use_first symm_constraint_only
+ method = *not_use_first use_first symm_constraint_only correct_only
   .type = choice(multi=False)
   .help = "not_use_first: Try indexing without prior information first, and if failed, use prior."
           "use_first: Try indexing with prior information."
-          "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell"
+          "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell."
+          "correct_only: Use given symmetry in CORRECT. May be useful in recycling."
 }
 
 auto_frame_exclude_spot_based = false

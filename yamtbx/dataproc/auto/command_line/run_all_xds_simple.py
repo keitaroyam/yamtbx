@@ -80,11 +80,12 @@ auto_frame_exclude_spot_based = false
  .type = bool
  .help = automatic frame exclusion from integration based on spot search result.
 cell_prior {
- method = *not_use_first use_first symm_constraint_only
+ method = *not_use_first use_first symm_constraint_only correct_only
   .type = choice(multi=False)
   .help = "not_use_first: Try indexing without prior information first, and if failed, use prior."
           "use_first: Try indexing with prior information."
-          "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell"
+          "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell."
+          "correct_only: Use given symmetry in CORRECT. May be useful in recycling."
  check = true
   .type = bool
  cell = None
@@ -476,6 +477,24 @@ def xds_sequence(root, params):
         else:
             print >>decilog, " pointless failed."
 
+    flag_do_not_change_symm = False
+    if params.cell_prior.method == "correct_only":
+        xsxds = XPARM(xparm).crystal_symmetry()
+        xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
+        cosets = reindex.reindexing_operators(xsref, xsxds,
+                                              params.cell_prior.tol_length, params.cell_prior.tol_angle)
+        if cosets.double_cosets is not None:
+            cell = xsxds.unit_cell().change_basis(cosets.combined_cb_ops()[0])
+            print >>decilog, " Using given symmetry in CORRECT with symmetry constraints:", cell
+            modify_xdsinp(xdsinp, inp_params=[("UNIT_CELL_CONSTANTS",
+                                               " ".join(map(lambda x: "%.3f"%x, cell.parameters()))),
+                                              ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
+            ])
+            flag_do_not_change_symm = True
+        else:
+            print >>decilog, " Tried to use given symmetry in CORRECT, but cell in integration is incompatible."
+            
+            
     # Do Scaling
     modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),])
 
@@ -521,7 +540,7 @@ def xds_sequence(root, params):
                 print >>decilog, "pointless using XDS_ASCII.HKL suggested %s" % symm.space_group_info()
                 need_rescale = True
 
-            if need_rescale:
+            if need_rescale and not flag_do_not_change_symm:
                 # make backup, and do correct and compare ISa
                 # if ISa got worse, revert the result.
                 backup_needed = ("XDS.INP", "XDS_ASCII_fullres.HKL","CORRECT_fullres.LP",
