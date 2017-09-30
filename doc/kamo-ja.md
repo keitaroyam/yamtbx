@@ -333,14 +333,19 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 
 ### KAMOを利用した研究
 
-* Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](http://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) [Raw data and processing note](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
-* Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>." *Nature* doi: [10.1038/nature23448](http://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ) [Raw data and processing note](https://github.com/keitaroyam/yamtbx/wiki/Processing-LPA6-data-(5XSZ))
-* Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN) [Raw data and processing note](https://github.com/keitaroyam/yamtbx/wiki/Processing-Polyhedra-data-(5GQM-&-5GQN))
+* Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](http://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
+* Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>." *Nature* doi: [10.1038/nature23448](http://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-LPA6-data-(5XSZ))
+* Abe *et al.* (2017) "Crystal Engineering of Self-Assembled Porous Protein Materials in Living Cells." *ACS Nano* doi: [10.1021/acsnano.6b06099](http://doi.org/10.1021/acsnano.6b06099) PDB: [5GQM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQM) [5GQN](http://www.rcsb.org/pdb/explore/explore.do?structureId=5GQN) Raw data and processing note:[link](https://github.com/keitaroyam/yamtbx/wiki/Processing-Polyhedra-data-(5GQM-&-5GQN))
 
 
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-09-30
+   * kamo.multi\_merge: summary, report html等でXSCALE.LPからR値,Completenessを読む際に小数点以下が捨てられていたバグを修正
+   * kamo.multi\_merge: Pointlessの実行時間を短縮 (xscale.hklを予めP1でマージして螺旋判定)，全体の実行時間をログに記録
+   * KAMO: known.method=オプションにcorrect\_onlyを追加 (CORRECT時にのみ指定した格子定数・対称性を使用．xds.repeat>1時に有用かも)
+   * kamo.resolve\_indexing\_ambiguity: reference-based modeで結果の表示法を変更 (selective-breedingと同じに)
 * 2017-08-31
    * kamo.multi\_merge: 異方性分析の結果をHTMLレポートに追加．Anisoカラムを廃止して最良／最悪の軸沿いの分解能を表示．
    * kamo.multi\_merge: degrees\_per\_batch=パラメータを追加(frames\_per\_batch=の角度量版)

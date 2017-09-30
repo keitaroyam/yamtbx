@@ -417,6 +417,8 @@ def run(params):
     out = multi_out()
     out.register("log", open(os.path.join(params.workdir, "multi_merge.log"), "w"), atexit_send_to=None)
     out.register("stdout", sys.stdout)
+    out.write("kamo.multi_merge started at %s\n\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+    time_started = time.time()
 
     print >>out, "Paramters:"
     libtbx.phil.parse(master_params_str).format(params).show(out=out, prefix=" ")
@@ -730,6 +732,10 @@ pickle.dump(ret, open("result.pkl","w")); \
     except: print >>out, traceback.format_exc()
 
     print "firefox %s" % os.path.join(html_report.root, "report.html")
+
+    out.write("\nNormal exit at %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
+    out.write("Total wall-clock time: %.2f sec.\n" % (time.time()-time_started))
+
     return
 # run()
 
