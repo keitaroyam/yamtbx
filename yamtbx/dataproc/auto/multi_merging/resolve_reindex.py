@@ -318,9 +318,8 @@ class ReferenceBased(ReindexResolver):
                 cc = calc_cc(tmp, self.ref_array)
                 if cc==cc: cc_list.append((j,cc))
 
-            cc_list.sort(key=lambda x:-x[1])
-            max_el = cc_list[0]
-            print >>self.log_out, "%4d"%i, " ".join(map(lambda x:"% .4f"%x[1],cc_list))
+            max_el = max(cc_list, key=lambda x:x[1])
+            print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_list)))
             new_ops[i] = max_el[0]
 
         print >>self.log_out, "  operator:", new_ops
