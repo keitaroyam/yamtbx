@@ -26,8 +26,8 @@ import numpy
 xscale_comm = "xscale_par"
 
 def make_bin_str(d_min, d_max, nbins=9):
-    step = ( 1./(d_min**2) - 1./(d_max**2) ) / float(nbins)
-    start = 1./(d_max**2)
+    start = 1./(d_max**2) if d_max is not None else 0.
+    step = ( 1./(d_min**2) - start ) / float(nbins)
     rshells = " ".join(map(lambda i: "%.2f" % (start + i * step)**(-1./2), xrange(1, nbins+1)))
     return "RESOLUTION_SHELLS= %s\n" % rshells
 # make_bin_str()
@@ -72,9 +72,6 @@ class XscaleCycles:
         if "delta_cc1/2" in reject_method: self.reject_method.append("delta_cc1/2")
 
         self.workdir = self.request_next_workdir()
-
-        if self.d_min is not None and self.d_max is None:
-            self.d_max = 100
 
         self.xscale_inp_head = """\
 MINIMUM_I/SIGMA= %.2f
@@ -283,6 +280,10 @@ OUTPUT_FILE= xscale.hkl
             tmp = min(os.path.relpath(f, self.workdir), f, key=lambda x:len(x))
             refstr = "*" if i==reference_idx else " "
             inp_out.write(" INPUT_FILE=%s%s\n" % (refstr,tmp))
+            if self.d_max is not None:
+                d_range = (float("inf") if self.d_max is None else self.d_max,
+                           0.           if self.d_min is None else self.d_min)
+                inp_out.write("  INCLUDE_RESOLUTION_RANGE= %.4f %.4f\n" % d_range)
             if len(self.xscale_params.corrections) != 3:
                 inp_out.write("  CORRECTIONS= %s\n" % " ".join(self.xscale_params.corrections))
             if (self.xscale_params.frames_per_batch, self.xscale_params.degrees_per_batch).count(None) < 2:

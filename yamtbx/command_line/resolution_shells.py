@@ -1,9 +1,11 @@
 # LIBTBX_SET_DISPATCHER_NAME yamtbx.resolution_shells
 
+import numpy
+
 def run(d_max, d_min, nbins, power, quiet=False):
-    step = ( d_min**(-power) - d_max**(-power) ) / float(nbins)
     start = 1./(d_max**power)
-    d_vals = map(lambda x: (start + x * step)**(-1./power), xrange(nbins+1))
+    step = ( d_min**(-power) - start ) / float(nbins)
+    d_vals = 1./(start + numpy.array(range(nbins+1)) * step)**(1./power)
 
     if not quiet:
         print "%d resolution shells (%.3f - %.3f A) split by 1/d^%d" % (nbins, d_max, d_min, power)
