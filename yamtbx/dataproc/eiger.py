@@ -209,7 +209,10 @@ def extract_to_minicbf(h5master, frameno_or_path, cbfout, binning=1):
 def compress_h5data(h5obj, path, data, chunks, compression="bslz4"):
     import bitshuffle.h5
 
-    if compression=="bslz4":
+    if compression is None:
+        dataset = h5obj.create_dataset(path, data.shape,
+                                       chunks=chunks, dtype=data.dtype, data=data)        
+    elif compression=="bslz4":
         dataset = h5obj.create_dataset(path, data.shape,
                                        compression=bitshuffle.h5.H5FILTER,
                                        compression_opts=(0, bitshuffle.h5.H5_COMPRESS_LZ4),
@@ -224,14 +227,14 @@ def compress_h5data(h5obj, path, data, chunks, compression="bslz4"):
     return dataset
 # compress_h5data()
 
-def create_data_file(outfile, data, chunks, nrlow, nrhigh):
+def create_data_file(outfile, data, chunks, nrlow, nrhigh, compression="bslz4"):
     h5 = h5py.File(outfile, "w")
     h5.create_group("/entry")
     h5["/entry"].attrs["NX_class"] = "NXentry"
     h5.create_group("/entry/data")
     h5["/entry/data"].attrs["NX_class"] = "NXdata"
 
-    dataset = compress_h5data(h5, "/entry/data/data", data, chunks)
+    dataset = compress_h5data(h5, "/entry/data/data", data, chunks, compression)
     dataset.attrs["image_nr_low"] = nrlow
     dataset.attrs["image_nr_high"] = nrhigh
 
