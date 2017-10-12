@@ -8,6 +8,7 @@ For installation, please read [INSTALL.md](INSTALL.md).
 
 * KAMO (Automatic data processing) [Japanese](doc/kamo-ja.md) [English](doc/kamo-en.md)
 * SHIKA (Spotfinder with GUI) [Japanese](doc/shika-ja.md) [English](doc/shika-en.md)
+* EIGER data at SPring-8 BL32XU [Japanese](doc/eiger-ja.md) [English](doc/eiger-en.md)
 
 ### Acknowledgements
 
@@ -17,4 +18,3 @@ These packages are included as a part of yamtbx.
 * [D3.js](http://d3js.org/) by Mike Bostock (New BSD License)
 * [d3-tip](https://github.com/Caged/d3-tip) by Justin Palmer (MIT License)
 
-[![Code Issues](https://www.quantifiedcode.com/api/v1/project/b1023eb0a40b4b48a9efd3396cc8265e/badge.svg)](https://www.quantifiedcode.com/app/project/b1023eb0a40b4b48a9efd3396cc8265e)
