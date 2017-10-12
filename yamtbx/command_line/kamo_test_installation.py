@@ -16,13 +16,17 @@ import tempfile
 def tst_jsdir():
     print "Testing location.."
 
-    import libtbx.load_env
-    d3path = libtbx.env.find_in_repositories("yamtbx/dataproc/auto/js/d3-3.5.10")
-    if not d3path:
+    yamtbx_root = util.yamtbx_module_root()
+    if not yamtbx_root:
+        print "  Can't locate yamtbx module directory. NG"
+        return False
+
+    d3path = os.path.join(yamtbx_root, "dataproc/auto/js/d3-3.5.10")
+    if not os.path.isdir(d3path):
         print "  Can't find d3-3.5.10 directory. Please check location of yamtbx. NG"
         return False
     
-    print "  %s. OK" % libtbx.env.find_in_repositories("yamtbx")
+    print "  %s. OK" % yamtbx_root
     return True
 # tst_jsdir()
 

@@ -5,6 +5,7 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 from yamtbx.dataproc.auto.html_report import amcharts_root
+from yamtbx import util
 from yamtbx.util.xtal import CellConstraints
 from yamtbx.dataproc.xds import xscalelp
 
@@ -22,7 +23,7 @@ class HtmlReportMulti:
         self.root = root
 
         jsdir = os.path.join(self.root, "js")
-        d3path = libtbx.env.find_in_repositories("yamtbx/dataproc/auto/js/d3-3.5.10")
+        d3path = os.path.join(util.yamtbx_module_root(), "dataproc/auto/js/d3-3.5.10")
         if not d3path:
             raise Exception("Can't find d3-3.5.10 location. Check installation of yamtbx.")
 

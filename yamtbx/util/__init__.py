@@ -13,6 +13,7 @@ import commands
 import glob
 import tempfile
 from libtbx.utils import null_out
+import libtbx.load_env
 
 def call(cmd, arg="",
          stdin=None, stdout=subprocess.PIPE,
@@ -296,3 +297,13 @@ def human_readable_bytes(bytes):
         return bytes/1024.**5, "PB"
     
 # human_readable_bytes()
+
+def yamtbx_module_root():
+    """
+    Possible locations: modules/yamtbx or modules/yamtbx/yamtbx
+    """
+    tmp = libtbx.env.find_in_repositories("yamtbx/yamtbx")
+    if tmp: return tmp
+    tmp = libtbx.env.find_in_repositories("yamtbx")
+    if tmp: return tmp
+# yamtbx_module_root()
