@@ -16,6 +16,7 @@ import time
 import glob
 import numpy
 
+from yamtbx.command_line import kamo_test_installation
 from yamtbx.dataproc.xds import get_xdsinp_keyword, modify_xdsinp, optimal_delphi_by_nproc, make_backup, revert_files, remove_backups
 from yamtbx.dataproc.xds import idxreflp
 from yamtbx.dataproc.xds import correctlp
@@ -297,303 +298,311 @@ def xds_sequence(root, params):
 
     decilog = multi_out()
     decilog.register("log", open(os.path.join(root, "decision.log"), "a"), atexit_send_to=None)
+    try:
+        print >>decilog, "xds_sequence started at %s in %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), root)
 
-    print >>decilog, "xds_sequence started at %s in %s\n" % (time.strftime("%Y-%m-%d %H:%M:%S"), root)
-    
-    if params.show_progress:
-        decilog.register("stdout", sys.stdout)
+        
+        if not kamo_test_installation.tst_xds():
+            print >>decilog, "XDS is not installed or expired!!"
+            return
+        
+        if params.show_progress:
+            decilog.register("stdout", sys.stdout)
 
-    if params.mode=="initial" and params.resume and os.path.isfile(correct_lp):
-        print " Already processed."
-        return
-
-    if params.mode == "recycle" and not os.path.isfile(gxparm):
-        print "GXPARM.XDS not found. Cannot do recycle."
-        return
-
-    if params.fast_delphi and (params.nproc is None or params.nproc > 1):
-        delphi = optimal_delphi_by_nproc(xdsinp=xdsinp, nproc=params.nproc)
-        print " Setting delphi to ", delphi
-        modify_xdsinp(xdsinp, inp_params=[("DELPHI", str(delphi)),
-                                          ])
-
-    if params.nproc is not None and params.nproc > 1:
-        modify_xdsinp(xdsinp, inp_params=[("MAXIMUM_NUMBER_OF_PROCESSORS", str(params.nproc)),
-                                          ])
-
-    if params.mode == "initial":
-        # Peak search
-        modify_xdsinp(xdsinp, inp_params=[("JOB", "XYCORR INIT COLSPOT")])
-        run_xds(wdir=root, show_progress=params.show_progress)
-        if params.auto_frame_exclude_spot_based:
-            sx = idxreflp.SpotXds(spot_xds)
-            sx.set_xdsinp(xdsinp)
-            spots = filter(lambda x: 5 < x[-1] < 30, sx.collected_spots()) # low-res (5 A)
-            frame_numbers = numpy.array(map(lambda x: int(x[2])+1, spots))
-            data_range = map(int, xdsinp_dict["DATA_RANGE"].split())
-            # XXX this assumes SPOT_RANGE equals to DATA_RANGE. Is this guaranteed?
-            h = numpy.histogram(frame_numbers,
-                                bins=numpy.arange(data_range[0], data_range[1]+2, step=1))
-            q14 = numpy.percentile(h[0], [25,75])
-            iqr = q14[1] - q14[0]
-            cutoff = max(h[0][h[0]<=iqr*1.5+q14[1]]) / 5 # magic number
-            print "DEBUG:: IQR= %.2f, Q1/4= %s, cutoff= %.2f" % (iqr,q14, cutoff)
-            cut_frames = h[1][h[0]<cutoff]
-            keep_frames = h[1][h[0]>=cutoff]
-            print "DEBUG:: keep_frames=", keep_frames
-            print "DEBUG::  cut_frames=", cut_frames
-
-            if len(cut_frames) > 0:
-                cut_ranges = [[cut_frames[0], cut_frames[0]], ]
-                for fn in cut_frames:
-                    if fn - cut_ranges[-1][1] <= 1: cut_ranges[-1][1] = fn
-                    else: cut_ranges.append([fn, fn])
-
-                # Edit XDS.INP
-                cut_inp_str = "".join(map(lambda x: "EXCLUDE_DATA_RANGE= %6d %6d\n"%tuple(x), cut_ranges))
-                open(xdsinp, "a").write("\n"+cut_inp_str)
-
-                # Edit SPOT.XDS
-                shutil.copyfile(spot_xds, spot_xds+".org")
-                sx.write(open(spot_xds, "w"), frame_selection=set(keep_frames))
-
-        # Indexing
-        if params.cell_prior.method == "use_first":
-            modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
-                                              ("UNIT_CELL_CONSTANTS",
-                                               " ".join(map(lambda x: "%.3f"%x, params.cell_prior.cell))),
-                                              ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
-                                              ])
-        else:
-            modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF")])
-
-        run_xds(wdir=root, show_progress=params.show_progress)
-        print # TODO indexing stats like indexed percentage here.
-
-        if params.tryhard:
-            try_indexing_hard(root, params.show_progress, decilog,
-                              known_sgnum=params.cell_prior.sgnum,
-                              known_cell=params.cell_prior.cell,
-                              tol_length=params.cell_prior.tol_length,
-                              tol_angle=params.cell_prior.tol_angle)
-
-        if not os.path.isfile(xparm):
-            print >>decilog, " Indexing failed."
+        if params.mode=="initial" and params.resume and os.path.isfile(correct_lp):
+            print >>decilog, " Already processed."
             return
 
-        if params.cell_prior.sgnum > 0:
-            # Check anyway
+        if params.mode == "recycle" and not os.path.isfile(gxparm):
+            print >>decilog, "GXPARM.XDS not found. Cannot do recycle."
+            return
+
+        if params.fast_delphi and (params.nproc is None or params.nproc > 1):
+            delphi = optimal_delphi_by_nproc(xdsinp=xdsinp, nproc=params.nproc)
+            print >>decilog, " Setting delphi to ", delphi
+            modify_xdsinp(xdsinp, inp_params=[("DELPHI", str(delphi)),
+                                              ])
+
+        if params.nproc is not None and params.nproc > 1:
+            modify_xdsinp(xdsinp, inp_params=[("MAXIMUM_NUMBER_OF_PROCESSORS", str(params.nproc)),
+                                              ])
+
+        if params.mode == "initial":
+            # Peak search
+            modify_xdsinp(xdsinp, inp_params=[("JOB", "XYCORR INIT COLSPOT")])
+            run_xds(wdir=root, show_progress=params.show_progress)
+            if params.auto_frame_exclude_spot_based:
+                sx = idxreflp.SpotXds(spot_xds)
+                sx.set_xdsinp(xdsinp)
+                spots = filter(lambda x: 5 < x[-1] < 30, sx.collected_spots()) # low-res (5 A)
+                frame_numbers = numpy.array(map(lambda x: int(x[2])+1, spots))
+                data_range = map(int, xdsinp_dict["DATA_RANGE"].split())
+                # XXX this assumes SPOT_RANGE equals to DATA_RANGE. Is this guaranteed?
+                h = numpy.histogram(frame_numbers,
+                                    bins=numpy.arange(data_range[0], data_range[1]+2, step=1))
+                q14 = numpy.percentile(h[0], [25,75])
+                iqr = q14[1] - q14[0]
+                cutoff = max(h[0][h[0]<=iqr*1.5+q14[1]]) / 5 # magic number
+                print >>decilog, "DEBUG:: IQR= %.2f, Q1/4= %s, cutoff= %.2f" % (iqr,q14, cutoff)
+                cut_frames = h[1][h[0]<cutoff]
+                keep_frames = h[1][h[0]>=cutoff]
+                print >>decilog, "DEBUG:: keep_frames=", keep_frames
+                print >>decilog, "DEBUG::  cut_frames=", cut_frames
+
+                if len(cut_frames) > 0:
+                    cut_ranges = [[cut_frames[0], cut_frames[0]], ]
+                    for fn in cut_frames:
+                        if fn - cut_ranges[-1][1] <= 1: cut_ranges[-1][1] = fn
+                        else: cut_ranges.append([fn, fn])
+
+                    # Edit XDS.INP
+                    cut_inp_str = "".join(map(lambda x: "EXCLUDE_DATA_RANGE= %6d %6d\n"%tuple(x), cut_ranges))
+                    open(xdsinp, "a").write("\n"+cut_inp_str)
+
+                    # Edit SPOT.XDS
+                    shutil.copyfile(spot_xds, spot_xds+".org")
+                    sx.write(open(spot_xds, "w"), frame_selection=set(keep_frames))
+
+            # Indexing
+            if params.cell_prior.method == "use_first":
+                modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
+                                                  ("UNIT_CELL_CONSTANTS",
+                                                   " ".join(map(lambda x: "%.3f"%x, params.cell_prior.cell))),
+                                                  ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
+                                                  ])
+            else:
+                modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF")])
+
+            run_xds(wdir=root, show_progress=params.show_progress)
+            print >>decilog, "" # TODO indexing stats like indexed percentage here.
+
+            if params.tryhard:
+                try_indexing_hard(root, params.show_progress, decilog,
+                                  known_sgnum=params.cell_prior.sgnum,
+                                  known_cell=params.cell_prior.cell,
+                                  tol_length=params.cell_prior.tol_length,
+                                  tol_angle=params.cell_prior.tol_angle)
+
+            if not os.path.isfile(xparm):
+                print >>decilog, " Indexing failed."
+                return
+
+            if params.cell_prior.sgnum > 0:
+                # Check anyway
+                xsxds = XPARM(xparm).crystal_symmetry()
+                xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
+                cosets = reindex.reindexing_operators(xsref, xsxds,
+                                                      params.cell_prior.tol_length, params.cell_prior.tol_angle)
+                if cosets.double_cosets is None:
+                    if params.cell_prior.check:
+                        print >>decilog, " Incompatible cell. Indexing failed."
+                        return
+                    else:
+                        print >>decilog, " Warning: Incompatible cell."
+
+                elif params.cell_prior.method == "symm_constraint_only":
+                    cell = xsxds.unit_cell().change_basis(cosets.combined_cb_ops()[0])
+                    print >>decilog, " Trying symmetry-constrained cell parameter:", cell
+                    modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
+                                                      ("UNIT_CELL_CONSTANTS",
+                                                       " ".join(map(lambda x: "%.3f"%x, cell.parameters()))),
+                                                      ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
+                                                      ])
+                    for f in xds_files.generated_by_IDXREF:
+                        util.rotate_file(os.path.join(root, f), copy=(f=="SPOT.XDS"))
+
+                    run_xds(wdir=root, show_progress=params.show_progress)
+
+                    if not os.path.isfile(xparm):
+                        print >>decilog, " Indexing failed."
+                        return
+
+                    # Check again
+                    xsxds = XPARM(xparm).crystal_symmetry()
+                    if not xsxds.unit_cell().is_similar_to(xsref.unit_cell(),
+                                                           params.cell_prior.tol_length, params.cell_prior.tol_angle):
+                        print >>decilog, "  Resulted in different cell. Indexing failed."
+                        return
+
+        elif params.mode == "recycle":
+            print >>decilog, " Start recycle. original ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
+            for f in xds_files.generated_after_DEFPIX + ("XPARM.XDS", "plot_integrate.log"):
+                util.rotate_file(os.path.join(root, f), copy=True)
+            shutil.copyfile(gxparm+".1", xparm)
+        else:
+            raise "Unknown mode (%s)" % params.mode
+
+        # To Integration
+        modify_xdsinp(xdsinp, inp_params=[("JOB", "DEFPIX INTEGRATE"),
+                                          ("INCLUDE_RESOLUTION_RANGE", "50 0")])
+        run_xds(wdir=root, show_progress=params.show_progress)
+        if os.path.isfile(integrate_lp):
+            xds_plot_integrate.run(integrate_lp, os.path.join(root, "plot_integrate.log"))
+        if not os.path.isfile(integrate_hkl):
+            print >>decilog, " Integration failed."
+            return
+
+
+        # Make _noscale.HKL if needed
+        if params.no_scaling:
+            bk_prefix = make_backup(("XDS.INP",), wdir=root, quiet=True)
+            xparm_obj = XPARM(xparm)
+            modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
+                                              ("CORRECTIONS", ""),
+                                              ("NBATCH", "1"),
+                                              ("MINIMUM_I/SIGMA", "50"),
+                                              ("REFINE(CORRECT)", ""),
+                                              ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x:"%.3f"%x, xparm_obj.unit_cell))),
+                                              ("SPACE_GROUP_NUMBER", "%d"%xparm_obj.spacegroup),])
+            print >>decilog, " running CORRECT without empirical scaling"
+            run_xds(wdir=root, show_progress=params.show_progress)
+            for f in xds_files.generated_by_CORRECT + ("XDS.INP",):
+                ff = os.path.join(root, f)
+                if not os.path.isfile(ff): continue
+                if ff.endswith(".cbf"):
+                    os.remove(ff)
+                else:
+                    os.rename(ff, ff+"_noscale")
+
+            revert_files(("XDS.INP",), bk_prefix, wdir=root, quiet=True)
+
+        # Run pointless
+        symm_by_integrate = None
+        if params.use_pointless:
+            worker = Pointless()
+            result = worker.run_for_symm(xdsin=integrate_hkl, 
+                                         logout=os.path.join(root, "pointless_integrate.log"))
+            if "symm" in result:
+                symm = result["symm"]
+                print >>decilog, " pointless using INTEGRATE.HKL suggested", symm.space_group_info()
+                sgnum = symm.space_group_info().type().number()
+                cell = " ".join(map(lambda x:"%.2f"%x, symm.unit_cell().parameters()))
+                modify_xdsinp(xdsinp, inp_params=[("SPACE_GROUP_NUMBER", "%d"%sgnum),
+                                                  ("UNIT_CELL_CONSTANTS", cell)])
+                symm_by_integrate = symm
+            else:
+                print >>decilog, " pointless failed."
+
+        flag_do_not_change_symm = False
+        if params.cell_prior.method == "correct_only":
             xsxds = XPARM(xparm).crystal_symmetry()
             xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
             cosets = reindex.reindexing_operators(xsref, xsxds,
                                                   params.cell_prior.tol_length, params.cell_prior.tol_angle)
-            if cosets.double_cosets is None:
-                if params.cell_prior.check:
-                    print >>decilog, " Incompatible cell. Indexing failed."
-                    return
-                else:
-                    print >>decilog, " Warning: Incompatible cell."
-
-            elif params.cell_prior.method == "symm_constraint_only":
+            if cosets.double_cosets is not None:
                 cell = xsxds.unit_cell().change_basis(cosets.combined_cb_ops()[0])
-                print >>decilog, " Trying symmetry-constrained cell parameter:", cell
-                modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
-                                                  ("UNIT_CELL_CONSTANTS",
+                print >>decilog, " Using given symmetry in CORRECT with symmetry constraints:", cell
+                modify_xdsinp(xdsinp, inp_params=[("UNIT_CELL_CONSTANTS",
                                                    " ".join(map(lambda x: "%.3f"%x, cell.parameters()))),
                                                   ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
-                                                  ])
-                for f in xds_files.generated_by_IDXREF:
-                    util.rotate_file(os.path.join(root, f), copy=(f=="SPOT.XDS"))
-                
-                run_xds(wdir=root, show_progress=params.show_progress)
-                
-                if not os.path.isfile(xparm):
-                    print >>decilog, " Indexing failed."
-                    return
-
-                # Check again
-                xsxds = XPARM(xparm).crystal_symmetry()
-                if not xsxds.unit_cell().is_similar_to(xsref.unit_cell(),
-                                                       params.cell_prior.tol_length, params.cell_prior.tol_angle):
-                    print >>decilog, "  Resulted in different cell. Indexing failed."
-                    return
-
-    elif params.mode == "recycle":
-        print " Start recycle. original ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
-        for f in xds_files.generated_after_DEFPIX + ("XPARM.XDS", "plot_integrate.log"):
-            util.rotate_file(os.path.join(root, f), copy=True)
-        shutil.copyfile(gxparm+".1", xparm)
-    else:
-        raise "Unknown mode (%s)" % params.mode
-
-    # To Integration
-    modify_xdsinp(xdsinp, inp_params=[("JOB", "DEFPIX INTEGRATE"),
-                                      ("INCLUDE_RESOLUTION_RANGE", "50 0")])
-    run_xds(wdir=root, show_progress=params.show_progress)
-    if os.path.isfile(integrate_lp):
-        xds_plot_integrate.run(integrate_lp, os.path.join(root, "plot_integrate.log"))
-    if not os.path.isfile(integrate_hkl):
-        print >>decilog, " Integration failed."
-        return
+                ])
+                flag_do_not_change_symm = True
+            else:
+                print >>decilog, " Tried to use given symmetry in CORRECT, but cell in integration is incompatible."
 
 
-    # Make _noscale.HKL if needed
-    if params.no_scaling:
-        bk_prefix = make_backup(("XDS.INP",), wdir=root, quiet=True)
-        xparm_obj = XPARM(xparm)
-        modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
-                                          ("CORRECTIONS", ""),
-                                          ("NBATCH", "1"),
-                                          ("MINIMUM_I/SIGMA", "50"),
-                                          ("REFINE(CORRECT)", ""),
-                                          ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x:"%.3f"%x, xparm_obj.unit_cell))),
-                                          ("SPACE_GROUP_NUMBER", "%d"%xparm_obj.spacegroup),])
-        print >>decilog, " running CORRECT without empirical scaling"
+        # Do Scaling
+        modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),])
+
         run_xds(wdir=root, show_progress=params.show_progress)
-        for f in xds_files.generated_by_CORRECT + ("XDS.INP",):
-            ff = os.path.join(root, f)
-            if not os.path.isfile(ff): continue
-            if ff.endswith(".cbf"):
-                os.remove(ff)
-            else:
-                os.rename(ff, ff+"_noscale")
 
-        revert_files(("XDS.INP",), bk_prefix, wdir=root, quiet=True)
+        if not os.path.isfile(gxparm):
+            print >>decilog, " Scaling failed."
+            return
 
-    # Run pointless
-    symm_by_integrate = None
-    if params.use_pointless:
-        worker = Pointless()
-        result = worker.run_for_symm(xdsin=integrate_hkl, 
-                                     logout=os.path.join(root, "pointless_integrate.log"))
-        if "symm" in result:
-            symm = result["symm"]
-            print >>decilog, " pointless using INTEGRATE.HKL suggested", symm.space_group_info()
-            sgnum = symm.space_group_info().type().number()
-            cell = " ".join(map(lambda x:"%.2f"%x, symm.unit_cell().parameters()))
-            modify_xdsinp(xdsinp, inp_params=[("SPACE_GROUP_NUMBER", "%d"%sgnum),
-                                              ("UNIT_CELL_CONSTANTS", cell)])
-            symm_by_integrate = symm
-        else:
-            print >>decilog, " pointless failed."
+        print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
 
-    flag_do_not_change_symm = False
-    if params.cell_prior.method == "correct_only":
-        xsxds = XPARM(xparm).crystal_symmetry()
-        xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
-        cosets = reindex.reindexing_operators(xsref, xsxds,
-                                              params.cell_prior.tol_length, params.cell_prior.tol_angle)
-        if cosets.double_cosets is not None:
-            cell = xsxds.unit_cell().change_basis(cosets.combined_cb_ops()[0])
-            print >>decilog, " Using given symmetry in CORRECT with symmetry constraints:", cell
-            modify_xdsinp(xdsinp, inp_params=[("UNIT_CELL_CONSTANTS",
-                                               " ".join(map(lambda x: "%.3f"%x, cell.parameters()))),
-                                              ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum),
-            ])
-            flag_do_not_change_symm = True
-        else:
-            print >>decilog, " Tried to use given symmetry in CORRECT, but cell in integration is incompatible."
-            
-            
-    # Do Scaling
-    modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),])
-
-    run_xds(wdir=root, show_progress=params.show_progress)
-
-    if not os.path.isfile(gxparm):
-        print >>decilog, " Scaling failed."
-        return
-
-    print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
-
-    ret = calc_merging_stats(os.path.join(root, "XDS_ASCII.HKL"))
-    if params.cut_resolution:
-        if ret is not None and ret[0] is not None:
-            d_min = ret[0]
-            modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
-                                              ("INCLUDE_RESOLUTION_RANGE", "50 %.2f"%d_min)])
-            print >>decilog, " Re-scale at %.2f A" % d_min
-            os.rename(os.path.join(root, "CORRECT.LP"), os.path.join(root, "CORRECT_fullres.LP"))
-            os.rename(os.path.join(root, "XDS_ASCII.HKL"), os.path.join(root, "XDS_ASCII_fullres.HKL"))
-            run_xds(wdir=root, show_progress=params.show_progress)
-            print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
-            print >>decilog, " (Original files are saved as *_fullres.*)"
-        else:
-            print >>decilog, "error: Can't decide resolution."
-
-    last_ISa = correctlp.get_ISa(correct_lp, check_valid=True)
-
-    # Run pointless and (if result is different from INTEGRATE) re-scale.
-    if params.use_pointless:
-        worker = Pointless()
-        result = worker.run_for_symm(xdsin=xac_hkl,
-                                     logout=os.path.join(root, "pointless_correct.log"))
-        if "symm" in result:
-            symm = result["symm"]
-            need_rescale = False
-
-            if symm_by_integrate is not None:
-                if not xtal.is_same_laue_symmetry(symm_by_integrate.space_group(), symm.space_group()):
-                    print >>decilog, "pointless suggested %s, which is different Laue symmetry from INTEGRATE.HKL (%s)" % (symm.space_group_info(), symm_by_integrate.space_group_info())
-                    need_rescale = True
-            else:
-                print >>decilog, "pointless using XDS_ASCII.HKL suggested %s" % symm.space_group_info()
-                need_rescale = True
-
-            if need_rescale and not flag_do_not_change_symm:
-                # make backup, and do correct and compare ISa
-                # if ISa got worse, revert the result.
-                backup_needed = ("XDS.INP", "XDS_ASCII_fullres.HKL","CORRECT_fullres.LP",
-                                 "merging_stats.pkl","merging_stats.log")
-                backup_needed += xds_files.generated_by_CORRECT
-                bk_prefix = make_backup(backup_needed, wdir=root, quiet=True)
-
-                sgnum = symm.space_group_info().type().number()
-                cell = " ".join(map(lambda x:"%.2f"%x, symm.unit_cell().parameters()))
+        ret = calc_merging_stats(os.path.join(root, "XDS_ASCII.HKL"))
+        if params.cut_resolution:
+            if ret is not None and ret[0] is not None:
+                d_min = ret[0]
                 modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
-                                                  ("SPACE_GROUP_NUMBER", "%d"%sgnum),
-                                                  ("UNIT_CELL_CONSTANTS", cell),
-                                                  ("INCLUDE_RESOLUTION_RANGE", "50 0")])
-
+                                                  ("INCLUDE_RESOLUTION_RANGE", "50 %.2f"%d_min)])
+                print >>decilog, " Re-scale at %.2f A" % d_min
+                os.rename(os.path.join(root, "CORRECT.LP"), os.path.join(root, "CORRECT_fullres.LP"))
+                os.rename(os.path.join(root, "XDS_ASCII.HKL"), os.path.join(root, "XDS_ASCII_fullres.HKL"))
                 run_xds(wdir=root, show_progress=params.show_progress)
+                print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
+                print >>decilog, " (Original files are saved as *_fullres.*)"
+            else:
+                print >>decilog, "error: Can't decide resolution."
 
-                ret = calc_merging_stats(os.path.join(root, "XDS_ASCII.HKL"))
-                
-                if params.cut_resolution:
-                    if ret is not None and ret[0] is not None:
-                        d_min = ret[0]
-                        modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
-                                                          ("INCLUDE_RESOLUTION_RANGE", "50 %.2f"%d_min)])
-                        print >>decilog, " Re-scale at %.2f A" % d_min
-                        os.rename(os.path.join(root, "CORRECT.LP"), os.path.join(root, "CORRECT_fullres.LP"))
-                        os.rename(os.path.join(root, "XDS_ASCII.HKL"), os.path.join(root, "XDS_ASCII_fullres.HKL"))
-                        run_xds(wdir=root, show_progress=params.show_progress)
-                        print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
-                        print >>decilog, " (Original files are saved as *_fullres.*)"
-                    else:
-                        print >>decilog, "error: Can't decide resolution."
-                        for f in ("CORRECT_fullres.LP", "XDS_ASCII_fullres.HKL"):
-                            if os.path.isfile(os.path.join(root, f)):
-                                print >>decilog, "removing", f
-                                os.remove(os.path.join(root, f))
+        last_ISa = correctlp.get_ISa(correct_lp, check_valid=True)
 
-                ISa = correctlp.get_ISa(correct_lp, check_valid=True)
+        # Run pointless and (if result is different from INTEGRATE) re-scale.
+        if params.use_pointless:
+            worker = Pointless()
+            result = worker.run_for_symm(xdsin=xac_hkl,
+                                         logout=os.path.join(root, "pointless_correct.log"))
+            if "symm" in result:
+                symm = result["symm"]
+                need_rescale = False
 
-                if ISa >= last_ISa or last_ISa!=last_ISa: # if improved or last_ISa is nan
-                    print >>decilog, "ISa improved= %.2f" % ISa
-                    remove_backups(backup_needed, bk_prefix, wdir=root)
+                if symm_by_integrate is not None:
+                    if not xtal.is_same_laue_symmetry(symm_by_integrate.space_group(), symm.space_group()):
+                        print >>decilog, "pointless suggested %s, which is different Laue symmetry from INTEGRATE.HKL (%s)" % (symm.space_group_info(), symm_by_integrate.space_group_info())
+                        need_rescale = True
                 else:
-                    print >>decilog, "ISa got worse= %.2f" % ISa
-                    for f in backup_needed:
-                        if os.path.isfile(os.path.join(root, f)): os.remove(os.path.join(root, f))
+                    print >>decilog, "pointless using XDS_ASCII.HKL suggested %s" % symm.space_group_info()
+                    need_rescale = True
 
-                    revert_files(backup_needed, bk_prefix, wdir=root, quiet=True)
+                if need_rescale and not flag_do_not_change_symm:
+                    # make backup, and do correct and compare ISa
+                    # if ISa got worse, revert the result.
+                    backup_needed = ("XDS.INP", "XDS_ASCII_fullres.HKL","CORRECT_fullres.LP",
+                                     "merging_stats.pkl","merging_stats.log")
+                    backup_needed += xds_files.generated_by_CORRECT
+                    bk_prefix = make_backup(backup_needed, wdir=root, quiet=True)
 
-    run_xdsstat(wdir=root)
-    print
-    if params.make_report: html_report.make_individual_report(root, root)
-    print >>decilog, "xds_sequence finished at %s\n" % time.strftime("%Y-%m-%d %H:%M:%S")
-    decilog.close()
+                    sgnum = symm.space_group_info().type().number()
+                    cell = " ".join(map(lambda x:"%.2f"%x, symm.unit_cell().parameters()))
+                    modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
+                                                      ("SPACE_GROUP_NUMBER", "%d"%sgnum),
+                                                      ("UNIT_CELL_CONSTANTS", cell),
+                                                      ("INCLUDE_RESOLUTION_RANGE", "50 0")])
+
+                    run_xds(wdir=root, show_progress=params.show_progress)
+
+                    ret = calc_merging_stats(os.path.join(root, "XDS_ASCII.HKL"))
+
+                    if params.cut_resolution:
+                        if ret is not None and ret[0] is not None:
+                            d_min = ret[0]
+                            modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
+                                                              ("INCLUDE_RESOLUTION_RANGE", "50 %.2f"%d_min)])
+                            print >>decilog, " Re-scale at %.2f A" % d_min
+                            os.rename(os.path.join(root, "CORRECT.LP"), os.path.join(root, "CORRECT_fullres.LP"))
+                            os.rename(os.path.join(root, "XDS_ASCII.HKL"), os.path.join(root, "XDS_ASCII_fullres.HKL"))
+                            run_xds(wdir=root, show_progress=params.show_progress)
+                            print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
+                            print >>decilog, " (Original files are saved as *_fullres.*)"
+                        else:
+                            print >>decilog, "error: Can't decide resolution."
+                            for f in ("CORRECT_fullres.LP", "XDS_ASCII_fullres.HKL"):
+                                if os.path.isfile(os.path.join(root, f)):
+                                    print >>decilog, "removing", f
+                                    os.remove(os.path.join(root, f))
+
+                    ISa = correctlp.get_ISa(correct_lp, check_valid=True)
+
+                    if ISa >= last_ISa or last_ISa!=last_ISa: # if improved or last_ISa is nan
+                        print >>decilog, "ISa improved= %.2f" % ISa
+                        remove_backups(backup_needed, bk_prefix, wdir=root)
+                    else:
+                        print >>decilog, "ISa got worse= %.2f" % ISa
+                        for f in backup_needed:
+                            if os.path.isfile(os.path.join(root, f)): os.remove(os.path.join(root, f))
+
+                        revert_files(backup_needed, bk_prefix, wdir=root, quiet=True)
+
+        run_xdsstat(wdir=root)
+        print
+        if params.make_report: html_report.make_individual_report(root, root)
+    except:
+        print >>decilog, traceback.format_exc()
+    finally:
+        print >>decilog, "\nxds_sequence finished at %s" % time.strftime("%Y-%m-%d %H:%M:%S")
+        decilog.close()
 # xds_sequence()
 
 def run_xds_sequence(root, params):

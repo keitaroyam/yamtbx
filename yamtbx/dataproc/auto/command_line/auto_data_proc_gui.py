@@ -1480,14 +1480,6 @@ class ResultLeftPanel(wx.Panel):
         if len_edge > 0: edgeresn = job.wavelength / 2. / numpy.sin(numpy.arctan(len_edge/job.distance)/2.)
         else:            edgeresn = float("nan")
 
-        html_str = """\
-<b>Quick Summary</b><br>
-<table>
-<tr align="left"><th>Files</th><td>%(prefix)s (%(startframe)4d .. %(endframe)4d)</td></tr>
-<tr align="left"><th>Conditions</th><td>DelPhi= %(osc).3f&deg;, Exp= %(exptime).3f s, Distance= %(clen).1f mm (%(edgeresn).1f A), Att= %(att)s</td></tr>
-<tr align="left"><th>Excluded frames</th><td>%(exc_ranges)s</td></tr>
-"""
-        
         exc_ranges_strs = []
         for lr, rr in result["exclude_data_ranges"]:
             if lr==rr: exc_ranges_strs.append("%d"%lr)
@@ -1496,18 +1488,31 @@ class ResultLeftPanel(wx.Panel):
         exc_ranges = ", ".join(exc_ranges_strs)
         if not exc_ranges_strs: exc_ranges = "(none)"
 
+        html_str = """\
+<b>Quick Summary</b><br>
+<table>
+<tr align="left"><th>Files</th><td>%(prefix)s (%(startframe)4d .. %(endframe)4d)</td></tr>
+<tr align="left"><th>Conditions</th><td>DelPhi= %(osc).3f&deg;, Exp= %(exptime).3f s, Distance= %(clen).1f mm (%(edgeresn).1f A), Att= %(att)s</td></tr>
+<tr align="left"><th>Excluded frames</th><td>%(exc_ranges)s</td></tr>
+""" % locals()
+        
         ISa = "%.2f"%result["ISa"] if "ISa" in result else "n/a"
         cell_str = ", ".join(map(lambda x: "%.2f"%x,result["cell"])) if "cell" in result else "?"
         sg = result.get("sg", "?")
-        table = result.get("table_html", "empty")
 
         html_str += """\
 <tr align="left"><th>ISa</th><td>%(ISa)s</td></tr>
 <tr align="left"><th>Symmetry</th><td>%(sg)s :  %(cell_str)s</td></tr>
 </table>
-<pre>%(table)s</pre>
-"""
-        self.summaryHtml.SetPage(html_str % locals())
+""" % locals()
+        if "table_html" in result: html_str += "<pre>%s</pre>" % result["table_html"]
+        
+        decilog = os.path.join(result.get("workdir", ""), "decision.log")
+        if os.path.isfile(decilog):
+            log_lines = open(decilog).readlines()[2:-1]
+            html_str += "<br><br><b>Log</b><br><pre>%s</pre>" % "".join(log_lines)
+        
+        self.summaryHtml.SetPage(html_str)
     # update_summary()
 
 # class ResultLeftPanel
@@ -1808,6 +1813,15 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         print "ERROR: bl= is needed."
         return
 
+    app = wx.App()
+
+    from yamtbx.command_line import kamo_test_installation
+    if config.params.engine == "xds" and not kamo_test_installation.tst_xds():
+        if wx.MessageDialog(None, "You selected XDS, but XDS is not installed or expired at least in this computer. Proceed anyway?",
+                            "Warning", style=wx.OK|wx.CANCEL).ShowModal() == wx.ID_CANCEL:
+            return
+    
+    
     # Setup logging
     mylog.config(beamline=config.params.bl, log_root=config.params.log_root)
     mylog.info("Program started in %s." % os.getcwd())
@@ -1891,7 +1905,6 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     if config.params.xds.override.geometry_reference:
         bssjobs.load_override_geometry(config.params.xds.override.geometry_reference)
 
-    app = wx.App()
     mainFrame = MainFrame(parent=None, id=wx.ID_ANY)
     app.TopWindow = mainFrame
     app.MainLoop()
