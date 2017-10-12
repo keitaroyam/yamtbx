@@ -333,7 +333,7 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 
 ### KAMOを利用した研究
 
-* Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79)
+* Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-TPT-data-(5Y78-&-5Y79))
 * Tanaka *et al.* (2017) "Crystal Structure of a Plant Multidrug and Toxic Compound Extrusion Family Protein." *Structure* doi: [10.1016/j.str.2017.07.009](https://doi.org/10.1016/j.str.2017.07.009) PDB: [5XJJ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJJ)
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](https://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
 * Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>." *Nature* doi: [10.1038/nature23448](https://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-LPA6-data-(5XSZ))
@@ -343,6 +343,10 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-10-12
+   * kamo: XDSがexpireしている場合に警告を表示
+   * kamo.multi\_merge: d\_max=の指定が動くように修正
+   * kamo.auto\_multi\_merge: コマンドスクリプトをコミットし忘れてました
 * 2017-09-30
    * kamo.multi\_merge: summary, report html等でXSCALE.LPからR値,Completenessを読む際に小数点以下が捨てられていたバグを修正
    * kamo.multi\_merge: Pointlessの実行時間を短縮 (xscale.hklを予めP1でマージして螺旋判定)，全体の実行時間をログに記録

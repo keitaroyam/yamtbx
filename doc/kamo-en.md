@@ -329,7 +329,7 @@ As the paper is in preparation, please refer to this documentation URL: https://
 
 ### Researches which used KAMO 
 
-* Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79)
+* Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-TPT-data-(5Y78-&-5Y79))
 * Tanaka *et al.* (2017) "Crystal Structure of a Plant Multidrug and Toxic Compound Extrusion Family Protein." *Structure* doi: [10.1016/j.str.2017.07.009](https://doi.org/10.1016/j.str.2017.07.009) PDB: [5XJJ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJJ)
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](https://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
 * Taniguchi *et al.* (2017) "Structural insights into ligand recognition by the lysophosphatidic acid receptor LPA<sub>6</sub>." *Nature* doi: [10.1038/nature23448](https://doi.org/10.1038/nature23448) PDB: [5XSZ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XSZ) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-LPA6-data-(5XSZ))
@@ -338,6 +338,10 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2017-10-12
+   * kamo: show warning if XDS is expired
+   * kamo.multi\_merge: now d\_max= works
+   * kamo.auto\_multi\_merge: available now (missed commit)
 * 2017-09-30
    * kamo.multi\_merge: Fixed a bug in reading completeness and R-values from table of XSCALE.LP (numbers ignored after decimal point); so those numbers in summary and report html were a bit wrong (sorry)
    * kamo.multi\_merge: Pointless speed-up by giving data merged in P1 instead of xscale.hkl directly.
