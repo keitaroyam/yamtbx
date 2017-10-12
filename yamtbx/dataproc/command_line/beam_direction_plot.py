@@ -1,4 +1,5 @@
 import numpy
+import os
 from cctbx import sgtbx
 from cctbx import crystal
 from cctbx.crystal import reindex
@@ -7,8 +8,16 @@ from yamtbx.dataproc.xds import xds_ascii
 from yamtbx.util.xtal import abc_convert_real_reciprocal
 from yamtbx.util import read_path_list
 import iotbx.phil
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot as plt
+
 
 master_params_str = """
+input = None
+ .type = path
+ .multiple = true
+
 ref_cell = None
  .type = floats(size=6)
 ref_symm = None
@@ -125,8 +134,6 @@ ggsave("beam.png", p)
 # make_dat()
 
 def make_plot(angles, plot_out):
-    import matplotlib.pyplot as plt
-
     r = map(lambda x: 2*numpy.sin(x[0]/2.), angles)
     phi = map(lambda x: x[1], angles)
 
@@ -146,20 +153,20 @@ def make_plot(angles, plot_out):
     print "Plot written. See %s" % plot_out
 # make_plot()
 
-def run(params, args):
+def run(params):
     ref_xs = None
 
     if None not in (params.ref_cell, params.ref_symm):
         ref_xs = crystal.symmetry(params.ref_cell, params.ref_symm)
 
-    if len(args) == 1 and args[0].endswith(".lst"):
-        args = read_path_list(args[0])
+    if len(params.input) == 1 and params.input[0].endswith(".lst"):
+        params.input = read_path_list(params.input[0])
 
-    if len(args) == 0: return
+    if len(params.input) == 0: return
 
     angles = []
 
-    for arg in args:
+    for arg in params.input:
         if ".stream" in arg:            
             angles.extend(from_crystfel_stream(arg, ref_xs))
         elif xds_ascii.is_xds_ascii(arg):
@@ -191,9 +198,15 @@ Parameters:\
     cmdline = iotbx.phil.process_command_line(args=argv,
                                               master_string=master_params_str)
     params = cmdline.work.extract()
-    args = cmdline.remaining_args
 
-    run(params, args)
+    for arg in cmdline.remaining_args:
+        if os.path.isfile(arg):
+            params.input.append(arg)
+        else:
+            print "File not found:",arg
+            return
+
+    run(params)
 
 # run_from_args()
 if __name__ == "__main__":
