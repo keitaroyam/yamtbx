@@ -32,6 +32,7 @@ class ScanInfo:
         self.need_treatment_on_image_numbers = True # old bss does not write "dummy" lines in shutterless mode and therefore number in the logfile has offset from filename.
         self.filename_coords = [] # becomes dict later?
         self.filename_idxes = [] # for speed?
+        self.filename_tags = [] # for SACLA
     # __init__ ()
 
     def is_shutterless(self):
@@ -204,6 +205,8 @@ class BssDiffscanLog:
                 # XXX Need to check if the filename is already registered (file is overwritten!!)
                 self.scans[-1].filename_coords.append((filename, (gonio, grid_coord)))
                 self.scans[-1].filename_idxes.append((filename, num))
+                if len(l.split())==5: # for SACLA
+                    self.scans[-1].filename_tags.append((filename, int(l.split()[-1])))
                 self.filename_gonio_gc[os.path.basename(filename)] = (gonio, grid_coord)
     # parse()
 
@@ -231,7 +234,7 @@ class BssDiffscanLog:
     def get_grid_coord_internal(vpoint, vstep, hpoint, hstep, num, include_extra_files, scan_direction, scan_path):
         voffset = 0 if vpoint % 2 == 1 else -0.5
         hoffset = 0 if hpoint % 2 == 1 else -0.5
-
+        
         if vpoint == 1:
             # right -> left
             return (((hpoint//2 + 1) - num)*hstep, 0)
@@ -251,9 +254,11 @@ class BssDiffscanLog:
             if scan_direction in ("horizontal", None):
                 v = (num-1)//(hpoint+1)
                 h = (num-1)%(hpoint+1)
+                if h==hpoint: h = float("nan")
             else: # vertical
                 v = (num-1)%(vpoint+1)
                 h = (num-1)//(vpoint+1)
+                if v==vpoint: v = float("nan")
         else:
             if scan_direction in ("horizontal", None):
                 v = (num-1)//hpoint
@@ -277,7 +282,15 @@ class BssDiffscanLog:
 
     # get_grid_coord()
 
-    def calc_grid_coord(self, prefix, num):
+    def calc_grid_coord(self, prefix=None, num=None, filename=None):
+        if filename is not None:
+            assert (prefix, num).count(None)==2
+            bf = os.path.basename(filename)
+            prefix = bf[:bf.rindex("_")+1]
+            num = int(bf[bf.rindex("_")+1:bf.index(".")])
+        else:
+            assert None not in (prefix, num)
+            
         matched = filter(lambda x: x.get_prefix()==prefix, self.scans)
         if not matched: return None
         scan = matched[-1]
