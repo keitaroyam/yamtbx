@@ -343,6 +343,12 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-11-02
+   * KAMO: 空間群の選択方法を変更 (既知の格子が与えられている場合はスケーリングでそれを必ず使用．未知の場合はPointlessのProbabilityに基づいて選択). GUI起動時に既知格子の値をチェック．HTML reportのバグ修正．
+   * kamo.multi\_merge: frame\_ccを元のファイルでは無くxscale.hklを用いて計算するように変更
+   * kamo.multi\_merge: Pointlessの空間群がreference settingになっていない場合のバグを修正
+   * kamo.auto\_multi\_merge: batch.engine=sh時に動かなかったバグを修正．分解能決定のステップを細かく．
+   * kamo.resolve\_indexing\_ambiguity: 異常なファイルが含まれている場合に警告を表示．無視するオプションを追加．
 * 2017-10-12
    * kamo: XDSがexpireしている場合に警告を表示
    * kamo.multi\_merge: d\_max=の指定が動くように修正

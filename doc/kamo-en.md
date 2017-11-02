@@ -338,6 +338,12 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2017-11-02
+   * KAMO: method changed to choose space group (by default use given symmetry for scaling. if not given, choose pointless result with higher probability). sanity check of given symmetry when GUI started. bug fix in html report
+   * kamo.multi\_merge: calculate frame\_cc using xscale.hkl instead of original files
+   * kamo.multi\_merge: fixed a bug when pointless gave space group in non-reference setting
+   * kamo.auto\_multi\_merge: bug fix (did not work when batch.engine=sh), use finer step in resolution determination
+   * kamo.resolve\_indexing\_ambiguity: show warning if no reflections left and added option to ignore them
 * 2017-10-12
    * kamo: show warning if XDS is expired
    * kamo.multi\_merge: now d\_max= works
