@@ -37,6 +37,7 @@ class ReindexResolver:
         self.arrays = []
         self.best_operators = None
         self._representative_xs = None
+        self.bad_files = []
     # __init__()
 
     def representative_crystal_symmetry(self): return self._representative_xs
@@ -64,18 +65,34 @@ class ReindexResolver:
 
         print >>self.log_out, "\nReading"
         cells = []
+        bad_files, good_files = [], []
         for i, f in enumerate(self.xac_files):
             print >>self.log_out, "%4d %s" % (i, f)
             xac = XDS_ASCII(f, i_only=True)
+            self.log_out.write("     d_range: %6.2f - %5.2f" % xac.i_obs().resolution_range())
+            self.log_out.write(" n_ref=%6d" % xac.i_obs().size())
             xac.remove_rejected()
             a = xac.i_obs().resolution_filter(d_min=self.d_min)
             if self.min_ios is not None: a = a.select(a.data()/a.sigmas()>=self.min_ios)
+            self.log_out.write(" n_ref_filtered=%6d" % a.size())
             if from_p1:
                 a = a.change_basis(op_to_p1).customized_copy(space_group_info=sgtbx.space_group_info("P1"))
             a = a.as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
-            self.arrays.append(a)
-            cells.append(a.unit_cell().parameters())
+            self.log_out.write(" n_ref_merged=%6d\n" % a.size())
+            if a.size() < 2:
+                self.log_out.write("     !! WARNING !! number of reflections is dangerously small!!\n")
+                bad_files.append(f)
+            else:
+                self.arrays.append(a)
+                cells.append(a.unit_cell().parameters())
+                good_files.append(f)
 
+        if bad_files:
+            self.xac_files = good_files
+            self.bad_files = bad_files
+
+        assert len(self.xac_files) == len(self.arrays) == len(cells)
+            
         print >>self.log_out, ""
 
         self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
@@ -110,6 +127,7 @@ class ReindexResolver:
 
         new_files = []
         print >>self.log_out, "Writing reindexed files.."
+        assert len(self.xac_files) == len(self.best_operators)
         for i, (f, op) in enumerate(zip(self.xac_files, self.best_operators)):
             xac = XDS_ASCII(f, read_data=False)
             if op.is_identity_op():
@@ -263,11 +281,15 @@ class KabschSelectiveBreeding(ReindexResolver):
                         cc_means.append((j, sum(cc_list)/len(cc_list)))
                         #print  >>self.log_out, "DEBUG:", i, j, cc_list, cc_means[-1]
 
-                max_el = max(cc_means, key=lambda x:x[1])
-                print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_means)))
-                self._final_cc_means.append(cc_means)
-                #print "%.3f sec" % (time.time()-ttt)
-                new_ops[i] = max_el[0]
+                if cc_means:
+                    max_el = max(cc_means, key=lambda x:x[1])
+                    print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_means)))
+                    self._final_cc_means.append(cc_means)
+                    #print "%.3f sec" % (time.time()-ttt)
+                    new_ops[i] = max_el[0]
+                else:
+                    print >>self.log_out, "%3d %s Error! cannot calculate CC" % (i, " ".join(map(lambda x: " %d:    nan" % x, xrange(len(reidx_ops)))))
+                    # XXX append something to self._final_cc_means?
 
             print >>self.log_out, "In %4d cycle" % (ncycle+1)
             print >>self.log_out, "  old",old_ops

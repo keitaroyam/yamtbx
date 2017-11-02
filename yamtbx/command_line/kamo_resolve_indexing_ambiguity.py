@@ -30,6 +30,9 @@ nproc = 1
 dry_run = False
  .type = bool
  .help = If true, do not modify files
+skip_bad_files = False
+ .type = bool
+ .help = "Set true if you want to ignore bad files (too few reflections)"
 
 d_min = 3
  .type = float
@@ -117,6 +120,15 @@ def run(params):
     else:
         raise "Unknown method: %s" % params.method
 
+    if rb.bad_files:
+        print "%s: %d bad files are included:" % ("WARNING" if params.skip_bad_files else "ERROR", len(rb.bad_files))
+        for f in rb.bad_files: print "  %s" % f
+        if not params.skip_bad_files:
+            print
+            print "You may want to change d_min= or min_ios= parameters to include these files."
+            print "Alternatively, specify skip_bad_files=true to ignore these files (they are not included in output files)"
+            return
+    
     if params.method == "selective_breeding":
         rb.assign_operators(max_cycle=params.max_cycles)
     else:
