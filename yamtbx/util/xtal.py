@@ -57,8 +57,12 @@ class CellConstraints:
 
 def v6cell(cell):
     # taken from cctbx/uctbx/determine_unit_cell/target_uc.py
-    uc = cell.parameters()
     """ Take a reduced Niggli Cell, and turn it into the G6 representation """
+    if hasattr(cell, "parameters"):
+        uc = cell.parameters()
+    else:
+        uc = cell
+        
     a = uc[0] ** 2
     b = uc[1] ** 2
     c = uc[2] ** 2
@@ -72,6 +76,20 @@ def is_same_laue_symmetry(sg1, sg2):
     laue = lambda x: x.build_derived_reflection_intensity_group(anomalous_flag=False)
     return laue(sg1) == laue(sg2) # == comparison of space_group object is possible.
 # is_same_laue_symmetry()
+
+def is_enantiomorphic_space_group_pair(sg1, sg2):
+    if not sg1.type().is_enantiomorphic(): return False
+    if not sg2.type().is_enantiomorphic(): return False
+    
+    return sg1.info().change_hand().group() == sg2
+# is_enantiomorphic_space_group_pair()
+
+def is_same_space_group_ignoring_enantiomorph(sg1, sg2):
+    if sg1 == sg2: return True
+    if sg1.type().is_enantiomorphic() and sg2.type().is_enantiomorphic():
+        return sg1.info().change_hand().group() == sg2
+    return False
+# is_same_space_group_ignoring_enantiomorph()
 
 def abc_convert_real_reciprocal(a, b, c):
     V = numpy.dot(a, numpy.cross(b, c))

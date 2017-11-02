@@ -89,6 +89,9 @@ cell_prior {
           "correct_only: Use given symmetry in CORRECT. May be useful in recycling."
  check = true
   .type = bool
+ force = true
+  .type = bool
+  .help = "Force to use given symmetry in scaling"
  cell = None
   .type = floats(size=6)
  sgnum = 0
@@ -293,9 +296,15 @@ def xds_sequence(root, params):
     xdsinp = os.path.join(root, "XDS.INP")
 
     assert os.path.isfile(xdsinp)
-
+    if params.cell_prior.force: assert params.cell_prior.check
+    
     xdsinp_dict = dict(get_xdsinp_keyword(xdsinp))
 
+    if params.cell_prior.sgnum > 0:
+        xs_prior = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
+    else:
+        xs_prior = None
+        
     decilog = multi_out()
     decilog.register("log", open(os.path.join(root, "decision.log"), "a"), atexit_send_to=None)
     try:
@@ -390,8 +399,7 @@ def xds_sequence(root, params):
             if params.cell_prior.sgnum > 0:
                 # Check anyway
                 xsxds = XPARM(xparm).crystal_symmetry()
-                xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
-                cosets = reindex.reindexing_operators(xsref, xsxds,
+                cosets = reindex.reindexing_operators(xs_prior, xsxds,
                                                       params.cell_prior.tol_length, params.cell_prior.tol_angle)
                 if cosets.double_cosets is None:
                     if params.cell_prior.check:
@@ -419,7 +427,7 @@ def xds_sequence(root, params):
 
                     # Check again
                     xsxds = XPARM(xparm).crystal_symmetry()
-                    if not xsxds.unit_cell().is_similar_to(xsref.unit_cell(),
+                    if not xsxds.unit_cell().is_similar_to(xs_prior.unit_cell(),
                                                            params.cell_prior.tol_length, params.cell_prior.tol_angle):
                         print >>decilog, "  Resulted in different cell. Indexing failed."
                         return
@@ -467,27 +475,39 @@ def xds_sequence(root, params):
             revert_files(("XDS.INP",), bk_prefix, wdir=root, quiet=True)
 
         # Run pointless
-        symm_by_integrate = None
+        pointless_integrate = {}
         if params.use_pointless:
             worker = Pointless()
-            result = worker.run_for_symm(xdsin=integrate_hkl, 
-                                         logout=os.path.join(root, "pointless_integrate.log"))
-            if "symm" in result:
-                symm = result["symm"]
+            pointless_integrate = worker.run_for_symm(xdsin=integrate_hkl, 
+                                                      logout=os.path.join(root, "pointless_integrate.log"))
+            if "symm" in pointless_integrate:
+                symm = pointless_integrate["symm"]
                 print >>decilog, " pointless using INTEGRATE.HKL suggested", symm.space_group_info()
+                if xs_prior:
+                    if xtal.is_same_space_group_ignoring_enantiomorph(symm.space_group(), xs_prior.space_group()):
+                        print >>decilog, " which is consistent with given symmetry."
+                    elif xtal.is_same_laue_symmetry(symm.space_group(), xs_prior.space_group()):
+                        print >>decilog, " which has consistent Laue symmetry with given symmetry."
+                    else:
+                        print >>decilog, " which is inconsistent with given symmetry."
+
                 sgnum = symm.space_group_info().type().number()
                 cell = " ".join(map(lambda x:"%.2f"%x, symm.unit_cell().parameters()))
                 modify_xdsinp(xdsinp, inp_params=[("SPACE_GROUP_NUMBER", "%d"%sgnum),
                                                   ("UNIT_CELL_CONSTANTS", cell)])
-                symm_by_integrate = symm
             else:
                 print >>decilog, " pointless failed."
 
         flag_do_not_change_symm = False
-        if params.cell_prior.method == "correct_only":
+        
+        if xs_prior and params.cell_prior.force:
+            modify_xdsinp(xdsinp, inp_params=[("UNIT_CELL_CONSTANTS",
+                                               " ".join(map(lambda x: "%.3f"%x, params.cell_prior.cell))),
+                                              ("SPACE_GROUP_NUMBER", "%d"%params.cell_prior.sgnum)])
+            flag_do_not_change_symm = True
+        elif params.cell_prior.method == "correct_only":
             xsxds = XPARM(xparm).crystal_symmetry()
-            xsref = crystal.symmetry(params.cell_prior.cell, params.cell_prior.sgnum)
-            cosets = reindex.reindexing_operators(xsref, xsxds,
+            cosets = reindex.reindexing_operators(xs_prior, xsxds,
                                                   params.cell_prior.tol_length, params.cell_prior.tol_angle)
             if cosets.double_cosets is not None:
                 cell = xsxds.unit_cell().change_basis(cosets.combined_cb_ops()[0])
@@ -532,28 +552,43 @@ def xds_sequence(root, params):
         # Run pointless and (if result is different from INTEGRATE) re-scale.
         if params.use_pointless:
             worker = Pointless()
-            result = worker.run_for_symm(xdsin=xac_hkl,
-                                         logout=os.path.join(root, "pointless_correct.log"))
-            if "symm" in result:
-                symm = result["symm"]
+            pointless_correct = worker.run_for_symm(xdsin=xac_hkl,
+                                                    logout=os.path.join(root, "pointless_correct.log"))
+            pointless_best_symm = None
+
+            if "symm" in pointless_correct:
+                symm = pointless_correct["symm"]
                 need_rescale = False
 
-                if symm_by_integrate is not None:
+                if pointless_integrate.get("symm"):
+                    symm_by_integrate = pointless_integrate["symm"]
+                    
                     if not xtal.is_same_laue_symmetry(symm_by_integrate.space_group(), symm.space_group()):
                         print >>decilog, "pointless suggested %s, which is different Laue symmetry from INTEGRATE.HKL (%s)" % (symm.space_group_info(), symm_by_integrate.space_group_info())
-                        need_rescale = True
+                        prob_integrate = pointless_integrate.get("laue_prob", float("nan"))
+                        prob_correct = pointless_correct.get("laue_prob", float("nan"))
+
+                        print >>decilog, " Prob(%s |INTEGRATE), Prob(%s |CORRECT) = %.4f, %.4f." % (symm_by_integrate.space_group_info(),
+                                                                                                    symm.space_group_info(),
+                                                                                                    prob_integrate, prob_correct)
+                        if prob_correct > prob_integrate:
+                            need_rescale = True
+                            pointless_best_symm = symm
+                        else:
+                            pointless_best_symm = symm_by_integrate
                 else:
-                    print >>decilog, "pointless using XDS_ASCII.HKL suggested %s" % symm.space_group_info()
                     need_rescale = True
+                    pointless_best_symm = symm
+                    print >>decilog, "pointless using XDS_ASCII.HKL suggested %s" % symm.space_group_info()
+                    if xs_prior:
+                        if xtal.is_same_space_group_ignoring_enantiomorph(symm.space_group(), xs_prior.space_group()):
+                            print >>decilog, " which is consistent with given symmetry."
+                        elif xtal.is_same_laue_symmetry(symm.space_group(), xs_prior.space_group()):
+                            print >>decilog, " which has consistent Laue symmetry with given symmetry."
+                        else:
+                            print >>decilog, " which is inconsistent with given symmetry."
 
                 if need_rescale and not flag_do_not_change_symm:
-                    # make backup, and do correct and compare ISa
-                    # if ISa got worse, revert the result.
-                    backup_needed = ("XDS.INP", "XDS_ASCII_fullres.HKL","CORRECT_fullres.LP",
-                                     "merging_stats.pkl","merging_stats.log")
-                    backup_needed += xds_files.generated_by_CORRECT
-                    bk_prefix = make_backup(backup_needed, wdir=root, quiet=True)
-
                     sgnum = symm.space_group_info().type().number()
                     cell = " ".join(map(lambda x:"%.2f"%x, symm.unit_cell().parameters()))
                     modify_xdsinp(xdsinp, inp_params=[("JOB", "CORRECT"),
@@ -587,14 +622,18 @@ def xds_sequence(root, params):
 
                     if ISa >= last_ISa or last_ISa!=last_ISa: # if improved or last_ISa is nan
                         print >>decilog, "ISa improved= %.2f" % ISa
-                        remove_backups(backup_needed, bk_prefix, wdir=root)
                     else:
                         print >>decilog, "ISa got worse= %.2f" % ISa
-                        for f in backup_needed:
-                            if os.path.isfile(os.path.join(root, f)): os.remove(os.path.join(root, f))
 
-                        revert_files(backup_needed, bk_prefix, wdir=root, quiet=True)
-
+            if pointless_best_symm:
+                xac_symm = XPARM(gxparm).crystal_symmetry()
+                if not xtal.is_same_space_group_ignoring_enantiomorph(xac_symm.space_group(), pointless_best_symm.space_group()):
+                    if xtal.is_same_laue_symmetry(xac_symm.space_group(), pointless_best_symm.space_group()):
+                        tmp = "same Laue symmetry"
+                    else:
+                        tmp = "different Laue symmetry"
+                    print >>decilog, "WARNING: symmetry in scaling is different from Pointless result (%s)." % tmp
+                    
         run_xdsstat(wdir=root)
         print
         if params.make_report: html_report.make_individual_report(root, root)

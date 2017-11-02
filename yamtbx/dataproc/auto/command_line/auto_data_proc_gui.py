@@ -144,6 +144,9 @@ known {
           "use_first: Try indexing with prior information."
           "symm_constraint_only: Try indexing without prior information, and apply symmetry constraints for determined unit cell."
           "correct_only: Use given symmetry in CORRECT. May be useful in recycling."
+ force = true
+  .type = bool
+  .help = "Force to use given symmetry in scaling"
 }
 
 auto_frame_exclude_spot_based = false
@@ -605,6 +608,7 @@ class BssJobs:
             opts.append("cell_prior.cell=%s" % ",".join(map(lambda x: "%.3f"%x, config.params.known.unit_cell)))
             opts.append("cell_prior.sgnum=%d" % sgtbx.space_group_info(config.params.known.space_group).group().type().number())
             opts.append("cell_prior.method=%s" % config.params.known.method)
+            opts.append("cell_prior.force=%s" % config.params.known.force)
 
         # Start batch job
         job = batchjob.Job(workdir, "xds_auto.sh", nproc=config.params.batch.nproc_each)
@@ -1495,21 +1499,27 @@ class ResultLeftPanel(wx.Panel):
 <tr align="left"><th>Conditions</th><td>DelPhi= %(osc).3f&deg;, Exp= %(exptime).3f s, Distance= %(clen).1f mm (%(edgeresn).1f A), Att= %(att)s</td></tr>
 <tr align="left"><th>Excluded frames</th><td>%(exc_ranges)s</td></tr>
 """ % locals()
-        
+
+        decilog = os.path.join(result.get("workdir", ""), "decision.log")
+        log_lines = []
+        if os.path.isfile(decilog):
+            log_lines = open(decilog).readlines()[2:-1]
+            
         ISa = "%.2f"%result["ISa"] if "ISa" in result else "n/a"
         cell_str = ", ".join(map(lambda x: "%.2f"%x,result["cell"])) if "cell" in result else "?"
         sg = result.get("sg", "?")
-
+        symm_warning = ""
+        if log_lines and any(map(lambda x: "WARNING: symmetry in scaling is different from Pointless" in x, log_lines)):
+            symm_warning = " (WARNING: see log)"
+        
         html_str += """\
 <tr align="left"><th>ISa</th><td>%(ISa)s</td></tr>
-<tr align="left"><th>Symmetry</th><td>%(sg)s :  %(cell_str)s</td></tr>
+<tr align="left"><th>Symmetry</th><td>%(sg)s :  %(cell_str)s%(symm_warning)s</td></tr>
 </table>
 """ % locals()
         if "table_html" in result: html_str += "<pre>%s</pre>" % result["table_html"]
-        
-        decilog = os.path.join(result.get("workdir", ""), "decision.log")
-        if os.path.isfile(decilog):
-            log_lines = open(decilog).readlines()[2:-1]
+
+        if log_lines:
             html_str += "<br><br><b>Log</b><br><pre>%s</pre>" % "".join(log_lines)
         
         self.summaryHtml.SetPage(html_str)
@@ -1840,6 +1850,18 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     if (config.params.known.space_group, config.params.known.unit_cell).count(None) == 1:
         mylog.error("Specify both space_group and unit_cell!")
         return
+
+    # Test known crystal symmetry given
+    if config.params.known.space_group is not None:
+        try:
+            xs = crystal.symmetry(config.params.known.unit_cell, config.params.known.space_group)
+            if not xs.change_of_basis_op_to_reference_setting().is_identity_op():
+                xs_refset = xs.as_reference_setting()
+                mylog.error('Sorry. Currently space group in non-reference setting is not supported. In this case please give space_group=%s unit_cell="%s" instead.' % (str(xs_refset.space_group_info()).replace(" ",""), format_unit_cell(xs_refset.unit_cell())))
+                return
+        except:
+            mylog.error("Invalid crystal symmetry. Check space_group= and unit_cell=.")
+            return
 
     if config.params.xds.reverse_phi is not None:
         if config.params.xds.use_dxtbx: # rotation axis is determined by dxtbx
