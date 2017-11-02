@@ -21,6 +21,7 @@ rigid_group_q0 = q0
 rigid_group_collection_connected = q0
 rigid_group_collection_independent = q0
 
+q0/res = %(res).4f
 q0/min_fs = 0
 q0/max_fs = %(fsmax)d
 q0/min_ss = 0
@@ -30,7 +31,6 @@ q0/corner_y = %(cornery).2f
 q0/fs = -x
 q0/ss = -y
 q0/clen = %(clen)f
-q0/res = %(res).4f
 q0/adu_per_eV = /LCLS/adu_per_eV
 q0/max_adu = %(max_adu)d
 """ % dict(fsmax=h["size1"]-1, ssmax=h["size2"]-1,

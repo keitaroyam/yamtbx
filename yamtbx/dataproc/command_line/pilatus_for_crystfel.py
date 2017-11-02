@@ -34,6 +34,7 @@ nproc = 1
 
 def make_geom(header, geom_out):
     s = """\
+0/res = %(res).1f ; 1m /x micron
 0/min_fs = 0
 0/max_fs = %(fsmax)d
 0/min_ss = 0
@@ -43,7 +44,6 @@ def make_geom(header, geom_out):
 0/fs = -x
 0/ss = -y
 0/clen = %(clen)f
-0/res = %(res).1f ; 1m /x micron
 0/adu_per_eV = /LCLS/adu_per_eV
 0/max_adu = %(max_adu)d
 """ % dict(fsmax=header["Width"]-1, ssmax=header["Height"]-1,

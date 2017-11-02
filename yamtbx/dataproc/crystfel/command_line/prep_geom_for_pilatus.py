@@ -9,11 +9,11 @@ from yamtbx.dataproc import XIO
 def make_geom(header, geom_out):
     s = """\
 photon_energy = %(photon).4f
+p0/res = %(res).1f ; 1m /x micron
 p0/min_fs = 0
 p0/max_fs = %(fsmax)d
 p0/min_ss = 0
 p0/max_ss = %(ssmax)d
-p0/res = %(res).1f ; 1m /x micron
 p0/corner_x = %(cornerx).2f ; units are pixels
 p0/corner_y = %(cornery).2f
 p0/fs = -x
