@@ -206,7 +206,7 @@ OUTPUT_FILE= xscale.hkl
         for wd in glob.glob(os.path.join(self.workdir_org, "run_*")):
             if os.path.exists(os.path.join(wd, "ccp4")): continue
             xscale_hkl = os.path.abspath(os.path.join(wd, "xscale.hkl"))
-            sgnum = None # Use user-specified one. Otherwise follow pointless.
+            sg = None # Use user-specified one. Otherwise follow pointless.
             try:
                 sg = XDS_ASCII(xscale_hkl, read_data=False).symm.space_group()
                 laue_symm_str = str(sg.build_derived_reflection_intensity_group(False).info())
@@ -219,7 +219,7 @@ OUTPUT_FILE= xscale.hkl
                 if "symm" in result:
                     print >>self.out, "Pointless suggestion (forcing %s symmetry):" % laue_symm_str
                     result["symm"].show_summary(self.out, " ")
-                    sgnum = result["symm"].space_group_info().type().number()
+                    sg = str(result["symm"].space_group_info())
                 else:
                     print >>self.out, "Pointless failed."
             except:
@@ -227,14 +227,14 @@ OUTPUT_FILE= xscale.hkl
                 print >>self.out, traceback.format_exc()
 
             if self.space_group is not None:
-                sgnum = self.space_group.type().number()
+                sg = str(self.space_group.info())
 
             try:
                 xds2mtz.xds2mtz(xds_file=xscale_hkl,
                                 dir_name=os.path.join(wd, "ccp4"),
                                 run_xtriage=True, run_ctruncate=True,
                                 with_multiplicity=True,
-                                sgnum=sgnum,
+                                space_group=sg,
                                 flag_source=self.ref_mtz)
             except:
                 # Don't want to stop the program.

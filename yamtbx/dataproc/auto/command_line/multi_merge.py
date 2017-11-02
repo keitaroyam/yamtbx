@@ -470,6 +470,12 @@ def run(params):
         if laue_given != laues.keys()[0]:
             print >>out, "ERROR! user-specified space group (space_group=%s) is not compatible with input files (%s)" % (params.space_group, laues.keys()[0])
             return
+
+        sg_refset = space_group.info().as_reference_setting().group()
+        if space_group != sg_refset:
+            print >>out, "Sorry! currently space group in non-reference setting is not supported."
+            print >>out, "(You requested %s, which is different from reference setting: %s)" % (space_group.info(), sg_refset.info())
+            return
     else:
         tmp = sgtbx.space_group_info(laues.values()[0].keys()[0]).group().build_derived_reflection_intensity_group(True)
         print >>out, "Space group for merging:", tmp.info()

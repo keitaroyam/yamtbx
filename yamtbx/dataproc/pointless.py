@@ -36,12 +36,20 @@ def parse_pointless_output_for_symm(output):
     ret = {}
 
     best_symm, best_cell = None, None
+    read_flag = False
     for l in lines:
         if l.startswith("Best Solution:"):
             group_type = l.split()[2]
             assert group_type in ("point", "space") # How can we support Laue?
             best_symm = l[l.index("group")+6:].strip()
-        elif "Unit cell:" in l:
+            read_flag = True
+        elif read_flag and "Reindex operator:" in l:
+            tmp = l.split(":")[1]
+            tmp = tmp[tmp.index("[")+1:tmp.index("]")]
+            ret["reindex_op"] = sgtbx.change_of_basis_op(tmp)
+        elif read_flag and "Laue group probability:" in l:
+            ret["laue_prob"] = util.safe_float(l.split(":")[1])
+        elif read_flag and "Unit cell:" in l:
             r = re_cell.search(l)
             if r:
                 best_cell = map(float, r.groups())
@@ -111,8 +119,9 @@ class Pointless:
         return filein+"\n", wdir
     # input_str()
 
-    def run_for_symm(self, hklin=None, xdsin=None, logout=None, tolerance=None, d_min=None, choose_laue=None, xdsin_to_p1=False):
+    def run_for_symm(self, hklin=None, xdsin=None, logout=None, tolerance=None, d_min=None, choose_laue=None, xdsin_to_p1=False, setting="c2"):
         assert (hklin, xdsin).count(None) == 1
+        assert setting.lower().startswith(("c2", "cell", "symm"))
         tmpfile = None
 
         out = open(logout, "w") if logout else null_out()
@@ -136,9 +145,9 @@ class Pointless:
 
         # Need centre keyword?
         stdin = """\
-SETTING SYMMETRY-BASED
+SETTING %s
 %s
-""" % filein
+""" % (setting, filein)
 
         if tolerance is not None:
             stdin += "tolerance %f\n" % tolerance

@@ -27,6 +27,7 @@ from yamtbx.dataproc.xds import re_xds_kwd
 from yamtbx.dataproc.command_line import copy_free_R_flag
 from yamtbx.dataproc.command_line import create_free_R_flag
 import iotbx.mtz
+from cctbx import sgtbx
 
 def run_xtriage_in_module_if_possible(args,  wdir):
     try:
@@ -44,19 +45,19 @@ def run_xtriage_in_module_if_possible(args,  wdir):
              stdin=None, stdout=sys.stdout, wdir=wdir)
 # run_xtriage()
 
-def unique(mtzin, mtzout, wdir, logout):
+def unique(mtzin, mtzout, sg, wdir, logout):
     ##
     # unique -> cad -> mtzutil (EXCLUDE FUNI SIGFUNI)
     #
     m = mtzutil.MtzFile(os.path.join(wdir,mtzin))
     cell = m.get_cell_str()
-    sg = m.get_spacegroup()[1]
+    sg_org = m.get_spacegroup()[1]
     resol = min(m.get_resolution())
 
     call(cmd="unique",
          arg="hklout unique.mtz",
          wdir=wdir,
-         stdin="CELL %s\nSYMMETRY '%s'\nLABOUT F=FUNI SIGF=SIGFUNI\nRESOLUTION %f" % (cell, sg, resol),
+         stdin="CELL %s\nSYMMETRY '%s'\nLABOUT F=FUNI SIGF=SIGFUNI\nRESOLUTION %f" % (cell, sg_org, resol),
          expects_in=[],
          expects_out=["unique.mtz"],
          stdout=logout,
@@ -74,7 +75,7 @@ def unique(mtzin, mtzout, wdir, logout):
     call(cmd="mtzutils",
          arg="hklin %s hklout %s" % ("unique_cad.mtz", mtzout),
          wdir=wdir,
-         stdin="EXCLUDE FUNI SIGFUNI\nRUN\n",
+         stdin="EXCLUDE FUNI SIGFUNI\nSYMMETRY %s\nRUN\n" % sg,
          expects_in=["unique_cad.mtz"],
          expects_out=[mtzout],
          stdout=logout,
@@ -85,29 +86,35 @@ def unique(mtzin, mtzout, wdir, logout):
 
 # unique()
 
-def xds2mtz_normal(refl, mtzout, sg, wavelen, logout, use_ctruncate=False, dmin=None, dmax=None):
+def prep_xdsconv_inp(wdir, hklin, out_type, anom_flag, dmin, dmax):
+    ofs = open(os.path.join(wdir, "XDSCONV.INP"), "w")
+    ofs.write("OUTPUT_FILE=tmp.hkl %s\n" % out_type)
+    ofs.write("INPUT_FILE=%s\n" % hklin)
+    ofs.write("GENERATE_FRACTION_OF_TEST_REFLECTIONS=0.0\n")
+    ofs.write("WILSON_STATISTICS= TRUE\n")
+    ofs.write("FRIEDEL'S_LAW= %s\n" % ("FALSE" if anom_flag else "TRUE"))
+
+    if None not in (dmin, dmax):
+        ofs.write("INCLUDE_RESOLUTION_RANGE= %s %s\n" % (dmax, dmin))
+
+    ofs.close()
+# prep_xdsconv_inp()
+
+def xds2mtz_work(refl, mtzout, sg, wavelen, logout, anom_flag, use_ctruncate=False, dmin=None, dmax=None):
     wdir = os.path.dirname(mtzout)
 
     if not os.path.exists(os.path.join(wdir, "original")):
         os.symlink(refl, os.path.join(wdir, "original"))
-
 
     ##
     # prepare XDSCONV.INP and run
     #
 
     # for I
-    print "generating MTZ for IMEAN,SIGIMEAN"
+    logout.write("generating MTZ for %s\n" % ("I(+),I(-),SIGI(+),SIGI(-)" if anom_flag else "IMEAN,SIGIMEAN"))
+    logout.flush()
 
-    ofs = open(os.path.join(wdir, "XDSCONV.INP"), "w")
-    ofs.write("OUTPUT_FILE=tmp.hkl CCP4_I\n")
-    ofs.write("INPUT_FILE=original\n")
-    ofs.write("GENERATE_FRACTION_OF_TEST_REFLECTIONS=0.0\n")
-    ofs.write("WILSON_STATISTICS= TRUE\n")
-    if None not in (dmin, dmax):
-        ofs.write("INCLUDE_RESOLUTION_RANGE= %s %s\n" % (dmax, dmin))
-
-    ofs.close()
+    prep_xdsconv_inp(wdir, "original", "CCP4_I", anom_flag, dmin, dmax)
 
     call(cmd="xdsconv",
          wdir=wdir,
@@ -126,10 +133,12 @@ def xds2mtz_normal(refl, mtzout, sg, wavelen, logout, use_ctruncate=False, dmin=
          )
 
     # for F
-    print "generating MTZ for FP,SIGFP"
+    logout.write("generating MTZ for %s\n" % ("F(+),F(-),SIGF(+),SIGF(-)" if anom_flag else "F,SIGF"))
+    logout.flush()
     ctruncate_ok = False
     if use_ctruncate:
-        call(cmd="ctruncate -hklin CCP4_I.mtz -hklout ctruncate.mtz -colin '/*/*/[IMEAN,SIGIMEAN]'",
+        cmd_add = " -colano '/*/*/[I(+),SIGI(+),I(-),SIGI(-)]'" if anom_flag else ""
+        call(cmd="ctruncate -hklin CCP4_I.mtz -hklout ctruncate.mtz -colin '/*/*/[IMEAN,SIGIMEAN]'"+cmd_add,
              wdir=wdir,
              expects_in=["CCP4_I.mtz"],
              stdout=open(os.path.join(wdir, "ctruncate.log"), "w")
@@ -141,177 +150,23 @@ def xds2mtz_normal(refl, mtzout, sg, wavelen, logout, use_ctruncate=False, dmin=
             call(cmd="cad",
                  arg="hklin1 ctruncate.mtz hklout CCP4_FI.mtz",
                  stdin="""\
-    labin file 1 all
-    xname file 1 ALL=XDS
-    dname file 1 ALL=XDS
-    dwavelength file 1 XDS XDS %s
-    symmetry %s
-    end
-    """%(wavelen,sg),
-                 wdir=wdir,
-                 expects_in=["ctruncate.mtz"],
-                 expects_out=["CCP4_FI.mtz"],
-                 stdout=logout
-                 )
-        else:
-            print "Ctruncate failed. Use xdsconv instead."
-
-    if not ctruncate_ok:
-        ofs = open(os.path.join(wdir, "XDSCONV.INP"), "w")
-        ofs.write("OUTPUT_FILE=tmp.hkl CCP4_F\n")
-        ofs.write("INPUT_FILE=original\n")
-        ofs.write("GENERATE_FRACTION_OF_TEST_REFLECTIONS=0.0\n")
-        ofs.write("WILSON_STATISTICS= TRUE\n")
-        if None not in (dmin, dmax):
-            ofs.write("INCLUDE_RESOLUTION_RANGE= %s %s\n" % (dmax, dmin))
-
-        ofs.close()
-
-        call(cmd="xdsconv",
-             wdir=wdir,
-             expects_in=["original"],
-             expects_out=["F2MTZ.INP", "tmp.hkl"],
-             stdout=logout
-             )
-
-        call(cmd="f2mtz",
-             arg="hklout CCP4_F.mtz",
-             stdin=open(os.path.join(wdir, "F2MTZ.INP")).read(),
-             wdir=wdir,
-             expects_in=["tmp.hkl"],
-             expects_out=["CCP4_F.mtz"],
-             stdout=logout
-             )
-
-        ##
-        # CAD all mtz files
-        print "concatenating MTZ files"
-
-        call(cmd="cad",
-             arg="hklin1 CCP4_I.mtz hklin2 CCP4_F.mtz hklout CCP4_FI.mtz",
-             stdin="""\
 labin file 1 all
-labin file 2 all
 xname file 1 ALL=XDS
-xname file 2 ALL=XDS
 dname file 1 ALL=XDS
-dname file 2 ALL=XDS
 dwavelength file 1 XDS XDS %s
-symmetry %s
 end
-"""%(wavelen,sg),
-             wdir=wdir,
-             expects_in=["CCP4_I.mtz", "CCP4_F.mtz"],
-             expects_out=["CCP4_FI.mtz"],
-             stdout=logout
-             )
-
-    ##
-    # Generate all unique reflections
-    print "Genrating all unique reflections"
-    unique(mtzin="CCP4_FI.mtz", mtzout=os.path.basename(mtzout), wdir=wdir, logout=logout)
-
-
-    # remove files
-    os.remove(os.path.join(wdir, "CCP4_I.mtz"))
-    os.remove(os.path.join(wdir, "CCP4_FI.mtz"))
-    os.remove(os.path.join(wdir, "tmp.hkl"))
-    os.remove(os.path.join(wdir, "XDSCONV.INP"))
-    os.remove(os.path.join(wdir, "XDSCONV.LP"))
-    os.remove(os.path.join(wdir, "F2MTZ.INP"))
-    os.remove(os.path.join(wdir, "original"))
-
-    if ctruncate_ok:
-        os.remove(os.path.join(wdir, "ctruncate.mtz"))
-    else:
-        os.remove(os.path.join(wdir, "CCP4_F.mtz"))
-
-
-# xds2mtz_anom()
-
-def xds2mtz_anom(refl, mtzout, sg, wavelen, logout, use_ctruncate=False, dmin=None, dmax=None):
-    wdir = os.path.dirname(mtzout)
-
-    if not os.path.exists(os.path.join(wdir, "original")):
-        os.symlink(refl, os.path.join(wdir, "original"))
-
-
-    ##
-    # prepare XDSCONV.INP and run
-
-    # for I(+), I(-), SIGI(+), SIGI(-)
-    print "generating MTZ for I(+), I(-), SIGI(+), SIGI(-)"
-
-    ofs = open(os.path.join(wdir, "XDSCONV.INP"), "w")
-    ofs.write("OUTPUT_FILE=tmp.hkl CCP4_I\n")
-    ofs.write("INPUT_FILE=original\n")
-    ofs.write("GENERATE_FRACTION_OF_TEST_REFLECTIONS=0.0\n")
-    ofs.write("WILSON_STATISTICS= TRUE\n")
-    ofs.write("FRIEDEL'S_LAW= FALSE\n")
-    if None not in (dmin, dmax):
-        ofs.write("INCLUDE_RESOLUTION_RANGE= %s %s\n" % (dmax, dmin))
-
-    ofs.close()
-
-    call(cmd="xdsconv",
-         wdir=wdir,
-         expects_in=["original"],
-         expects_out=["F2MTZ.INP", "tmp.hkl"],
-         stdout=logout
-         )
-
-    call(cmd="f2mtz",
-         arg="hklout CCP4_I.mtz",
-         stdin=open(os.path.join(wdir, "F2MTZ.INP")).read(),
-         wdir=wdir,
-         expects_in=["tmp.hkl"],
-         expects_out=["CCP4_I.mtz"],
-         stdout=logout
-         )
-
-
-    # for F(+), F(-), SIGF(+), SIGF(-)
-    print "generating MTZ for F(+), F(-), SIGF(+), SIGF(-)"
-    ctruncate_ok = False
-    if use_ctruncate:
-        call(cmd="ctruncate -hklin CCP4_I.mtz -hklout ctruncate.mtz -colin '/*/*/[IMEAN,SIGIMEAN]' -colano '/*/*/[I(+),SIGI(+),I(-),SIGI(-)]'",
-             wdir=wdir,
-             expects_in=["CCP4_I.mtz"],
-             stdout=open(os.path.join(wdir, "ctruncate.log"), "w")
-             )
-
-        ctruncate_ok = os.path.isfile(os.path.join(wdir, "ctruncate.mtz"))
-
-        if ctruncate_ok:
-            call(cmd="cad",
-                 arg="hklin1 ctruncate.mtz hklout CCP4_FI.mtz",
-                 stdin="""\
-    labin file 1 all
-    xname file 1 ALL=XDS
-    dname file 1 ALL=XDS
-    dwavelength file 1 XDS XDS %s
-    symmetry %s
-    end
-    """%(wavelen,sg),
+    """%(wavelen),
                  wdir=wdir,
                  expects_in=["ctruncate.mtz"],
                  expects_out=["CCP4_FI.mtz"],
                  stdout=logout
                  )
         else:
-            print "Ctruncate failed. Use xdsconv instead."
+            logout.write("Ctruncate failed. Use xdsconv instead.\n")
+            logout.flush()
 
     if not ctruncate_ok:
-        ofs = open(os.path.join(wdir, "XDSCONV.INP"), "w")
-        ofs.write("OUTPUT_FILE=tmp.hkl CCP4_F\n")
-        ofs.write("INPUT_FILE=original\n")
-        ofs.write("GENERATE_FRACTION_OF_TEST_REFLECTIONS=0.0\n")
-        ofs.write("WILSON_STATISTICS= TRUE\n")
-        ofs.write("FRIEDEL'S_LAW= FALSE\n")
-        if None not in (dmin, dmax):
-            ofs.write("INCLUDE_RESOLUTION_RANGE= %s %s\n" % (dmax, dmin))
-
-        ofs.close()
+        prep_xdsconv_inp(wdir, "original", "CCP4_F", anom_flag, dmin, dmax)
 
         call(cmd="xdsconv",
              wdir=wdir,
@@ -322,48 +177,44 @@ def xds2mtz_anom(refl, mtzout, sg, wavelen, logout, use_ctruncate=False, dmin=No
 
         call(cmd="f2mtz",
              arg="hklout CCP4_F.mtz",
-             stdin=open(os.path.join(wdir, "F2MTZ.INP")).read(),
+             stdin=open(os.path.join(wdir, "F2MTZ.INP")).read().replace("FP","F"), # for ctruncate-comatibility
              wdir=wdir,
              expects_in=["tmp.hkl"],
              expects_out=["CCP4_F.mtz"],
              stdout=logout
              )
 
+        if anom_flag:
+            # for DANO, ISYM
+            logout.write("generating MTZ for DANO, ISYM\n")
+            logout.flush()
 
-        # for DANO, ISYM
-        print "generating MTZ for DANO, ISYM"
+            
+            prep_xdsconv_inp(wdir, "original", "CCP4", anom_flag, dmin, dmax)
 
-        ofs = open(os.path.join(wdir, "XDSCONV.INP"), "w")
-        ofs.write("OUTPUT_FILE=tmp.hkl CCP4\n")
-        ofs.write("INPUT_FILE=original\n")
-        ofs.write("GENERATE_FRACTION_OF_TEST_REFLECTIONS=0.0\n")
-        ofs.write("WILSON_STATISTICS= TRUE\n")
-        ofs.write("FRIEDEL'S_LAW= FALSE\n")
-        ofs.close()
+            call(cmd="xdsconv",
+                 wdir=wdir,
+                 expects_in=["original"],
+                 expects_out=["F2MTZ.INP", "tmp.hkl"],
+                 stdout=logout
+                 )
 
-        call(cmd="xdsconv",
-             wdir=wdir,
-             expects_in=["original"],
-             expects_out=["F2MTZ.INP", "tmp.hkl"],
-             stdout=logout
-             )
-
-        call(cmd="f2mtz",
-             arg="hklout CCP4.mtz",
-             stdin=open(os.path.join(wdir, "F2MTZ.INP")).read(),
-             wdir=wdir,
-             expects_in=["tmp.hkl"],
-             expects_out=["CCP4.mtz"],
-             stdout=logout
-             )
-
-        ##
-        # CAD all mtz files
-        print "concatenating MTZ files"
-
-        call(cmd="cad",
-             arg="hklin1 CCP4_I.mtz hklin2 CCP4_F.mtz hklin3 CCP4.mtz hklout CCP4_FI.mtz",
-             stdin="""\
+            call(cmd="f2mtz",
+                 arg="hklout CCP4.mtz",
+                 stdin=open(os.path.join(wdir, "F2MTZ.INP")).read(),
+                 wdir=wdir,
+                 expects_in=["tmp.hkl"],
+                 expects_out=["CCP4.mtz"],
+                 stdout=logout
+                 )
+            
+            # CAD all mtz files
+            logout.write("concatenating MTZ files\n")
+            logout.flush()
+        
+            call(cmd="cad",
+                 arg="hklin1 CCP4_I.mtz hklin2 CCP4_F.mtz hklin3 CCP4.mtz hklout CCP4_FI.mtz",
+                 stdin="""\
 labin file 1 all
 labin file 2 all
 labin file 3 E1=DANO E2=SIGDANO E3=ISYM
@@ -374,19 +225,41 @@ dname file 1 ALL=XDS
 dname file 2 ALL=XDS
 dname file 3 ALL=XDS
 dwavelength file 1 XDS XDS %s
-symmetry %s
 end
-"""%(wavelen,sg),
-             wdir=wdir,
-             expects_in=["CCP4_I.mtz", "CCP4_F.mtz", "CCP4.mtz"],
-             expects_out=["CCP4_FI.mtz"],
-             stdout=logout
-             )
+"""%(wavelen),
+                 wdir=wdir,
+                 expects_in=["CCP4_I.mtz", "CCP4_F.mtz", "CCP4.mtz"],
+                 expects_out=["CCP4_FI.mtz"],
+                 stdout=logout
+                 )
+        else:
+            ##
+            # CAD all mtz files
+            logout.write("concatenating MTZ files\n")
+            logout.flush()
+            
+            call(cmd="cad",
+                 arg="hklin1 CCP4_I.mtz hklin2 CCP4_F.mtz hklout CCP4_FI.mtz",
+                 stdin="""\
+labin file 1 all
+labin file 2 all
+xname file 1 ALL=XDS
+xname file 2 ALL=XDS
+dname file 1 ALL=XDS
+dname file 2 ALL=XDS
+dwavelength file 1 XDS XDS %s
+end
+"""%(wavelen),
+                 wdir=wdir,
+                 expects_in=["CCP4_I.mtz", "CCP4_F.mtz"],
+                 expects_out=["CCP4_FI.mtz"],
+                 stdout=logout
+            )
 
     ##
     # Generate all unique reflections
     print "Genrating all unique reflections"
-    unique(mtzin="CCP4_FI.mtz", mtzout=os.path.basename(mtzout), wdir=wdir, logout=logout)
+    unique(mtzin="CCP4_FI.mtz", mtzout=os.path.basename(mtzout), sg=sg, wdir=wdir, logout=logout)
 
     # remove files
     os.remove(os.path.join(wdir, "CCP4_I.mtz"))
@@ -401,10 +274,10 @@ end
         os.remove(os.path.join(wdir, "ctruncate.mtz"))
     else:
         os.remove(os.path.join(wdir, "CCP4_F.mtz"))
-        os.remove(os.path.join(wdir, "CCP4.mtz"))
+        if anom_flag: os.remove(os.path.join(wdir, "CCP4.mtz"))
 
+# xds2mtz_work()
 
-# xds2mtz_anom()
 
 def add_multi(xds_file, workmtz, dmin=None, dmax=None, force_anomalous=False):
     from yamtbx.dataproc.xds import xds_ascii
@@ -472,7 +345,7 @@ def add_test_flag(workmtz, preferred_fraction=0.05, max_fraction=0.1, max_free=2
                            ccp4=ccp4_style, use_lattice_symmetry=use_lattice_symmetry, log_out=log_out)
 # add_test_flag()
 
-def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=False, dmin=None, dmax=None, force_anomalous=False, with_multiplicity=False, sgnum=None, flag_source=None, add_flag=False):
+def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=False, dmin=None, dmax=None, force_anomalous=False, with_multiplicity=False, space_group=None, flag_source=None, add_flag=False):
     if hklout is None:
         hklout = os.path.splitext(os.path.basename(xds_file))[0] + ".mtz"
 
@@ -495,73 +368,58 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
             if k == "X-RAY_WAVELENGTH":
                 header["X-RAY_WAVELENGTH"] = v.strip() # XXX could be wrong if XSCALE result
 
-    if force_anomalous:
-        header["FRIEDEL'S_LAW"] = "FALSE"
+    anom_flag = header["FRIEDEL'S_LAW"] == "FALSE"
+    if force_anomalous: anom_flag = True
 
-    if sgnum is not None:
-        header["SPACE_GROUP_NUMBER"] = str(sgnum)
 
+    sginfo_org = sgtbx.space_group_info(header["SPACE_GROUP_NUMBER"])
+    
+    if space_group:
+        sginfo = sgtbx.space_group_info(space_group)
+    else:
+        sginfo = sginfo_org
+        
     # make output directory
     if not os.path.isdir(dir_name):
         os.makedirs(dir_name)
 
+    print "Header information read from", xds_file
+    for k in header:
+        print k, "=", header[k]
+    print
+    
     logout = open(os.path.join(dir_name, "xds2mtz.log"), "w")
     print >>logout, "xds2mtz.py running in %s" % os.getcwd()
     print >>logout, "output directory: %s" % dir_name
     print >>logout, "original file: %s" % xds_file
     print >>logout, "flag_source: %s" % flag_source
-    print >>logout, "space group number specified: %s" % sgnum
-
-    print "Header information read from", xds_file
-
-    for k in header:
-        print k, "=", header[k]
-
-    print
-
-    ##
-    # convert to MTZ
-    print >>logout, "FRIEDEL'S_LAW= %s" % header["FRIEDEL'S_LAW"]
+    print >>logout, "space group: %s (SPACE_GROUP_NUMBER=%s; requested space_group=%s)" % (sginfo, header.get("SPACE_GROUP_NUMBER",""), space_group)
+    if sginfo_org.group().build_derived_reflection_intensity_group(False) != sginfo.group().build_derived_reflection_intensity_group(False):
+        print >>logout, "  WARNING!! specified space group is incompatible with original file (%s)." % sginfo_org
+    print >>logout, "anomalous: %s (FRIEDEL'S_LAW=%s force_anomalous=%s)" % (anom_flag, header["FRIEDEL'S_LAW"], force_anomalous)
     print >>logout, ""
     logout.flush()
 
-    if header["FRIEDEL'S_LAW"] == "TRUE":
-        print xds_file, "is not anomalous dataset."
-        print
+    ##
+    # convert to MTZ
+    xds2mtz_work(xds_file,
+                 mtzout=os.path.join(dir_name, hklout),
+                 sg=str(sginfo).replace(" ",""),
+                 wavelen=header.get("X-RAY_WAVELENGTH","0"),
+                 logout=logout,
+                 anom_flag=anom_flag,
+                 use_ctruncate=run_ctruncate,
+                 dmin=dmin, dmax=dmax)
 
-        xds2mtz_normal(xds_file,
-                       mtzout=os.path.join(dir_name, hklout),
-                       sg=header["SPACE_GROUP_NUMBER"],
-                       wavelen=header.get("X-RAY_WAVELENGTH","0"),
-                       logout=logout,
-                       use_ctruncate=run_ctruncate,
-                       dmin=dmin, dmax=dmax)
-        if run_xtriage:
-            print "Running xtriage.."
-            run_xtriage_in_module_if_possible(args=[hklout], wdir=dir_name)
+    if run_xtriage:
+        print "Running xtriage.."
+        args = [hklout]
+        if anom_flag: args.append('input.xray_data.obs_labels="I(+),SIGI(+),I(-),SIGI(-)"')
+        run_xtriage_in_module_if_possible(args=args, wdir=dir_name)
 
-        if with_multiplicity:
-            add_multi(xds_file, os.path.join(dir_name, hklout),
-                      dmin=dmin, dmax=dmax, force_anomalous=False)
-
-    else:
-        print xds_file, "is anomalous dataset."
-        print
-        xds2mtz_anom(xds_file,
-                     mtzout=os.path.join(dir_name, hklout),
-                     sg=header["SPACE_GROUP_NUMBER"],
-                     wavelen=header.get("X-RAY_WAVELENGTH","0"),
-                     logout=logout,
-                     use_ctruncate=run_ctruncate,
-                     dmin=dmin, dmax=dmax)
-        if run_xtriage:
-            print "Running xtriage.."
-            run_xtriage_in_module_if_possible(args=[hklout, 'input.xray_data.obs_labels="I(+),SIGI(+),I(-),SIGI(-)"'],
-                        wdir=dir_name)
-
-        if with_multiplicity:
-            add_multi(xds_file, os.path.join(dir_name, hklout),
-                      dmin=dmin, dmax=dmax, force_anomalous=True)
+    if with_multiplicity:
+        add_multi(xds_file, os.path.join(dir_name, hklout),
+                  dmin=dmin, dmax=dmax, force_anomalous=anom_flag)
 
     if flag_source is not None:
         copy_test_flag(os.path.join(dir_name, hklout), flag_source, log_out=logout)
@@ -583,7 +441,7 @@ if __name__ == "__main__":
     parser.add_option("--dmax", action="store", dest="dmax", help="low resolution cutoff") # as str
     parser.add_option("--copy-test-flag","-r", action="store", dest="flag_source", help="")
     parser.add_option("--add-test-flag", action="store_true", dest="add_flag", help="")
-    parser.add_option("--space-group", action="store", type=int, dest="sgnum", help="Space group number")
+    parser.add_option("--space-group", action="store", type=str, dest="sg", help="Space group number or name")
 
     (opts, args) = parser.parse_args(sys.argv)
 
@@ -605,5 +463,5 @@ if __name__ == "__main__":
             dmin=opts.dmin, dmax=opts.dmax, force_anomalous=opts.anomalous,
             with_multiplicity=opts.make_mtzmulti,
             flag_source=opts.flag_source, add_flag=opts.add_flag,
-            sgnum=opts.sgnum)
+            space_group=opts.sg)
 
