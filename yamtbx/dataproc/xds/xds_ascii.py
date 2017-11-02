@@ -230,7 +230,7 @@ class XDS_ASCII:
     def remove_selection(self, sel):
         params = ("indices", "iobs", "sigma_iobs")
         if not self.i_only:
-            params += ("xd", "yd", "zd", "rlp", "peak", "corr", "iframe")
+            params += ("xd", "yd", "zd", "rlp", "peak", "corr", "iframe", "iset")
 
         for p in params:
             if not getattr(self, p): continue

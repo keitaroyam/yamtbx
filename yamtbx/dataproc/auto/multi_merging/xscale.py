@@ -414,8 +414,7 @@ OUTPUT_FILE= xscale.hkl
 
             # list of [frame, n_all, n_common, cc] in the same order
             framecc = xscale_cc_against_merged.run(hklin=os.path.join(self.workdir, "xscale.hkl"),
-                                                   output_dir=self.workdir,
-                                                   nproc=self.nproc).values()
+                                                   output_dir=self.workdir).values()
             if self.reject_params.framecc.method == "tukey":
                 ccs = numpy.array(map(lambda x: x[3], reduce(lambda x,y:x+y,framecc)))
                 ccs = ccs[ccs==ccs] # Remove nan
