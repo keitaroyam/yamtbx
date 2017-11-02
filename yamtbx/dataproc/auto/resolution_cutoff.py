@@ -131,8 +131,8 @@ class estimate_resolution_based_on_cc_half:
       upper_bound = d_min
       lower_bound = d_min
 
-      for i in xrange(1,30):
-        if d_min-.1*i <= self.d_min_data: break
+      for i in xrange(1,300):
+        if d_min-.01*i <= self.d_min_data: break
         lower_bound = d_min-.1*i
         cc = self.cc_outer_shell(lower_bound)
         self.log_out.write("  CC1/2= %.4f at %.4f A\n" %(cc, d_min-.1*i))
@@ -140,8 +140,8 @@ class estimate_resolution_based_on_cc_half:
           break
     else:
       lower_bound = d_min
-      for i in xrange(1,30):
-        upper_bound = d_min+.1*i
+      for i in xrange(1,300):
+        upper_bound = d_min+.01*i
         cc = self.cc_outer_shell(upper_bound)
         self.log_out.write("  CC1/2= %.4f at %.4f A\n" %(cc, d_min+.1*i))
         if cc >= self.cc_half_min:
