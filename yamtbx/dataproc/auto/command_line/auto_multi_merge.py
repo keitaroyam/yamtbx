@@ -79,6 +79,9 @@ batch {
  nproc_each = 1
   .type = int
   .help = maximum number of cores used for single data processing
+ sh_max_jobs = 1
+  .type = int
+  .help = maximum number of concurrent jobs when engine=sh
 }
 """ % multi_merge.master_params_str
 
@@ -110,8 +113,7 @@ def read_sample_info(csvin, datadir=None):
             ddirs = glob.glob(os.path.join(rdir, "%s-%s-%.2d" % (uname, puck, pin)))
         else:
             tmp = os.path.expanduser(vals[hidxes["topdir"]].strip())
-            if "*" in tmp: ddirs = glob.glob(tmp)
-            else: ddirs = [tmp]
+            ddirs = glob.glob(tmp)
 
         sample_name = vals[hidxes["name"]].strip()
 
@@ -381,7 +383,7 @@ def run(params):
     if params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)
     elif params.batch.engine == "sh":
-        batchjobs = batchjob.ExecLocal()
+        batchjobs = batchjob.ExecLocal(max_parallel=params.batch.sh_max_jobs)
     else:
         batchjobs = None
 
