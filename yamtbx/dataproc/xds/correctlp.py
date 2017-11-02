@@ -81,8 +81,10 @@ class CorrectLp:
         reading = ""
         self.table = {}
         self.error_table = {}
-        self.space_group, self.unit_cell, self.unit_cell_esd = None, None, None
-        self.a_b_ISa = [float("nan"), float("nan"),float("nan")]
+        self.space_group = None
+        self.unit_cell = map(lambda x: float("nan"), xrange(6))
+        self.unit_cell_esd = map(lambda x: float("nan"), xrange(6))
+        self.a_b_ISa = map(lambda x: float("nan"), xrange(3))
         self.snippets = {}
 
         lines = open(lpin).readlines()
