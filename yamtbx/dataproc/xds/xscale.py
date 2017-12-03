@@ -38,6 +38,55 @@ def run_xscale(d_min=None, d_max=100, nbins=9, anomalous_flag=None, min_ios=None
         inp_out.write("SPACE_GROUP_NUMBER= %s\nUNIT_CELL_CONSTANTS= %s\n\n" % (sg, cell))
     """
 
+def get_input_file_paths(xscale_inp):
+    """
+    Return the list of input files (abspath) and the index of reference file (marked by *)
+    """
+    paths = []
+    idx_ref = 0 # index of reference file
+    inpdir = os.path.dirname(xscale_inp)
+
+    for l in open(xscale_inp):
+        if "INPUT_FILE=" in l:
+            filename = l[l.index("=")+1:].strip()
+            if filename.startswith("*"):
+                filename = filename[1:].strip()
+                idx_ref = len(paths)
+
+            if not os.path.isabs(filename): filename = os.path.normpath(os.path.join(inpdir, filename)) 
+            paths.append(filename)
+
+    return paths, idx_ref
+# get_input_file_paths()
+
+def estimate_xscale_size_require(xscale_inp):
+    """
+    What xscale writes:
+    - cbf files (ABSORP, DECAY, MODPIX) : 32bit, dimensions vary. number of input_files * ~KB
+    - output hkl file(s) : header + (76 chars * reflections) + footer
+    - temporary files (XSCOUT_01..number_of_threads.tmp) : should not be larger than output hkl file
+    - XSCALE.LP : ~quadratic function of number of input files
+
+    input files: header + (92 chars * reflections) + footer
+
+    * If all reflections are read from inputs and header/footer could be ignored, output file size would be sum(inpfile bytes)*76/92
+    * In reality, the resolution cutoff may be changed (takes time when considered)
+    * cbf file sizes should be small (here assume 10KB for each)
+    """
+
+    inp_files, _ = get_input_file_paths(xscale_inp)
+    num_inp_files = len(inp_files)
+    inp_files = filter(lambda x: os.path.isfile(x), inp_files)
+    inp_sum_bytes = sum(map(lambda x: os.path.getsize(x), inp_files))
+
+    lp_bytes = lambda x: 35.97*x**2 + 2229.31*x + 79177.65 # empirical
+    
+    bytes_all = inp_sum_bytes*76./92. + lp_bytes(num_inp_files) + num_inp_files*3*10*1024
+
+    return bytes_all
+
+# estimate_xscale_size_require()
+
 def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if_available=False):
     ftable = {}
     outfile = None
@@ -47,8 +96,9 @@ def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if
     tmpdir = None
 
     if use_tmpdir_if_available:
-        tmpdir = util.get_temp_local_dir("xscale", min_gb=1) # TODO guess required tempdir size
-        print tmpdir
+        tmpdir = util.get_temp_local_dir("xscale",
+                                         min_bytes=estimate_xscale_size_require(xscale_inp)*1.1) # 10% safety factor
+        print "tmpdir for xscale run:", tmpdir
         if tmpdir is None:
             print "Can't get temp dir with sufficient size."
 
