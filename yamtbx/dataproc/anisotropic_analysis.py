@@ -89,7 +89,7 @@ def calc_weighted_cc_half(unmerged, vstar, cos_limit):
     data_2 = split_datasets.data_2
     indices = split_datasets.indices
 
-    if indices.size() == 0:
+    if indices.size() == 0 or data_1.size()<2 or data_2.size()<2:
         return float("nan")
 
     if 0:

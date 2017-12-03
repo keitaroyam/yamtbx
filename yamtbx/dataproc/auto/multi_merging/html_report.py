@@ -779,12 +779,13 @@ svg.append("g")
             if stats["aniso"]:
                 table_snip += "\nAnisotropy:\n"
                 if stats["aniso"]["has_anisotropy"]:
-                    lab_maxlen = max(len("direction"), max(map(lambda x: len(x[1]), stats["aniso"]["eigen_values"])))
-                    table_snip += ("%"+str(lab_maxlen)+"s B_eigen Resol(CC1/2=0.5)\n")%"direction" # XXX if not 0.5?
-                    for eig, lab in stats["aniso"]["eigen_values"]:
-                        fltr = filter(lambda x: x[1]==lab, stats["aniso"]["aniso_cutoffs"])
-                        reso = fltr[0][2] if fltr else float("nan")
-                        table_snip += ("%"+str(lab_maxlen)+"s %7.2f %.2f\n") % (lab, eig, reso)
+                    if stats["aniso"]["aniso_cutoffs"]:
+                        lab_maxlen = max(len("direction"), max(map(lambda x: len(x[1]), stats["aniso"]["aniso_cutoffs"])))
+                        table_snip += ("%"+str(lab_maxlen)+"s B_eigen Resol(CC1/2=0.5)\n")%"direction" # XXX if not 0.5?
+                        for _, lab, reso, eig in stats["aniso"]["aniso_cutoffs"]:
+                            table_snip += ("%"+str(lab_maxlen)+"s %7.2f %.2f\n") % (lab, eig, reso)
+                    else:
+                        table_snip += " Anisotropy analysis failed. Check the logfile.\n"
                 else:
                     table_snip += " No anisotropy in this symmetry.\n"
                     

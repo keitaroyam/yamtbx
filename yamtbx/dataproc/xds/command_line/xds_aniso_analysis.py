@@ -62,12 +62,20 @@ def parse_logfile(logfile):
             r = re_reso_cut.search(l)
             if r:
                 cchalf_cutoff, label, resol = float(r.group(1)), r.group(2), float(r.group(3))
-                ret["aniso_cutoffs"].append((cchalf_cutoff, label, resol))
+                ret["aniso_cutoffs"].append([cchalf_cutoff, label, resol, None]) # last None will be eigen value
 
     if ret["aniso_cutoffs"]:
         ret["aniso_cutoffs"].sort(key=lambda x:x[2])
         ret["d_min_best"] = ret["aniso_cutoffs"][0][2]
         ret["d_min_worst"] = ret["aniso_cutoffs"][-1][2]
+
+        # Fill eigen values
+        eigen_vals = dict(map(lambda x: x[::-1], ret["eigen_values"]))
+        for x in ret["aniso_cutoffs"]:
+            x[-1] = eigen_vals.get(x[1])
+            if x[-1] is None:
+                tmp = filter(lambda k: k!="c*", eigen_vals.keys()) # XXX does this always work??
+                if tmp: x[-1] = eigen_vals[tmp[0]]
     else:
         ret["d_min_best"] = ret["d_min_worst"] = float("nan")
 

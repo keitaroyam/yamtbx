@@ -29,6 +29,19 @@ def fit_curve_for_cchalf(s2_list, cc_list, log_out, verbose=True):
         return fun_ed_aimless(s,d0,r) - cc
     # fun()
 
+    if not isinstance(s2_list, numpy.ndarray): s2_list = numpy.array(s2_list)
+    if not isinstance(cc_list, numpy.ndarray): cc_list = numpy.array(cc_list)
+
+    # Remove NaN
+    sel_notnan = (cc_list==cc_list)&(s2_list==s2_list)
+    s2_list = s2_list[sel_notnan]
+    cc_list = cc_list[sel_notnan]
+
+    # Check size here!!
+    if len(s2_list) < 3:
+        log_out.write("  Error! number of elements too small (%d)\n" % len(s2_list))
+        return float("nan"), float("nan")
+    
     x0 = [0.5*min(s2_list), 1.] #Initial d0, r
     log_out.write("  Initial d0, r = %s\n" % x0)
     lsq = scipy.optimize.least_squares(fun, x0, args=(s2_list, cc_list), loss="soft_l1", f_scale=.1)
