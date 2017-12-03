@@ -71,7 +71,7 @@ class IntegrateLp:
         clear_flag = False
 
         self.frames = []
-        self.scales, self.overloads, self.rejecteds, self.sigmads, self.sigmars = [], [], [], [], []
+        self.scales, self.overloads, self.strongs, self.rejecteds, self.sigmads, self.sigmars = [], [], [], [], [], []
 
         self.space_group = None
 
@@ -101,6 +101,7 @@ class IntegrateLp:
                 self.frames.append(int(image))
                 self.scales.append(scale)
                 self.overloads.append(int(novl))
+                self.strongs.append(int(nstrong))
                 self.rejecteds.append(int(nrej))
                 self.sigmads.append(sigmad)
                 self.sigmars.append(sigmar)
