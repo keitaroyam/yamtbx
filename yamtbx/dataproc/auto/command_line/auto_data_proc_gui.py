@@ -122,7 +122,7 @@ batch {
  nproc_each = 4
   .type = int
   .help = maximum number of cores used for single data processing
- sh_max_jobs = 1
+ sh_max_jobs = Auto
   .type = int
   .help = maximum number of concurrent jobs when engine=sh
 }
@@ -1180,9 +1180,12 @@ class ControlPanel(wx.Panel):
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         hbox2.Add(wx.StaticText(self, wx.ID_ANY, "Filter: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
         self.txtFilter = wx.TextCtrl(self, wx.ID_ANY, size=(200,25))
+        self.txtFilter.SetValue("(will be implemented in future)")
+        self.txtFilter.Disable()
         self.cmbFilter = wx.ComboBox(self, wx.ID_ANY, size=(150,25), style=wx.CB_READONLY)
         self.cmbFilter.Bind(wx.EVT_TEXT_ENTER, self.cmbFilter_text_enter)
         for n in ("Path",): self.cmbFilter.Append(n)
+        self.cmbFilter.Disable()
         self.btnCheckAll = wx.Button(self, wx.ID_ANY, "Check all")
         self.btnUncheckAll = wx.Button(self, wx.ID_ANY, "Uncheck all")
         self.btnMultiMerge = wx.Button(self, wx.ID_ANY, "Multi-merge strategy")
@@ -1339,8 +1342,10 @@ class ControlPanel(wx.Panel):
             return
 
 
-        msg = pm.prep_merging(group, symmidx, workdir, config.params.workdir,
-                              cell_method, nproc, prep_dials_files, into_workdir)
+        msg, _ = pm.prep_merging(workdir=workdir, group=group, symmidx=symmidx,
+                              topdir=config.params.workdir,
+                              cell_method=cell_method,
+                              nproc=nproc, prep_dials_files=prep_dials_files, into_workdir=into_workdir)
         pm.write_merging_scripts(workdir, config.params.batch.sge_pe_name, prep_dials_files)
 
         print "\nFrom here, Do It Yourself!!\n"
@@ -1908,8 +1913,21 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     mylog.info("GUI parameters were saved as %s" % savephilpath)
 
     if config.params.batch.engine == "sge":
-        batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
+        try:
+            batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
+        except batchjob.SgeError, e:
+            mylog.error(e.message)
+            mylog.error("SGE not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")
+            return
     elif config.params.batch.engine == "sh":
+        if config.params.batch.sh_max_jobs == libtbx.Auto:
+            nproc_all = libtbx.easy_mp.get_processes(None)
+            mylog.info("Automatically adjusting batch.sh_max_jobs based on available CPU number (%d)" % nproc_all)
+            if nproc_all > config.params.batch.nproc_each:
+                config.params.batch.sh_max_jobs = nproc_all // config.params.batch.nproc_each
+            else:
+                config.params.batch.nproc_each = nproc_all
+                config.params.batch.sh_max_jobs = 1
         batchjobs = batchjob.ExecLocal(max_parallel=config.params.batch.sh_max_jobs)
     else:
         raise "Unknown batch engine: %s" % config.params.batch.engine

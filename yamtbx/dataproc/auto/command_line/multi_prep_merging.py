@@ -344,7 +344,9 @@ class PrepMerging:
         return self.log_buffer
     # find_groups()
     
-    def prep_merging(self, group, symmidx, workdir, topdir=None, cell_method="reindex", nproc=1, prep_dials_files=True, into_workdir=True):
+    def prep_merging(self, workdir, group, symmidx=None, reference_symm=None, topdir=None, cell_method="reindex", nproc=1, prep_dials_files=True, into_workdir=True):
+        assert (symmidx, reference_symm).count(None) == 1
+        
         from yamtbx.util.xtal import format_unit_cell
         from cctbx.crystal import reindex
 
@@ -356,7 +358,7 @@ class PrepMerging:
         prep_log_out.write(self.log_buffer)
         prep_log_out.flush()
 
-        reference_symm = cm.get_reference_symm(group-1, symmidx)
+        if reference_symm is None: reference_symm = cm.get_reference_symm(group-1, symmidx)
 
         prep_log_out.write("\n\ngroup_choice= %d, symmetry= %s (%s)\n" % (group, reference_symm.space_group_info(),
                                                                           format_unit_cell(reference_symm.unit_cell())))
@@ -415,7 +417,7 @@ class PrepMerging:
         ofs_dat.close()
         ofs_lst.close()
 
-        return msg_reindex
+        return msg_reindex, reidx_ops
     # prep_merging()
 
     def write_merging_scripts(self, workdir, sge_pe_name="par", prep_dials_files=True):

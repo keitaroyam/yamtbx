@@ -16,9 +16,9 @@ from yamtbx.util import batchjob
 from yamtbx.util import replace_forbidden_chars
 from yamtbx.util.xtal import format_unit_cell
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
-from yamtbx.dataproc.auto.command_line import multi_check_cell_consistency
+from yamtbx.dataproc.auto.command_line.multi_check_cell_consistency import CellGraph
 from yamtbx.dataproc.auto.command_line import multi_merge
-from yamtbx.dataproc.auto.command_line.multi_prep_merging import rescale_with_specified_symm, reindex_with_specified_symm
+from yamtbx.dataproc.auto.command_line.multi_prep_merging import PrepMerging
 from yamtbx.dataproc.auto.multi_merging import resolve_reindex
 from yamtbx.dataproc.auto.resolution_cutoff import estimate_resolution_based_on_cc_half
 import os
@@ -45,9 +45,9 @@ datadir = None
 prefix = merge_
  .type = str
  .help = Prefix of directory names
-postrefine = False
- .type = bool
- .help = The method to determine the unit cell for each data. If true, do post-refinement with the constraints by symmetry. Otherwise just use transformed P1 cell.
+cell_method = *reindex refine
+ .type = choice(multi=False)
+ .help = "The method to determine the unit cell for each data. If refine, do refinement with the constraints by symmetry. Otherwise just use transformed P1 cell."
 reference = None
  .type = path
  .help = Reference for symmetry and reindexing
@@ -193,27 +193,31 @@ def decide_resolution(summarydat, params, log_out):
     return est.d_min
 # decide_resolution()
 
-def auto_merge(workdir, topdirs, do_postrefine, ref_array, merge_params, rescut_params, log_out_all=None):
+def auto_merge(workdir, topdirs, cell_method, ref_array, merge_params, rescut_params, log_out_all=None):
     log_out = multi_out()
     log_out.register("log", open(os.path.join(workdir, "multi_merge.log"), "w"))
     if log_out_all: log_out.register("original", log_out_all)
 
     log_out.write("Inspecting data for %s\n" % workdir)
-    cell_params = libtbx.phil.parse(input_string=multi_check_cell_consistency.master_params_str).extract()
-    cell_params.xdsdir = []
+
+    xdsdirs = []
     for topdir in topdirs:
         for root, dirnames, filenames in os.walk(topdir):
-            if "XDS.INP" in filenames: cell_params.xdsdir.append(root)
+            if "XDS.INP" in filenames: xdsdirs.append(root)
 
-    cell_params.xdsdir.sort()
-    log_out.write("NOTE: %6d xds directories detected.\n" % len(cell_params.xdsdir))
+    log_out.write("NOTE: %6d xds directories detected.\n" % len(xdsdirs))
+    log_out.flush()
+    
+    cm = CellGraph()
+    for i, xd in enumerate(xdsdirs):
+        cm.add_proc_result(i, xd)
 
-    #if config.params.merging.cell_grouping.tol_length is not None:
-    #    cell_params.tol_length = config.params.merging.cell_grouping.tol_length
-    #if config.params.merging.cell_grouping.tol_angle is not None:
-    #    cell_params.tol_angle = config.params.merging.cell_grouping.tol_angle 
-
-    cm = multi_check_cell_consistency.run(cell_params, out=log_out)
+    topdir = os.path.dirname(os.path.commonprefix(topdirs))
+    lstname = os.path.join(workdir, "formerge.lst")
+    
+    pm = PrepMerging(cm)
+    pm.find_groups()
+    
     if len(cm.groups) == 0:
         log_out.write("Error: No data!\n")
         return
@@ -227,43 +231,13 @@ def auto_merge(workdir, topdirs, do_postrefine, ref_array, merge_params, rescut_
         if reference_symm is None:
             raise "Failed to get reference symmetry"
 
-    log_out.write("\n\nNOTE: group_choice= %d, symmetry= %s (%s)\n" % (group, reference_symm.space_group_info(),
-                                                                 format_unit_cell(reference_symm.unit_cell())))
+    msg, reidx_ops = pm.prep_merging(workdir=workdir, group=group, reference_symm=reference_symm,
+                                     topdir=topdir, cell_method=cell_method,
+                                     nproc=1, prep_dials_files=False, into_workdir=True)
+    log_out.write(msg+"\n")
+    cell_and_files = pm.cell_and_files
 
-    symms = map(lambda i: cm.symms[i], cm.groups[group-1])
-    dirs = map(lambda i: cm.dirs[i], cm.groups[group-1])
-    topdir = os.path.dirname(os.path.commonprefix(dirs))
-
-    if do_postrefine:
-        cell_and_files, reference_symm = rescale_with_specified_symm(topdir, dirs, symms, reference_symm=reference_symm, out=log_out)
-    else:
-        cell_and_files = reindex_with_specified_symm(topdir, reference_symm, dirs, out=log_out)
-
-    log_out.flush()
-
-    log_out.write("NOTE: %6d datasets for merging.\n" % len(cell_and_files))
-
-    # Make list for merging
-    lstname = os.path.join(workdir, "formerge.lst")
-    ofs_lst = open(lstname, "w")
-    ofs_dat = open(os.path.join(workdir, "cells.dat"), "w")
-    ofs_dat.write("file a b c al be ga\n")
-    for wd in cell_and_files:
-        cell, xas = cell_and_files[wd]
-        ofs_lst.write(xas+"\n")
-        ofs_dat.write(xas+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
-
-    ofs_dat.close()
-    ofs_lst.close()
-
-    cosets = reindex.reindexing_operators(reference_symm, reference_symm, max_delta=5)
-    reidx_ops = cosets.combined_cb_ops()
     if len(reidx_ops) > 1:
-        log_out.write("!! ATTENTION !! Reindex operators found.\n")
-        for rop in reidx_ops:
-            log_out.write(" operator: %-16s Cell: (%s)\n" % (rop.as_hkl(),
-                                                             format_unit_cell(reference_symm.unit_cell().change_basis(rop))))
-
         if ref_array and ref_array.size() > 0:
             rb = resolve_reindex.ReferenceBased(map(lambda x: x[1], cell_and_files.values()),
                                                 ref_array, max_delta=5,
@@ -412,7 +386,7 @@ def run(params):
         if batchjobs:
             shname = "multimerge.sh"
             pickle.dump(dict(workdir=workdir, topdirs=samples[k][0],
-                             do_postrefine=params2.postrefine, ref_array=ref_array,
+                             cell_method=params2.cell_method, ref_array=ref_array,
                              merge_params=params2.merge, rescut_params=params2.rescut),
                         open(os.path.join(workdir, "kwargs.pkl"), "w"), -1)
             job = batchjob.Job(workdir, shname, nproc=params2.batch.nproc_each)
@@ -430,7 +404,7 @@ auto_merge(**kwargs); \
         else:
             try:
                 auto_merge(workdir=workdir, topdirs=samples[k][0],
-                           do_postrefine=params2.postrefine, ref_array=ref_array,
+                           cell_method=params2.cell_method, ref_array=ref_array,
                            merge_params=params2.merge, rescut_params=params2.rescut,
                            log_out_all=log_out)
             except:
@@ -454,7 +428,7 @@ kamo.auto_multi_merge.dev \
   csv=automerge.csv \
   workdir=$PWD \
   prefix=merge_ \
-  postrefine=False \
+  cell_method=reindex \
   merge.max_clusters=15 \
   merge.d_min_start=1.4 \
   merge.clustering=cc \
