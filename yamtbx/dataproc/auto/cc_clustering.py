@@ -183,8 +183,7 @@ treeToList2 <- function(htree)
 }
 
 cc<-scan("%(prefix)s.matrix")
-        md<-matrix(1-cc, ncol=%(ncol)d, byrow=TRUE)
-#        md<-matrix(sqrt(2*(1-cc)), ncol=%(ncol)d, byrow=TRUE)
+        md<-matrix(1-cc, ncol=sqrt(length(cc)), byrow=TRUE)
 hc <- hclust(as.dist(md),method="ward")
 pdf("tree.pdf")
 plot(hc)
@@ -224,7 +223,6 @@ cat(JSON, file="dendro.json")
 
 q(save="yes")
 """ % dict(prefix=os.path.basename(prefix),
-           ncol=len(self.arrays),
            hclabels=",".join(map(lambda x: "%d"%(x+1), org2now.keys()))))
 
         call(cmd="Rscript", arg="%s_ana.R" % os.path.basename(prefix),
