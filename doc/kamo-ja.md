@@ -333,6 +333,7 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 
 ### KAMOを利用した研究
 
+* Miyauchi *et al.* (2017) "Structural basis for xenobiotic extrusion by eukaryotic MATE transporter." *Nature Communications* doi: [10.1038/s41467-017-01541-0](https://doi.org/10.1038/s41467-017-01541-0) PDB: [5Y50](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y50) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-AtDTX14-data-(5Y50))
 * Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-TPT-data-(5Y78-&-5Y79))
 * Tanaka *et al.* (2017) "Crystal Structure of a Plant Multidrug and Toxic Compound Extrusion Family Protein." *Structure* doi: [10.1016/j.str.2017.07.009](https://doi.org/10.1016/j.str.2017.07.009) PDB: [5XJJ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJJ)
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](https://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
@@ -343,6 +344,12 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-12-03
+   * kamo.multi\_merge cc_clustering時の重大なバグを修正 (共通反射が少ないために除外されるデータが存在する場合に正しく動作していなかった; 特に対称性の低い空間群ではよく起こる)．また，意図していなかったが実質的にはsqrt(1-cc)でWard法を実行していた事を報告します(実際にはsqrt(2-2cc)は距離としての意味を持つので，これは正しい取扱でした)．
+   * kamo.multi\_merge: 異方性分析に関するバグ修正．
+   * kamo.auto\_multi\_merge: postrefine=パラメータをcell\_method=に名称変更．コード整理．
+   * KAMO: batch.engine=sgeが指定されているがqsubが利用できない場合に分かりやすいメッセージを表示．batch.sh\_max\_jobs=Autoをデフォルトに.
+   * KAMO: logger登録時のバグを修正 (例外が無視されてしまい，何が悪いのか気づけなかった)．
 * 2017-11-02
    * KAMO: 空間群の選択方法を変更 (既知の格子が与えられている場合はスケーリングでそれを必ず使用．未知の場合はPointlessのProbabilityに基づいて選択). GUI起動時に既知格子の値をチェック．HTML reportのバグ修正．
    * kamo.multi\_merge: frame\_ccを元のファイルでは無くxscale.hklを用いて計算するように変更

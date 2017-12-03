@@ -329,6 +329,7 @@ As the paper is in preparation, please refer to this documentation URL: https://
 
 ### Researches which used KAMO 
 
+* Miyauchi *et al.* (2017) "Structural basis for xenobiotic extrusion by eukaryotic MATE transporter." *Nature Communications* doi: [10.1038/s41467-017-01541-0](https://doi.org/10.1038/s41467-017-01541-0) PDB: [5Y50](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y50) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-AtDTX14-data-(5Y50))
 * Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-TPT-data-(5Y78-&-5Y79))
 * Tanaka *et al.* (2017) "Crystal Structure of a Plant Multidrug and Toxic Compound Extrusion Family Protein." *Structure* doi: [10.1016/j.str.2017.07.009](https://doi.org/10.1016/j.str.2017.07.009) PDB: [5XJJ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJJ)
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](https://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
@@ -338,6 +339,12 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2017-12-03
+   * kamo.multi\_merge cc_clustering: severe bug fix when unused data files existed (typical when low space group symmetry). Additionally note that we virtually (unintentionally) did clustering using sqrt(1-cc) with ward.D2 method, which was actually an appropriate way because sqrt(2-2CC)) can be used as a "distance".
+   * kamo.multi\_merge: proper error handling and report html fix in anisotropic analysis.
+   * kamo.auto\_multi\_merge: postrefine= parameter is now obsolete and cell\_method= should be used. code refactoring.
+   * KAMO: user-friendlly message when batch.engine=sge and qsub is not available. batch.sh\_max\_jobs=Auto is now default.
+   * KAMO: bug fix in logger registration (exception was ignored before)
 * 2017-11-02
    * KAMO: method changed to choose space group (by default use given symmetry for scaling. if not given, choose pointless result with higher probability). sanity check of given symmetry when GUI started. bug fix in html report
    * kamo.multi\_merge: calculate frame\_cc using xscale.hkl instead of original files
