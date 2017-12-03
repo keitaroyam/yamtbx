@@ -44,6 +44,7 @@ def config(beamline, log_root=None):
 
     if os.path.isdir(log_root):
         logfile = os.path.join(log_root, beamline, "%s_%s.log"%(date, getpass.getuser()))
+        print "logfile=", logfile
         if not os.path.exists(os.path.dirname(logfile)):
             os.makedirs(os.path.dirname(logfile))
 
@@ -58,6 +59,8 @@ def config(beamline, log_root=None):
     handlers.setFormatter(logging.Formatter(formats))
     logger.addHandler(handlers)
 
+    sys.excepthook = handle_exception
+    
 # config_logger()
 
 def add_logfile(logfile):
@@ -78,4 +81,4 @@ def handle_exception(exc_type, exc_value, exc_traceback):
     logger.error("Uncaught exception: %s: %s" % (name, exc_value), exc_info=(exc_type, exc_value, exc_traceback))
 # handle_exception()
 
-sys.excepthook = handle_exception
+
