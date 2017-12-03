@@ -76,7 +76,7 @@ class Chunk:
         latt_type, centering, unique_axis = None, None, None
         profile_radius = None
         res_lim = None
-        det_shift = 0, 0
+        det_shift = None, None
         n_refl = 0
         n_sat_refl = 0
         n_imp_refl = 0
@@ -241,7 +241,7 @@ class Chunk:
         if self.centering is not None: ret.append("centering = %s" % self.centering)
         if self.unique_axis is not None: ret.append("unique_axis = %s" % self.unique_axis)
         if self.profile_radius is not None: ret.append("profile_radius = %.5f nm^-1" % (self.profile_radius*10.))
-
+        if self.det_shift[0] is not None: ret.append("predict_refine/det_shift x = %.3f y = %.3f mm" % (self.det_shift[0]*1.e3, self.det_shift[1]*1.e3))
         if self.res_lim is not None: ret.append("diffraction_resolution_limit = %.2f nm^-1 or %.2f A" % (10./self.res_lim, self.res_lim))
         if self.n_refl is not None: ret.append("num_reflections = %d" % self.n_refl)
         if self.n_sat_refl is not None: ret.append("num_saturated_reflections = %d" % self.n_sat_refl)
