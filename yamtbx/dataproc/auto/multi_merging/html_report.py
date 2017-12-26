@@ -655,7 +655,7 @@ svg.append("g")
   <th colspan="7">Inner shell</th>
   <th rowspan="2" title="ML estimate of isotropic Wilson B-factor by phenix.xtriage"><i>B</i><sub>Wilson</sub></th>
   <th colspan="2" title="Anisotropic resolution cutoffs (based on CC1/2=0.5) for best and worst directions">Aniso resol</th>
-  <th rowspan="2" title="Resolution estimate"><i>d</i><sub>min</sub><br>est.</th>
+  <th rowspan="2" title="Resolution estimate based on CC1/2"><i>d</i><sub>min</sub><br>est.</th>
  </tr>
  <tr>
   <th>Cmpl</th><th>Redun</th><th>I/&sigma;(I)</th><th><i>R</i><sub>meas</sub></th><th>CC<sub>1/2</sub></th>

@@ -11,7 +11,7 @@ from yamtbx.dataproc.xds.command_line import xds2mtz
 from yamtbx.dataproc.xds import modify_xdsinp
 from yamtbx.dataproc.pointless import Pointless
 from yamtbx.dataproc import blend_lcv
-from yamtbx.dataproc.auto.resolution_cutoff import estimate_resolution_based_on_cc_half
+from yamtbx.dataproc.auto.resolution_cutoff import estimate_resolution_based_on_cc_half, initial_estimate_byfit_cchalf
 from yamtbx import util
 from yamtbx.util import batchjob
 
@@ -190,6 +190,20 @@ OUTPUT_FILE= xscale.hkl
             os.rename(tmpwd, os.path.join(self.workdir_org, "run_%.2d_%.2fA"%(cycle_number, d_min)))
     # cut_resolution()
 
+    def estimate_resolution(self, cycle_number):
+        print >>self.out, "**** Determining resolution cutoff in run_%.2d ****" % cycle_number
+        last_wd = os.path.join(self.workdir_org, "run_%.2d"%cycle_number)
+        xscale_hkl = os.path.abspath(os.path.join(last_wd, "xscale.hkl"))
+
+        i_obs = XDS_ASCII(xscale_hkl, i_only=True).i_obs()
+        d_min_est, _ = initial_estimate_byfit_cchalf(i_obs, cc_half_min=self.res_params.cc_one_half_min,
+                                                 anomalous_flag=False, log_out=self.out)
+                
+        self.out.write("Estimated resolution cutoff= %.2f A @CC1/2= %.4f\n" % (d_min_est, self.res_params.cc_one_half_min))
+        
+        self.dmin_est_at_cycles[cycle_number] = d_min_est
+    # estimate_resolution()
+
     def run_cycles(self, xds_ascii_files):
         self.all_data_root = os.path.dirname(os.path.commonprefix(xds_ascii_files))
         self.removed_files = []
@@ -201,7 +215,10 @@ OUTPUT_FILE= xscale.hkl
             self.run_cycle(xds_ascii_files)
 
         if self.res_params.estimate:
-            self.cut_resolution(self.get_last_cycle_number())
+            #self.cut_resolution(self.get_last_cycle_number())
+            for run_i in xrange(1, self.get_last_cycle_number()+1):
+                try: self.estimate_resolution(run_i)
+                except: print >>self.out, traceback.format_exc() # Don't want to stop the program.
 
         for wd in glob.glob(os.path.join(self.workdir_org, "run_*")):
             if os.path.exists(os.path.join(wd, "ccp4")): continue

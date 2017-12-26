@@ -48,14 +48,46 @@ def fit_curve_for_cchalf(s2_list, cc_list, log_out, verbose=True):
     #lsq = fit_ed(s_list, cc_list)
 
     if verbose:
-        log_out.write("Least-square result:\n")
-        log_out.write(str(lsq))
-        log_out.write("\n")
+        log_out.write("""  Least-square result:
+      message: %s
+         nfev: %s
+         njev: %s
+   optimality: %s
+       status: %s
+      success: %s
+""" % (lsq.message, lsq.nfev, lsq.njev, lsq.optimality, lsq.status, lsq.success))
 
     d0, r = lsq.x
     log_out.write("  Final d0, r = %s\n" % lsq.x)
     return lsq.x
 # fit_curve_for_cchalf()
+
+def initial_estimate_byfit_cchalf(i_obs, cc_half_min, anomalous_flag, log_out):
+    # Up to 200 bins. If few reflections, 50 reflections per bin. At least 9 shells.
+    n_bins = max(min(int(i_obs.size()/50. + .5), 200), 9)
+    log_out.write("Using %d bins for initial estimate\n" % n_bins)
+
+    i_obs.setup_binner(n_bins=n_bins)
+    bins = []
+
+    s_list, cc_list = [], []
+    for bin in i_obs.binner().range_used():
+      unmerged = i_obs.select(i_obs.binner().selection(bin))
+      try:
+        bin_stats = merging_statistics.merging_stats(unmerged,
+                                                     anomalous=anomalous_flag)
+        s_list.append(1./bin_stats.d_min**2)
+        cc_list.append(bin_stats.cc_one_half)
+      except RuntimeError: # complains that no reflections left after sigma-filtering.
+        continue
+
+    d0, r = fit_curve_for_cchalf(s_list, cc_list, log_out)
+    shells_and_fit = (s_list, cc_list, (d0, r))
+
+    d_min = resolution_fitted(d0, r, cc_half_min)
+    return d_min, shells_and_fit
+# initial_estimate_byfit_cchalf()
+
 
 class estimate_resolution_based_on_cc_half:
   def __init__(self, i_obs, cc_half_min, cc_half_tol, n_bins, anomalous_flag=False, log_out=null_out()):
@@ -65,32 +97,6 @@ class estimate_resolution_based_on_cc_half:
     self.shells_and_fit = ()
     self.d_min, self.cc_at_d_min = self.estimate_resolution()
   # __init__()
-
-  def initial_est_byfit(self):
-    # Up to 200 bins. If few reflections, 50 reflections per bin. At least 9 shells.
-    n_bins = max(min(int(self.i_obs.size()/50. + .5), 200), 9)
-    self.log_out.write("Using %d bins for initial estimate\n" % n_bins)
-
-    self.i_obs.setup_binner(n_bins=n_bins)
-    bins = []
-
-    s_list, cc_list = [], []
-    for bin in self.i_obs.binner().range_used():
-      unmerged = self.i_obs.select(self.i_obs.binner().selection(bin))
-      try:
-        bin_stats = merging_statistics.merging_stats(unmerged,
-                                                     anomalous=self.anomalous_flag)
-        s_list.append(1./bin_stats.d_min**2)
-        cc_list.append(bin_stats.cc_one_half)
-      except RuntimeError: # complains that no reflections left after sigma-filtering.
-        continue
-
-    d0, r = fit_curve_for_cchalf(s_list, cc_list, self.log_out)
-    self.shells_and_fit = (s_list, cc_list, (d0, r))
-
-    d_min = resolution_fitted(d0, r, self.cc_half_min)
-    return d_min
-  # initial_est_byfit()
 
   def show_plot(self, show=True, filename=None):
     if not self.shells_and_fit: return
@@ -129,7 +135,9 @@ class estimate_resolution_based_on_cc_half:
       self.log_out.write("No reflections.\n")
       return None, None
 
-    d_min = float("%.2f"%self.initial_est_byfit())
+    d_min, self.shells_and_fit = initial_estimate_byfit_cchalf(self.i_obs, self.cc_half_min, self.anomalous_flag, self.log_out)
+    d_min = float("%.2f"%d_min)
+    
     if d_min < self.d_min_data:
       self.log_out.write("Warning: Initial estimate is higher than the limit of data (%.4f A < %.4f A)\n" %(d_min, self.d_min_data))
       d_min = self.d_min_data
@@ -146,9 +154,9 @@ class estimate_resolution_based_on_cc_half:
 
       for i in xrange(1,300):
         if d_min-.01*i <= self.d_min_data: break
-        lower_bound = d_min-.1*i
+        lower_bound = d_min-.01*i
         cc = self.cc_outer_shell(lower_bound)
-        self.log_out.write("  CC1/2= %.4f at %.4f A\n" %(cc, d_min-.1*i))
+        self.log_out.write("  CC1/2= %.4f at %.4f A\n" %(cc, d_min-.01*i))
         if cc < self.cc_half_min:
           break
     else:

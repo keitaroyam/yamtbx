@@ -163,6 +163,12 @@ cc_clustering {
  use_normalized = false
   .type = bool
   .help = Use normalized structure factors in CC calculation
+ method = single complete average weighted centroid median *ward
+  .type = choice(multi=False)
+  .help = "cluster analysis method"
+ cc_to_distance = "sqrt(1-cc)"
+  .type = str
+  .help = "distance in cluster analysis. options: sqrt(1-cc), 1-cc, sqrt(1-cc^2)"
  min_ios = None
   .type = float
   .help = minimum I/sigma for CC calculation
@@ -195,18 +201,13 @@ reference {
 }
 
 resolution {
- estimate = False
+ estimate = True
   .type = bool
-  .help = Automatically estimate resolution cutoff
- n_bins = 9
-  .type = int
-  .help = "Number of shells"
+  .help = "Estimate resolution limit by curve fitting for each cluster"
  cc_one_half_min = 0.5
   .type = float
-  .help = "Minimum CC1/2 value at highest resolution shell"
- cc_half_tol = 0.03
-  .type = float
-  .help = "CC1/2 value tolerance"
+  .help = "CC1/2 value at cutoff"
+
 }
 
 batch {
@@ -598,6 +599,8 @@ def run(params):
         cc_clusters.do_clustering(nproc=params.cc_clustering.nproc,
                                   b_scale=params.cc_clustering.b_scale,
                                   use_normalized=params.cc_clustering.use_normalized,
+                                  cluster_method=params.cc_clustering.method,
+                                  distance_eqn=params.cc_clustering.cc_to_distance,
                                   html_maker=html_report)
         summary_out = os.path.join(ccc_wdir, "cc_cluster_summary.dat")
         clusters = cc_clusters.show_cluster_summary(d_min=params.d_min, out=open(summary_out, "w"))

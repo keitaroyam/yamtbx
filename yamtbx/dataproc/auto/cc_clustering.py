@@ -1,5 +1,5 @@
 """
-(c) RIKEN 2015. All rights reserved. 
+(c) RIKEN 2015-2017. All rights reserved. 
 Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
@@ -15,6 +15,12 @@ from yamtbx.dataproc.auto.blend import load_xds_data_only_indices
 import os
 import numpy
 import collections
+import scipy.cluster
+import scipy.spatial
+import json
+import matplotlib
+matplotlib.use("Agg")
+from matplotlib import pyplot
 
 def calc_cc(ari, arj):
   ari, arj = ari.common_sets(arj, assert_is_similar_symmetry=False)
@@ -51,11 +57,27 @@ class CCClustering:
         open(os.path.join(self.wdir, "filenames.lst"), "w").write("\n".join(xac_files))
     # __init__()
 
-    def do_clustering(self, nproc=1, b_scale=False, use_normalized=False, html_maker=None):
+    def do_clustering(self, nproc=1, b_scale=False, use_normalized=False, cluster_method="ward", distance_eqn="sqrt(1-cc)", html_maker=None):
+        """
+        Using correlation as distance metric (for hierarchical clustering)
+        https://stats.stackexchange.com/questions/165194/using-correlation-as-distance-metric-for-hierarchical-clustering
+
+        Correlation "Distances" and Hierarchical Clustering
+        http://research.stowers.org/mcm/efg/R/Visualization/cor-cluster/index.htm
+        """
+
         self.clusters = {}
         prefix = os.path.join(self.wdir, "cctable")
         assert (b_scale, use_normalized).count(True) <= 1
 
+        distance_eqns = {"sqrt(1-cc)": lambda x: numpy.sqrt(1.-x),
+                         "1-cc": lambda x: 1.-x,
+                         "sqrt(1-cc^2)": lambda x: numpy.sqrt(1.-x**2),
+        }
+        cc_to_distance = distance_eqns[distance_eqn] # Fail when unknown options
+        assert cluster_method in ("single", "complete", "average", "weighted", "centroid", "median", "ward") # available methods in scipy
+        
+        
         if len(self.arrays) < 2:
             print "WARNING: less than two data! can't do cc-based clustering"
             self.clusters[1] = [float("nan"), [0]]
@@ -116,7 +138,7 @@ class CCClustering:
         cc_data_for_html = []
         for (i,j), (cc,nref) in zip(args, results):
             cc_data_for_html.append((i,j,cc,nref))
-            if cc==cc: continue
+            if cc==cc and nref>2: continue
             idx_bad[i] = idx_bad.get(i, 0) + 1
             idx_bad[j] = idx_bad.get(j, 0) + 1
             nans.append([i,j])
@@ -135,6 +157,7 @@ class CCClustering:
             if len(nans) == 0: break
 
         use_idxes = filter(lambda x: x not in remove_idxes, xrange(len(self.arrays)))
+        N = len(use_idxes)
 
         # Make table: original index (in file list) -> new index (in matrix)
         count = 0
@@ -148,91 +171,58 @@ class CCClustering:
             open("%s_notused.lst"%prefix, "w").write("\n".join(map(lambda x: self.arrays.keys()[x], remove_idxes)))
 
         # Make matrix
-        mat = numpy.zeros(shape=(len(use_idxes), len(use_idxes)))
-        for (i,j), (cc,nref) in zip(args, results):
-            if i in remove_idxes or j in remove_idxes: continue
-            mat[org2now[j], org2now[i]] = cc
-            
-        open("%s.matrix"%prefix, "w").write(" ".join(map(lambda x:"%.4f"%x, mat.flatten())))
-
-        ofs = open("%s.dat"%prefix, "w")
-        ofs.write("   i    j     cc  nref\n")
+        mat = numpy.zeros(shape=(N, N))
         self.all_cc = {}
+        ofs = open("%s.dat"%prefix, "w")
+        ofs.write("   i    j      cc  nref\n")
         for (i,j), (cc,nref) in zip(args, results):
-            ofs.write("%4d %4d %.4f %4d\n" % (i,j,cc,nref))
+            ofs.write("%4d %4d % .4f %4d\n" % (i,j,cc,nref))
             self.all_cc[(i,j)] = cc
+            if i not in remove_idxes and j not in remove_idxes:
+                mat[org2now[j], org2now[i]] = cc_to_distance(min(cc, 1.)) #numpy.sqrt(1.-min(cc, 1.)) # safety guard (once I encounterd..
+        ofs.close()
+
+        # Perform cluster analysis
+        D = scipy.spatial.distance.squareform(mat+mat.T) # convert to reduced form (first symmetrize)
+        Z = scipy.cluster.hierarchy.linkage(D, cluster_method) # doesn't work with SciPy 0.17 (works with 0.18 or newer?)
+        pyplot.figure(figsize=(N/10., N/10.))
+        pyplot.title("%s, %s" % (distance_eqn, cluster_method))
+        hclabels = map(lambda x: x+1, org2now.keys())
+        scipy.cluster.hierarchy.dendrogram(Z, orientation="left", labels=hclabels)
+        pyplot.savefig(os.path.join(self.wdir, "tree.png"))
+        pyplot.savefig(os.path.join(self.wdir, "tree.pdf"))
+
+        def traverse(node, results, dendro):
+            # Cluster id starts with the number of data files
+            leaves = map(lambda x: hclabels[x], sorted(node.pre_order())) # file numbers
             
-        open("%s_ana.R"%prefix, "w").write("""\
-treeToList2 <- function(htree)
-{  # stolen from $CCP4/share/blend/R/blend0.R
- groups <- list()
- itree <- dim(htree$merge)[1]
- for (i in 1:itree)
- { 
-  il <- htree$merge[i,1]
-  ir <- htree$merge[i,2]
-  if (il < 0) lab1 <- htree$labels[-il]
-  if (ir < 0) lab2 <- htree$labels[-ir]
-  if (il > 0) lab1 <- groups[[il]]
-  if (ir > 0) lab2 <- groups[[ir]]
-  lab <- c(lab1,lab2)
-  lab <- as.integer(lab)
-  groups <- c(groups,list(lab))
- }
- return(groups)
-}
+            if not node.right and not node.left: # this must be leaf
+                dendro["children"].append(dict(name=str(hclabels[node.id]))) # file number
+            else:
+                dendro["children"].append(dict(name=str(node.id-N+1), children=[])) # cluster number
+                results.append((node.id-N+1, node.dist, node.count, leaves))
 
-cc<-scan("%(prefix)s.matrix")
-        md<-matrix(1-cc, ncol=sqrt(length(cc)), byrow=TRUE)
-hc <- hclust(as.dist(md),method="ward")
-pdf("tree.pdf")
-plot(hc)
-dev.off()
-png("tree.png",height=1000,width=1000)
-plot(hc)
-dev.off()
+            if node.right: traverse(node.right, results, dendro["children"][-1])
+            if node.left: traverse(node.left, results, dendro["children"][-1])
+        # traverse()
 
-hc$labels <- c(%(hclabels)s)
-groups <- treeToList2(hc)
-cat("ClNumber             Nds         Clheight   IDs\\n",file="./CLUSTERS.txt")
-for (i in 1:length(groups))
-{
- sorted_groups <- sort(groups[[i]])
- linea <- sprintf("%%04d %%4d %%7.3f %%s\\n",
-                  i,length(groups[[i]]),hc$height[i], paste(sorted_groups,collapse=" "))
- cat(linea, file="./CLUSTERS.txt", append=TRUE)
-}
+        results = []
+        dendro = dict(name="root", children=[])
+        node = scipy.cluster.hierarchy.to_tree(Z)
+        traverse(node, results, dendro)
+        dendro = dendro["children"][0]
+        results.sort(key=lambda x: x[0])
+        json.dump(dendro, open(os.path.join(self.wdir, "dendro.json"), "w"))
 
-# reference: http://www.coppelia.io/2014/07/converting-an-r-hclust-object-into-a-d3-js-dendrogram/
-library(rjson)
-HCtoJSON<-function(hc){
-  labels<-hc$labels
-  merge<-data.frame(hc$merge)
-  for (i in (1:nrow(merge))) {
-    if (merge[i,1]<0 & merge[i,2]<0) {eval(parse(text=paste0("node", i, "<-list(name=\\"", i, "\\", children=list(list(name=labels[-merge[i,1]]),list(name=labels[-merge[i,2]])))")))}
-    else if (merge[i,1]>0 & merge[i,2]<0) {eval(parse(text=paste0("node", i, "<-list(name=\\"", i, "\\", children=list(node", merge[i,1], ", list(name=labels[-merge[i,2]])))")))}
-    else if (merge[i,1]<0 & merge[i,2]>0) {eval(parse(text=paste0("node", i, "<-list(name=\\"", i, "\\", children=list(list(name=labels[-merge[i,1]]), node", merge[i,2],"))")))}
-    else if (merge[i,1]>0 & merge[i,2]>0) {eval(parse(text=paste0("node", i, "<-list(name=\\"", i, "\\", children=list(node",merge[i,1] , ", node" , merge[i,2]," ))")))}
-  }
-  eval(parse(text=paste0("JSON<-toJSON(node",nrow(merge), ")")))
-  return(JSON)
-}
-
-JSON<-HCtoJSON(hc)
-cat(JSON, file="dendro.json")
-
-q(save="yes")
-""" % dict(prefix=os.path.basename(prefix),
-           hclabels=",".join(map(lambda x: "%d"%(x+1), org2now.keys()))))
-
-        call(cmd="Rscript", arg="%s_ana.R" % os.path.basename(prefix),
-             wdir=self.wdir)
-
-        output = open(os.path.join(self.wdir, "CLUSTERS.txt")).readlines()
-        for l in output[1:]:
-            sp = l.split()
-            clid, clheight, ids = sp[0], sp[2], sp[3:]
-            self.clusters[int(clid)] = [float(clheight), map(int,ids)]
+        # Save CLUSTERS.txt and set self.clusters
+        ofs = open(os.path.join(self.wdir, "CLUSTERS.txt"), "w")
+        ofs.write("ClNumber             Nds         Clheight   IDs\n")
+        for clid, dist, ncount, leaves in results:
+            leavestr = " ".join(map(str, leaves))
+            ofs.write("%04d %4d %7.3f %s\n" % (clid, ncount, dist, leavestr))
+            self.clusters[int(clid)] = [float(dist), leaves]
+        ofs.close()
+            
     # do_clustering()
 
     def cluster_completeness(self, clno, anomalous_flag, d_min, calc_redundancy=True):
