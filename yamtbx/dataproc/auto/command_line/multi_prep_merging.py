@@ -431,11 +431,11 @@ use_ramdisk=true # set false if there is few memory or few space in /tmp
 # _______/setting
 
 kamo.multi_merge \\
-        workdir=blend_${dmin}A_framecc_b \\
+        workdir=blend_${dmin}A_framecc_b+B \\
         lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
         space_group=None reference.data=None \\
-        program=xscale xscale.reference=bmin \\
-        reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
+        program=xscale xscale.reference=bmin xscale.degrees_per_batch=None \\
+        reject_method=framecc+lpstats rejection.lpstats.stats=em.b+bfactor \\
         clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
         max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
 #        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
@@ -453,11 +453,11 @@ use_ramdisk=true # set false if there is few memory or few space in /tmp
 # _______/setting
 
 kamo.multi_merge \\
-        workdir=ccc_${dmin}A_framecc_b \\
+        workdir=ccc_${dmin}A_framecc_b+B \\
         lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
         space_group=None reference.data=None \\
-        program=xscale xscale.reference=bmin \\
-        reject_method=framecc+lpstats rejection.lpstats.stats=em.b \\
+        program=xscale xscale.reference=bmin xscale.degrees_per_batch=None \\
+        reject_method=framecc+lpstats rejection.lpstats.stats=em.b+bfactor \\
         clustering=cc cc_clustering.d_min=${clustering_dmin} cc_clustering.b_scale=false cc_clustering.use_normalized=false \\
         cc_clustering.min_cmpl=90 cc_clustering.min_redun=2 \\
         max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
@@ -466,6 +466,12 @@ kamo.multi_merge \\
         os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
 
         open(os.path.join(workdir, "filter_cell.R"), "w").write(r"""iqrf <- 2.5
+outliers <- function(x) {
+ q1 <- quantile(x, 0.25)
+ q3 <- quantile(x, 0.75)
+ iqr <- q3 - q1
+ return(x<q1-iqr*iqrf | x>q3+iqr*iqrf)
+}
 
 myhist <- function(v, title) {
  if(sd(v)==0) {
@@ -473,11 +479,14 @@ myhist <- function(v, title) {
   return()
  }
  hist(v, main=paste("Histogram of", title), xlab=title)
- abline(v=c(median(v)-IQR(v)*iqrf, median(v)+IQR(v)*iqrf), col="blue")
+ q1 <- quantile(v, 0.25)
+ q3 <- quantile(v, 0.75)
+ iqr <- q3 - q1
+ abline(v=c(q1-iqr*iqrf, q3+iqr*iqrf), col="blue")
 }
 
 cells <- read.table("cells.dat", h=T)
-good <- subset(cells, abs(a-median(a))<=IQR(a)*iqrf & abs(b-median(b))<=IQR(b)*iqrf & abs(c-median(c))<=IQR(c)*iqrf & abs(al-median(al))<=IQR(al)*iqrf & abs(be-median(be))<=IQR(be)*iqrf & abs(ga-median(ga))<=IQR(ga)*iqrf)
+good <- subset(cells, ! (outliers(a) | outliers(b) | outliers(c) | outliers(al) | outliers(be) | outliers(ga)))
 write.table(good$file, "formerge_goodcell.lst", quote=F, row.names=F, col.names=F)
 
 pdf("hist_cells.pdf", width=14, height=7)
