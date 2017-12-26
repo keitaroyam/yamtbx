@@ -265,7 +265,7 @@ run_03/ccp4/xscale.mtzを使って下さい．run_03/が無いときは，run_\*
 
 DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，DIALS/PHENIXを利用することで簡単にKAMOを導入できます(CCTBXを手動で導入する必要がありません)．
 
-1. CCP4, R (rjson packageも含め), XDSをインストールする
+1. CCP4, R (rjson packageも含め), XDS, Adxv (任意)をインストールする
    * XDS/XDSSTATのインストールは[XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)を参照
    * EIGERデータを処理する場合は[H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換)も必要です
    * rjsonは，Rを導入後，Rをインストールしたユーザ(rootまたはソフトウェア管理用のユーザアカウント)で起動し，`install.packages("rjson")`とタイプすることでインストールできます．サーバを尋ねられた場合は適当に選択します．
@@ -274,16 +274,14 @@ DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，
    1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx==1.11`
 4. scipyをdials.pythonから使えるようにする
-   1. Macの場合，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
+   1. Macの場合，XcodeおよびCommand-line toolsを導入後，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
    2. `cd $DIALS/build`
    3. `./bin/libtbx.python -m easy_install scipy==0.18.1`
-5. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
+5. 以下のコマンドを実行する
 ```
-cd $HOME
-git clone https://github.com/keitaroyam/yamtbx.git
 cd $DIALS/modules
-ln -s ~/yamtbx/yamtbx .
-cd ../build
+git clone https://github.com/keitaroyam/yamtbx.git
+cd $DIALS/build
 ./bin/libtbx.configure yamtbx
 ```
 
@@ -295,14 +293,16 @@ kamo.test_installation
 
 ##### トラブルシューティング
 
-* scipyの導入時に"as: I don't understand 'm' flag!"というエラーで止まる
-   * MacPortsを使用している場合は/opt/local/binを環境変数PATHから外してもう一度試す．[参考URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l).
+* (Mac) scipyの導入時に`as: I don't understand 'm' flag!`というエラーで止まる
+   * 上記の方法でgfortranを導入したか確認する．MacPortsを使用している場合は/opt/local/binを環境変数PATHから外してもう一度試す．[参考URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l). あるいは/usr/local/gfortran/bin/gfortranが優先利用されるようにPATHの設定を見直す．
+* (Mac) scipyの導入時に`gcc: error: unrecognized command line option ‘-stdlib=libc++’`というエラーで止まる
+   * Xcode付属のgccが使われているか確認する(Xcodeおよびcommand-line toolsは導入済みか？他の方法で入れたgccがシステムに無いか)．/usr/bin/g++が使われるようにPATHの設定を見直す．
 * DIALS/PHENIX環境を使っているのに，kamo.test\_installationでwxPythonがNGになる
    * まずDIALS/PHENIXのGUIがちゃんと立ち上がるか確認してください(dials.image\_viewerなど)．Ubuntuの場合，libjpeg62などを導入する必要があるそうです．
 
 ### KAMOのアップデート
 以下の手順で最新版にアップデートできます
-1. yamtbxをcloneした場所へ移動(`cd`)
+1. `cd $DIALS/modules/yamtbx`
 2. `git pull`
 3. `$DIALS/build/bin/libtbx.refresh`
 4. `kamo.test_installation`
@@ -333,7 +333,9 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 
 ### KAMOを利用した研究
 
+* Suno *et al.* (2017) "Crystal Structures of Human Orexin 2 Receptor Bound to the Subtype-Selective Antagonist EMPA." *Structure*  doi: [10.1016/j.str.2017.11.005](https://doi.org/10.1016/j.str.2017.11.005) PDB: [5WQC](http://www.rcsb.org/pdb/explore/explore.do?structureId=5WQC) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-OX2R-data-(5WQC))
 * Miyauchi *et al.* (2017) "Structural basis for xenobiotic extrusion by eukaryotic MATE transporter." *Nature Communications* doi: [10.1038/s41467-017-01541-0](https://doi.org/10.1038/s41467-017-01541-0) PDB: [5Y50](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y50) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-AtDTX14-data-(5Y50))
+* Abe *et al.* (2017) "Structure of in cell protein crystals containing organometallic complexes." *Phys. Chem. Chem. Phys.* doi: [10.1039/C7CP06651A](https://doi.org/10.1039/C7CP06651A) PDB: [5YHA](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHA) [5YHB](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHB)
 * Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-TPT-data-(5Y78-&-5Y79))
 * Tanaka *et al.* (2017) "Crystal Structure of a Plant Multidrug and Toxic Compound Extrusion Family Protein." *Structure* doi: [10.1016/j.str.2017.07.009](https://doi.org/10.1016/j.str.2017.07.009) PDB: [5XJJ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJJ)
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](https://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
@@ -344,6 +346,10 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2017-12-26
+   * KAMO: マージ用スクリプトのデフォルト設定を変更．rejectionをb+Bに．filter\_cell.Rのバグを修正．
+   * kamo.multi\_merge: cc\_clusteringでRでは無くSciPyを利用するように変更(SciPy >=0.18.1が必要)．共通反射数が3未満の場合はデータを除外．クラスタリングの方法を選択可能に．
+   * kamo.multi\_merge: `resolution.estimate=`をデフォルトでTrueに．また分解能を実際に切るのでは無く，CC<sub>1/2</sub> vs d<sup>-2</sup>のカーブフィッティングの結果からカットオフを推定するように挙動を変更．
 * 2017-12-03
    * kamo.multi\_merge cc_clustering時の重大なバグを修正 (共通反射が少ないために除外されるデータが存在する場合に正しく動作していなかった; 特に対称性の低い空間群ではよく起こる)．また，意図していなかったが実質的にはsqrt(1-cc)でWard法を実行していた事を報告します(実際にはsqrt(2-2cc)は距離としての意味を持つので，これは正しい取扱でした)．
    * kamo.multi\_merge: 異方性分析に関するバグ修正．

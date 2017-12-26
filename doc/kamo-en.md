@@ -264,7 +264,7 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
 
 ### Installation
 
-1. Install CCP4, R (with rjson package), XDS
+1. Install CCP4, R (with rjson package), XDS, Adxv (optional)
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
    * If you will process EIGER data (h5 files), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) is needed
    * rjson can be installed as follows; after installation of R, start R program from user who installed R (root or an account for software installation), and then type `install.packages("rjson")`.
@@ -273,16 +273,14 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
    1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx==1.11`
 4. Install scipy to dials.python
-   1. If Mac, install [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS). If Linux, install blas-devel and lapack-devel using yum or something.
+   1. If Mac, install Xcode, command-line tools, and then [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS). If Linux, install blas-devel and lapack-devel using yum or something.
    2. `cd $DIALS/build`
    3. `./bin/libtbx.python -m easy_install scipy==0.18.1`
-5. Run the following commands (yamtbx can be cloned anywhere you like)
+5. Run the following commands
 ```
-cd $HOME
-git clone https://github.com/keitaroyam/yamtbx.git
 cd $DIALS/modules
-ln -s ~/yamtbx/yamtbx .
-cd ../build
+git clone https://github.com/keitaroyam/yamtbx.git
+cd $DIALS/build
 ./bin/libtbx.configure yamtbx
 ```
 
@@ -293,13 +291,15 @@ kamo.test_installation
 to check if dependencies are all installed.
 
 ##### Troubleshooting tips
-* Installation of scipy stops with error "as: I don't understand 'm' flag!"
-   * If you are using MacPorts, try excluding /opt/local/bin from environment variable PATH. [Reference URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l).
+* (Mac) Installation of scipy stops with error "as: I don't understand 'm' flag!"
+   * Make sure you installed gfortran following the way mentioned above. If you are using MacPorts, try excluding /opt/local/bin from environment variable PATH. [Reference URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l). Alternatively review PATH to use /usr/local/gfortran/bin/gfortran.
+* (Mac) Installation of scipy stops with error `gcc: error: unrecognized command line option ‘-stdlib=libc++’`
+   * Make sure gcc installed with Xcode is used (did you install Xcode and command-line tools? Any other gcc installed with different methods?). Review PATH to use /usr/bin/g++.
 * Installing with DIALS/PHENIX environment, but kamo.test\_installation claims wxPython is NG
    * Please check if some GUI program of DIALS/PHENIX successfully starts (e.g. dials.image\_viewer)．In case of Ubuntu, you may need to install libjpeg62 package.
 
 ### How to update KAMO
-1. `cd` where-you-cloned-yamtbx
+1. `cd $DIALS/modules/yamtbx`
 2. `git pull`
 3. `$DIALS/build/bin/libtbx.refresh`
 4. `kamo.test_installation`
@@ -329,7 +329,9 @@ As the paper is in preparation, please refer to this documentation URL: https://
 
 ### Researches which used KAMO 
 
+* Suno *et al.* (2017) "Crystal Structures of Human Orexin 2 Receptor Bound to the Subtype-Selective Antagonist EMPA." *Structure*  doi: [10.1016/j.str.2017.11.005](https://doi.org/10.1016/j.str.2017.11.005) PDB: [5WQC](http://www.rcsb.org/pdb/explore/explore.do?structureId=5WQC) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-OX2R-data-(5WQC))
 * Miyauchi *et al.* (2017) "Structural basis for xenobiotic extrusion by eukaryotic MATE transporter." *Nature Communications* doi: [10.1038/s41467-017-01541-0](https://doi.org/10.1038/s41467-017-01541-0) PDB: [5Y50](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y50) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-AtDTX14-data-(5Y50))
+* Abe *et al.* (2017) "Structure of in cell protein crystals containing organometallic complexes." *Phys. Chem. Chem. Phys.* doi: [10.1039/C7CP06651A](https://doi.org/10.1039/C7CP06651A) PDB: [5YHA](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHA) [5YHB](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHB)
 * Lee *et al.* (2017) "Structure of the triose-phosphate/phosphate translocator reveals the basis of substrate specificity." *Nature Plants* doi: [10.1038/s41477-017-0022-8](https://doi.org/10.1038/s41477-017-0022-8) PDB: [5Y78](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y78) [5Y79](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y79) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-TPT-data-(5Y78-&-5Y79))
 * Tanaka *et al.* (2017) "Crystal Structure of a Plant Multidrug and Toxic Compound Extrusion Family Protein." *Structure* doi: [10.1016/j.str.2017.07.009](https://doi.org/10.1016/j.str.2017.07.009) PDB: [5XJJ](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJJ)
 * Shihoya *et al.* (2017) "X-ray structures of endothelin ET<sub>B</sub> receptor bound to clinical antagonist bosentan and its analog." *Nature Structural & Molecular Biology* doi: [10.1038/nsmb.3450](https://doi.org/10.1038/nsmb.3450) PDB: [5XPR](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XPR) [5X93](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X93) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-ETBR-bonsentan-data-(5XPR))
@@ -339,6 +341,10 @@ As the paper is in preparation, please refer to this documentation URL: https://
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2017-12-26
+   * KAMO: default rejection parameter in merging script; no rejection is based on b+B. bug fix in filter\_cell.R.
+   * kamo.multi\_merge: in cc\_clustering now don't use R, but SciPy (>=0.18.1 is required) for cluster analysis. rejects data if the number of common reflections is less than 3. now can choose cc\_to\_distance functions and linkage methods.
+   * kamo.multi\_merge: `resolution.estimate=` is now True by default; changed behaviour of this option to just estimate the cutoff based on curve-fitting of CC<sub>1/2</sub> vs d<sup>-2</sup>, not actually cut.
 * 2017-12-03
    * kamo.multi\_merge cc_clustering: severe bug fix when unused data files existed (typical when low space group symmetry). Additionally note that we virtually (unintentionally) did clustering using sqrt(1-cc) with ward.D2 method, which was actually an appropriate way because sqrt(2-2CC)) can be used as a "distance".
    * kamo.multi\_merge: proper error handling and report html fix in anisotropic analysis.
