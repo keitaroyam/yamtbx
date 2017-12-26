@@ -70,6 +70,15 @@ BL32XUではスポットの写っているフレームのみを抽出したonlyh
 
 onlyhits.h5は後述の`yamtbx.adxv_eiger`で開くことができます．
 
+### マルチ(複数データセットのまとまった)HDF5に関して
+
+例えば1つのループから多数のsmall-wedgeデータを収集した場合など，すべてのデータが1つのmaster.h5に集約されている場合があります．
+詳細は後日更新します．
+
+### 4M ROI
+
+EIGER 9Mおよび16Mには4M ROI (region of interest)の機能があります．
+詳細は後日更新します．
 
 ## ソフトウェアの導入
 
@@ -89,18 +98,19 @@ eiger2cbfはPILATUSでの標準フォーマットであるCBF形式に変換す�
 [Downloads - Mosflm](http://www.mrc-lmb.cam.ac.uk/harry/imosflm/ver721/downloads.html#Eiger2CBF)の下の方にリンク(Converter for Eiger files)があり，LinuxおよびMac版のバイナリが配布されています．
 
 eiger2cbfは，XDSがh5を処理する際に必要とするH5ToXdsと互換性のあるプログラムです．
-H5ToXdsは[Dectrisのサイト](https://www.dectris.com/EIGER_X_Features.html)の一番下からダウンロードできますが，Linux版のみでありMac版は配布されていません．
+H5ToXdsは[Dectrisのサイト](https://www.dectris.com/features/features-eiger-x/h5toxds?path=products/eiger/eiger-x-for-synchrotron/details/eiger-x-4m)の一番下からダウンロードできますが，Linux版のみでありMac版は配布されていません．
 またH5ToXdsはCBFにヘッダ情報を付与しません．
-これらの理由から，eiger2cbfをH5ToXdsという名前に変えて(またはH5ToXdsという名前のリンクを作って)使うことを推奨します．
-ただしeiger2cbfは標準エラー出力にメッセージを出力するので，XDSで処理してる時の表示とかぶってしまいます．これを避けるためには，以下のようにしてH5ToXdsという名前のシェルスクリプトを作ると良いでしょう．
+これらの理由から，eiger2cbfをH5ToXdsという名前に変えて(またはH5ToXdsという名前のリンクを作って)使うか，以下のようにしてH5ToXdsという名前のシェルスクリプトを作ることを推奨します(eiger2cbfが標準エラー出力に書き出すメッセージが，XDSの出力と重なって見にくいためこれを抑制しています)．
 ```
 cd (任意のPATHが通った場所)
 cat <<+ > H5ToXds
 #!/bin/sh
-eiger2cbf $@ 2>/dev/null
+eiger2cbf \$@ 2>/dev/null
 +
 chmod +x H5ToXds
 ```
+
+(catの下2行の内容をコピーしてH5ToXdsという名前でファイルを保存する方法でも大丈夫ですが，その場合は`$@`の前のバックスラッシュを除いて下さい)
 
 eiger2cbfは，以下のようにmaster.h5を与えて使います．
 
@@ -130,7 +140,7 @@ cd ..
 Pluginを使うと，H5ToXdsを使わず（すなわち一時ファイルとしてcbfファイルを出力せずに）直接h5ファイルを処理できるようになります．DECTRISの公式pluginであるNeggiaは以下の方法で入手できます．
 
 #### コンパイル済みのバイナリを入手する
-[DECTRISの公式サイト](https://www.dectris.com/neggia.html)からMac/Linux用のバイナリを入手できます．ただしユーザ登録が必要です．
+[DECTRISの公式サイト](https://www.dectris.com/company/news/newsroom/news-details/process-eiger-data-with-xds-fast)からMac/Linux用のバイナリを入手できます．ただしユーザ登録が必要です．
 
 #### 自分でビルドする
 [dectris/neggia - Github](https://github.com/dectris/neggia)からコードを入手できます．
@@ -141,7 +151,7 @@ eiger2cbfを用いてcbfに変換すれば，adxvやその他cbfをサポート�
 
 hdf5形式のまま表示するには，以下の方法があります．
 
-* [ALBULA](https://www.dectris.com/Albula_Overview.html)
+* [ALBULA](https://www.dectris.com/products/albula-software)
 * [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (要[bitshuffle plugin](#bitshuffle-plugin-少し上級編). 但し実験情報が読まれないため分解能が正しく表示されない)
 * dials.image_viewer (DIALSプログラムに同梱)
 * yamtbx.adxv_eiger (32XUで標準使用の拙作スクリプト．adxvを使用)
@@ -276,7 +286,7 @@ cbfに変換することで処理できます．
 ver. 714 (Sep 2016)より，hdf5を直接読めるようになりました．それ以前のバージョンをお使いの場合はcbfへの変換が必要です．
 
 ## 参考
-* [EIGER X series (Dectris公式サイト)](https://www.dectris.com/EIGER_X_Detectors.html#main_head_navigation)
+* [EIGER X series (Dectris公式サイト)](https://www.dectris.com/products/eiger/eiger-x-for-synchrotron)
 * [Eiger - XDSwiki](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Eiger)
 * [HDF5 - The HDF Group](https://www.hdfgroup.org/HDF5/)
 * [NeXus](http://www.nexusformat.org/) 将来的にEIGER hdf5もNeXus互換形式になります（現在は限定的）

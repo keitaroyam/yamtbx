@@ -66,6 +66,15 @@ There are groups named prefix + image number in /entry/data having attributes of
 
 onlyhits.h5 can be easily opened `yamtbx.adxv_eiger` (see below).
 
+### Multi-dataset HDF5
+
+One master.h5 may contain multiple datasets e.g. when multiple small-wedge datasets were collected from a single loop.
+Details will be posted at a later date.
+
+### 4M ROI
+
+EIGER 9M and 16M have 4M ROI (region of interest) function.
+Details will be posted at a later date.
 
 ## Installing software
 
@@ -85,18 +94,20 @@ eiger2cbf is a tool to convert h5 files to CBF format, which is a standard forma
 You can find the link (Converter for Eiger files) in the bottom of [Downloads - Mosflm](http://www.mrc-lmb.cam.ac.uk/harry/imosflm/ver721/downloads.html#Eiger2CBF) to get binaries for Linux and Mac.
 
 eiger2cbf can be used as an alternative of H5ToXds, which is needed by XDS to process h5 files.
-H5ToXds itself can be obtained from the bottom of [Dectris website](https://www.dectris.com/EIGER_X_Features.html), but only Linux version is available.
+H5ToXds itself can be obtained from the bottom of [Dectris website](https://www.dectris.com/features/features-eiger-x/h5toxds?path=products/eiger/eiger-x-for-synchrotron/details/eiger-x-4m), but only Linux version is available.
 Moreover, H5ToXds does not write header in CBF file.
-By these reasons, I recommend to use eiger2cbf instead of H5ToXds.
+By these reasons, I recommend to use eiger2cbf instead of H5ToXds in the following way. 
 Eiger2cbf shows message in standard output, which overlaps with XDS output in processing. To avoid this, it is recommended to create a shell script named H5ToXds by running the shell commands below.
 ```
 cd (anywhere PATH is set)
 cat <<+ > H5ToXds
 #!/bin/sh
-eiger2cbf $@ 2>/dev/null
+eiger2cbf \$@ 2>/dev/null
 +
 chmod +x H5ToXds
 ```
+
+(It is OK to copy two lines below cat and save as H5ToXds, but remove a backslash before `$@` in this case)
 
 To use eiger2cbf, just give a master.h5; e.g.,
 
@@ -123,7 +134,7 @@ By default it is installed to /usr/local/hdf5/lib/plugin. To change it, add `--h
 You will need to set environmental variable `HDF5_PLUGIN_PATH` to where you installed (In bash, use `export HDF5_PLUGIN_PATH=`; in csh use `setenv HDF5_PLUGIN_PATH `).
 
 ### Neggia plugin (only if you want to use plugin function in XDS)
-With plugin, XDS can process h5 files without H5ToXds, which means temporary cbf files are not written. Neggia, the official plugin by DECTRIS, can be obtained from [DECTRIS website](https://www.dectris.com/neggia.html) where you will need registration. Alternatively, you can obtain the source code from [dectris/neggia - Github](https://github.com/dectris/neggia) to build it yourself.
+With plugin, XDS can process h5 files without H5ToXds, which means temporary cbf files are not written. Neggia, the official plugin by DECTRIS, can be obtained from [DECTRIS website](https://www.dectris.com/company/news/newsroom/news-details/process-eiger-data-with-xds-fast) where you will need registration. Alternatively, you can obtain the source code from [dectris/neggia - Github](https://github.com/dectris/neggia) to build it yourself.
 
 
 ## Viewing image
@@ -131,7 +142,7 @@ You can always use any software including adxv by converting images to cbf forma
 
 To directly read hdf5, these programs are avialble:
 
-* [ALBULA](https://www.dectris.com/Albula_Overview.html)
+* [ALBULA](https://www.dectris.com/products/albula-software)
 * [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (need [bitshuffle plugin](#bitshuffle-plugin-advanced); but resolution may be incorrect because experimental parameters are ignored)
 * dials.image_viewer (bundled with DIALS)
 * yamtbx.adxv_eiger (the default program at BL32XU. launcher for adxv)
@@ -262,7 +273,7 @@ Use [eiger2cbf](#eiger2cbf-h5toxds-compatible) to convert to cbf format.
 Since ver. 714 (Sep 2016), hdf5 can be directly processed. The previous versions need converted cbf files.
 
 ## References
-* [EIGER X series (Dectris official)](https://www.dectris.com/EIGER_X_Detectors.html#main_head_navigation)
+* [EIGER X series (Dectris official)](https://www.dectris.com/products/eiger/eiger-x-for-synchrotron)
 * [Eiger - XDSwiki](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Eiger)
 * [HDF5 - The HDF Group](https://www.hdfgroup.org/HDF5/)
 * [NeXus](http://www.nexusformat.org/) In future EIGER hdf5 will be NeXus comaptible (currently not perfect)
