@@ -69,7 +69,7 @@ def tst_h5toxds():
     print "Testing H5ToXds.."
     rcode, out, err = util.call("H5ToXds")
 
-    if rcode == 127:
+    if rcode == 127: # FIXME 127 is "command not found". Need to test if H5ToXds works
         print "  NG (You can ignore this if you don't process hdf5 files which usually mean Eiger data)"
         return False
 
@@ -223,7 +223,7 @@ def tst_adxv():
 # tst_R()
 
 def tst_scipy():
-    print "Testing scipy.."
+    print "Testing SciPy.."
 
     try: import scipy.optimize
     except ImportError:
@@ -235,7 +235,13 @@ def tst_scipy():
         print "  scipy.optimize.least_squares is not available. Update the version. NG"
         return False
 
-    print "  %s installed. OK" % scipy.version.full_version
+    v = scipy.version.full_version
+    vv = map(int, v.split("."))
+    if vv < [0, 18, 1]:
+        print "  SciPy version installed (%s) is too old. Use 0.18.1 or newer." % v
+        return False
+
+    print "  %s installed. OK" % v
     return True
 # tst_scipy()
 
