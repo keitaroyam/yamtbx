@@ -98,6 +98,13 @@ def run(hklin, pdbin):
     sh_out.write("! data from %s : %s\n" % (os.path.abspath(hklin), obs_array.info().label_string()))
     obs_array.crystal_symmetry().show_summary(sh_out, prefix="! ")
     check_symm(obs_array.crystal_symmetry(), xs)
+
+    n_org = obs_array.size()
+    obs_array = obs_array.eliminate_sys_absent()
+    n_sys_abs = n_org - obs_array.size()
+    if n_sys_abs > 0:
+        print "  %d systematic absences removed." % n_sys_abs
+
     sh_out.write("sad %s\n" % in_opt)
     iotbx.shelx.hklf.miller_array_export_as_shelx_hklf(obs_array, open(os.path.join(wdir, infile), "w"),
                                                        normalise_if_format_overflow=True)
