@@ -112,7 +112,7 @@ class CCClustering:
                     normaliser = kernel_normalisation(arr, auto_kernel=True)
                     self.arrays[f] = arr.customized_copy(data=arr.data()/normaliser.normalizer_for_miller_array,
                                                          sigmas=arr.sigmas()/normaliser.normalizer_for_miller_array)
-                except Sorry, e:
+                except Exception, e:
                     failed.setdefault(e.message, []).append(f)
 
             if failed:
@@ -185,7 +185,7 @@ class CCClustering:
         # Perform cluster analysis
         D = scipy.spatial.distance.squareform(mat+mat.T) # convert to reduced form (first symmetrize)
         Z = scipy.cluster.hierarchy.linkage(D, cluster_method) # doesn't work with SciPy 0.17 (works with 0.18 or newer?)
-        pyplot.figure(figsize=(N/10., N/10.))
+        pyplot.figure(figsize=(max(5, N/10.), max(5, N/10.)))
         pyplot.title("%s, %s" % (distance_eqn, cluster_method))
         hclabels = map(lambda x: x+1, org2now.keys())
         scipy.cluster.hierarchy.dendrogram(Z, orientation="left", labels=hclabels)
