@@ -332,7 +332,7 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 現在論文準備中につき，当英語版ドキュメントのURL https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md を引用して頂ますようお願いします．
 
 ### KAMOを利用した研究
-
+* Hori *et al.* (2018) "Na<sup>+</sup>-mimicking ligands stabilize the inactive state of leukotriene B<sub>4</sub> receptor BLT1." *Nature Chemical Biology* doi: [10.1038/nchembio.2547](https://doi.org/10.1038/nchembio.2547) PDB: [5X33](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X33) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-BLT1-data-(5X33))
 * Suno *et al.* (2017) "Crystal Structures of Human Orexin 2 Receptor Bound to the Subtype-Selective Antagonist EMPA." *Structure*  doi: [10.1016/j.str.2017.11.005](https://doi.org/10.1016/j.str.2017.11.005) PDB: [5WQC](http://www.rcsb.org/pdb/explore/explore.do?structureId=5WQC) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-OX2R-data-(5WQC))
 * Miyauchi *et al.* (2017) "Structural basis for xenobiotic extrusion by eukaryotic MATE transporter." *Nature Communications* doi: [10.1038/s41467-017-01541-0](https://doi.org/10.1038/s41467-017-01541-0) PDB: [5Y50](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y50) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-AtDTX14-data-(5Y50))
 * Abe *et al.* (2017) "Structure of in cell protein crystals containing organometallic complexes." *Phys. Chem. Chem. Phys.* doi: [10.1039/C7CP06651A](https://doi.org/10.1039/C7CP06651A) PDB: [5YHA](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHA) [5YHB](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHB)
@@ -346,6 +346,10 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2018-01-30
+   * KAMO: XDS Nov 11, 2017 (BUILT=20171218)のサポートを追加 (このバージョンから精密化に失敗した際にGXPARM.XDSが生成されない)
+   * kamo.multi\_prep\_merging: formerge.lst等でファイル名がソートされるようにした
+   * kamo.multi\_merge: cc\_clusteringにおけるエラー処理と樹形図サイズの設定を改善
 * 2017-12-26
    * KAMO: マージ用スクリプトのデフォルト設定を変更．rejectionをb+Bに．filter\_cell.Rのバグを修正．
    * kamo.multi\_merge: cc\_clusteringでRでは無くSciPyを利用するように変更(SciPy >=0.18.1が必要)．共通反射数が3未満の場合はデータを除外．クラスタリングの方法を選択可能に．
