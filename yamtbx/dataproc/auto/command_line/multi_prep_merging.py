@@ -153,7 +153,6 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
     revert_files(xds_files.generated_by_CORRECT, bk_prefix, wdir=wd, quiet=True)
 
     new_xac = os.path.join(wdr, "XDS_ASCII.HKL_rescale")
-    new_gxparm = os.path.join(wdr, "GXPARM.XDS_rescale")
 
     if prep_dials_files:
         prepare_dials_files(wd, out,
@@ -162,8 +161,8 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
                             moveto=wdr)
 
     ret = None
-    if os.path.isfile(new_xac) and os.path.isfile(new_gxparm):
-        ret = (XPARM(new_gxparm).unit_cell, new_xac)
+    if os.path.isfile(new_xac):
+        ret = (XDS_ASCII(new_xac, read_data=False).symm.unit_cell().parameters(), new_xac)
         print >>out, " OK:", ret[0]
     else:
         print >>out, "Error: rescaling failed (Can't find XDS_ASCII.HKL)"
@@ -333,7 +332,7 @@ def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, pre
 class PrepMerging:
     def __init__(self, cell_graph):
         self.cell_graph = cell_graph
-        self.cell_and_files = []
+        self.cell_and_files = {}
         self.log_buffer = None
     # __init__()
 
@@ -409,7 +408,7 @@ class PrepMerging:
         ofs_dat = open(os.path.join(workdir, "cells.dat"), "w")
         ofs_dat.write("file a b c al be ga\n")
 
-        for wd in self.cell_and_files:
+        for wd in sorted(self.cell_and_files):
             cell, xas = self.cell_and_files[wd]
             ofs_lst.write(xas+"\n")
             ofs_dat.write(xas+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
@@ -519,7 +518,7 @@ cat("\nUse formerge_goodcell.lst instead!\n")
 
             ofs_phil = open(os.path.join(wd_jref, "experiments_and_reflections.phil"), "w")
             ofs_phil.write("input {\n")
-            for wd in self.cell_and_files:
+            for wd in sorted(self.cell_and_files):
                 fe = os.path.join(wd, "experiments.json")
                 fp = os.path.join(wd, "integrate_hkl.pickle")
                 if os.path.isfile(fe) and os.path.isfile(fp):
@@ -563,7 +562,7 @@ def run(params):
         
     xds_dirs = []
     for xd in params.xdsdir:
-        xds_dirs.extend(map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2] or "DIALS.HKL" in x[2],
+        xds_dirs.extend(map(lambda x: x[0], filter(lambda x: any(map(lambda y: y.startswith("XDS_ASCII.HKL"), x[2])) or "DIALS.HKL" in x[2],
                                                    os.walk(os.path.abspath(xd)))))
     
     for i, xd in enumerate(xds_dirs):
@@ -606,8 +605,8 @@ def run(params):
                 
     topdir = os.path.dirname(os.path.commonprefix(xds_dirs))
     
-    pm.prep_merging(params.group_choice, symmidx, params.workdir, topdir,
-                    params.cell_method, params.nproc, params.prep_dials_files, params.copy_into_workdir)
+    pm.prep_merging(group=params.group_choice, symmidx=symmidx, workdir=params.workdir, topdir=topdir,
+                    cell_method=params.cell_method, nproc=params.nproc, prep_dials_files=params.prep_dials_files, into_workdir=params.copy_into_workdir)
     pm.write_merging_scripts(params.workdir, "par", params.prep_dials_files)
 # run()
 

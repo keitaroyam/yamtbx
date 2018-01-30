@@ -22,6 +22,7 @@ from yamtbx.dataproc.xds import idxreflp
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.xds.command_line import xds_plot_integrate
 from yamtbx.dataproc.xds import files as xds_files
+from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.xds.xparm import XPARM
 from yamtbx.dataproc.auto import resolution_cutoff
 from yamtbx.dataproc.auto import html_report
@@ -117,7 +118,6 @@ def find_mosaicity_for_image(line):
 
 def calc_merging_stats(xac_file, cut_resolution=True):
     import iotbx.merging_statistics
-    from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 
     wdir = os.path.dirname(xac_file)
     pklout = os.path.join(wdir, "merging_stats.pkl")
@@ -526,13 +526,16 @@ def xds_sequence(root, params):
 
         run_xds(wdir=root, show_progress=params.show_progress)
 
-        if not os.path.isfile(gxparm):
-            print >>decilog, " Scaling failed."
+        if not os.path.isfile(xac_hkl):
+            print >>decilog, " CORRECT failed."
             return
+
+        if not os.path.isfile(gxparm):
+            print >>decilog, " Refinement in CORRECT failed."
 
         print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
 
-        ret = calc_merging_stats(os.path.join(root, "XDS_ASCII.HKL"))
+        ret = calc_merging_stats(xac_hkl)
         if params.cut_resolution:
             if ret is not None and ret[0] is not None:
                 d_min = ret[0]
@@ -540,7 +543,7 @@ def xds_sequence(root, params):
                                                   ("INCLUDE_RESOLUTION_RANGE", "50 %.2f"%d_min)])
                 print >>decilog, " Re-scale at %.2f A" % d_min
                 os.rename(os.path.join(root, "CORRECT.LP"), os.path.join(root, "CORRECT_fullres.LP"))
-                os.rename(os.path.join(root, "XDS_ASCII.HKL"), os.path.join(root, "XDS_ASCII_fullres.HKL"))
+                os.rename(xac_hkl, os.path.join(root, "XDS_ASCII_fullres.HKL"))
                 run_xds(wdir=root, show_progress=params.show_progress)
                 print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
                 print >>decilog, " (Original files are saved as *_fullres.*)"
@@ -598,7 +601,7 @@ def xds_sequence(root, params):
 
                     run_xds(wdir=root, show_progress=params.show_progress)
 
-                    ret = calc_merging_stats(os.path.join(root, "XDS_ASCII.HKL"))
+                    ret = calc_merging_stats(xac_hkl)
 
                     if params.cut_resolution:
                         if ret is not None and ret[0] is not None:
@@ -607,7 +610,7 @@ def xds_sequence(root, params):
                                                               ("INCLUDE_RESOLUTION_RANGE", "50 %.2f"%d_min)])
                             print >>decilog, " Re-scale at %.2f A" % d_min
                             os.rename(os.path.join(root, "CORRECT.LP"), os.path.join(root, "CORRECT_fullres.LP"))
-                            os.rename(os.path.join(root, "XDS_ASCII.HKL"), os.path.join(root, "XDS_ASCII_fullres.HKL"))
+                            os.rename(xac_hkl, os.path.join(root, "XDS_ASCII_fullres.HKL"))
                             run_xds(wdir=root, show_progress=params.show_progress)
                             print >>decilog, " OK. ISa= %.2f" % correctlp.get_ISa(correct_lp, check_valid=True)
                             print >>decilog, " (Original files are saved as *_fullres.*)"
@@ -626,7 +629,7 @@ def xds_sequence(root, params):
                         print >>decilog, "ISa got worse= %.2f" % ISa
 
             if pointless_best_symm:
-                xac_symm = XPARM(gxparm).crystal_symmetry()
+                xac_symm = XDS_ASCII(xac_hkl, read_data=False).symm
                 if not xtal.is_same_space_group_ignoring_enantiomorph(xac_symm.space_group(), pointless_best_symm.space_group()):
                     if xtal.is_same_laue_symmetry(xac_symm.space_group(), pointless_best_symm.space_group()):
                         tmp = "same Laue symmetry"

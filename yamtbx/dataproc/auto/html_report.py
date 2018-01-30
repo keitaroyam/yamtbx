@@ -742,7 +742,6 @@ created on %s
         job = bssjobs.jobs[jobkey]
 
         dsname = os.path.basename(wd).replace("xds_", "")
-        gxparm_xds = os.path.join(wd, "GXPARM.XDS")
         correct_lp = os.path.join(wd, "CORRECT.LP")
         spot_xds = os.path.join(wd, "SPOT.XDS")
         idxref_lp = os.path.join(wd, "IDXREF.LP")

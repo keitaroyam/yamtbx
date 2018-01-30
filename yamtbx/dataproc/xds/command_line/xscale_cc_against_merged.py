@@ -112,7 +112,7 @@ def run(hklin, output_dir=None, eval_internal=True):
 
     ret = collections.OrderedDict()
 
-    for (f, wavelen), (ret1, ret2) in zip(merged.input_files.values(), results):
+    for (f, wavelen, cell), (ret1, ret2) in zip(merged.input_files.values(), results):
         name = f[cutforname1+1:-cutforname2]
         n_all, n_common, cc = ret1
         print >>out_files, formatf%f, formatn%name, "%5d %5d %.4f" % (n_all, n_common, cc)

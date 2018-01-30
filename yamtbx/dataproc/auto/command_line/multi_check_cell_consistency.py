@@ -15,6 +15,7 @@ from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc import pointless
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.dials.command_line import run_dials_auto
+from yamtbx import util
 
 import os
 import sys
@@ -52,21 +53,23 @@ class CellGraph:
     # __init__()
 
     def get_p1cell_and_symm(self, xdsdir):
-        gxparm_xds = os.path.join(xdsdir, "GXPARM.XDS")
         dials_hkl = os.path.join(xdsdir, "DIALS.HKL")
+        xac_file = util.return_first_found_file(("XDS_ASCII.HKL", "XDS_ASCII.HKL.org",
+                                                 "XDS_ASCII_fullres.HKL.org", "XDS_ASCII_fullres.HKL",
+                                                 "XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale"),
+                                                wd=xdsdir)
 
         p1cell, xs = None, None
 
-        if os.path.isfile(gxparm_xds):
-            correct_lp = filter(lambda x: os.path.isfile(x), map(lambda f: os.path.join(xdsdir, f),
-                                                                 ("CORRECT.LP_noscale", "CORRECT.LP")))[0]
+        if xac_file:
+            correct_lp = util.return_first_found_file(("CORRECT.LP_noscale", "CORRECT.LP"), wd=xdsdir)
             p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
             try:
-                xparm = XPARM(gxparm_xds)
-            except ValueError:
-                print "Invalid xparm format:", gxparm_xds
+                xac = XDS_ASCII(xac_file, read_data=False)
+            except:
+                print "Invalid XDS_ASCII format:", xac_file
                 return
-            xs = xparm.crystal_symmetry()
+            xs = xac.symm
 
         elif os.path.isfile(dials_hkl): # DIALS
             xs = run_dials_auto.get_most_possible_symmetry(xdsdir)
@@ -286,8 +289,8 @@ def run(params, out=sys.stdout):
     cm = CellGraph(tol_length=params.tol_length, tol_angle=params.tol_angle)
 
     if not params.xdsdir and params.topdir:
-        params.xdsdir = map(lambda x: x[0], filter(lambda x: "GXPARM.XDS" in x[2] or "DIALS.HKL" in x[2],
-                                                   os.walk(self.topdir)))
+        params.xdsdir = map(lambda x: x[0], filter(lambda x: any(map(lambda y: y.startswith("XDS_ASCII.HKL"), x[2])) or "DIALS.HKL" in x[2],
+                                                   os.walk(params.topdir)))
         
     for i, xdsdir in enumerate(params.xdsdir):
         cm.add_proc_result(i, xdsdir)
@@ -301,14 +304,14 @@ def run(params, out=sys.stdout):
     print >>out
     print >>out, "About the largest group:"
     for idx, wd in enumerate(ret[0]):
-        gxparm_xds = os.path.join(wd, "GXPARM.XDS")
+        xac_hkl = os.path.join(wd, "XDS_ASCII.HKL")
         correct_lp = os.path.join(wd, "CORRECT.LP")
         print >>out, "%.3d %s" % (idx, os.path.relpath(wd, params.topdir) if params.topdir is not None else wd),
-        if not os.path.isfile(gxparm_xds):
+        if not os.path.isfile(xac_hkl):
             print >>out, "Unsuccessful"
             continue
         
-        sg = sgtbx.space_group_info(XPARM(gxparm_xds).spacegroup)
+        sg = XDS_ASCII(xac_hkl, read_data=False).symm.space_group_info()
         clp = correctlp.CorrectLp(correct_lp)
         if "all" in clp.table:
             cmpl = clp.table["all"]["cmpl"][-1]

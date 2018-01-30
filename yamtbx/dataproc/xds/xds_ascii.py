@@ -66,13 +66,17 @@ class XDS_ASCII:
             if line.startswith("! ISET="):
                 pars = dict(re_xds_kwd.findall(line))
                 iset = int(pars["ISET"])
-                if iset not in self.input_files: self.input_files[iset] = [None, None]
+                if iset not in self.input_files: self.input_files[iset] = [None, None, None]
                 if "INPUT_FILE" in pars:
                     self.input_files[iset][0] = pars["INPUT_FILE"]
                 elif "X-RAY_WAVELENGTH" in pars:
                     tmp = pars["X-RAY_WAVELENGTH"]
                     if " (" in tmp: tmp = tmp[:tmp.index(" (")]
                     self.input_files[iset][1] = tmp
+                elif "UNIT_CELL_CONSTANTS" in pars:
+                    tmp = pars["UNIT_CELL_CONSTANTS"]
+                    self.input_files[iset][2] = tmp
+                    
             else:
                 headers.extend(re_xds_kwd.findall(line[line.index("!")+1:]))
 
