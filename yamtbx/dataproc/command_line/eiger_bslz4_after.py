@@ -40,6 +40,7 @@ def run_safe(infile, check_data=True):
                            h5in["/entry/data/data"].attrs["image_nr_high"])
 
     h5in.close()
+    shutil.copystat(infile, outfile)
 
     eltime = time.time() - startt
     size1 = os.path.getsize(infile) / 1024**2
