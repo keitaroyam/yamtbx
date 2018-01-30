@@ -1,5 +1,5 @@
 """
-(c) RIKEN 2016. All rights reserved. 
+(c) RIKEN 2016-2018. All rights reserved. 
 Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
@@ -54,11 +54,19 @@ def make_range_str(frames):
 class MainFrame(wx.Frame):
     def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204", eiger_api_ver="1.6.1", bl="BL32XU", monitor_interval=5.):
         wx.Frame.__init__(self, parent=parent, id=id, title="Adxv launcher for Eiger",
-                          size=(500,500))
-        self.adxv_proc = None # subprocess object
-        self.h5file = h5in
+                          size=(540,500))
+        self.h5file = None
+        self._lstTrigger_frame_request_workaround = None # dirty workaround..
+        if h5in:
+            if os.path.isdir(h5in):
+                h5files = filter(lambda x: x.endswith(("_master.h5", "_onlyhits.h5")), sorted(glob.glob(os.path.join(h5in, "*.h5"))))
+                if h5files: self.set_h5file(h5files[0])
+            else:
+                self.set_h5file(h5in)
+                
         self.onlyhits_keys = []
         self.n_images = -1
+        self.n_images_each = -1
         self.adxv = adxv.Adxv()
         self.last_monitor_image = None
         self.bl = bl
@@ -86,32 +94,69 @@ class MainFrame(wx.Frame):
         vbox0.Add(hbox00, flag=wx.EXPAND|wx.TOP, border=4)
 
         hbox01 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox01.Add(wx.StaticText(panel1, wx.ID_ANY, "Frame no: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
-        self.cmbFrame = wx.ComboBox(panel1, wx.ID_ANY, size=(100,25), value="1")
-        self.cmbFrame.Bind(wx.EVT_COMBOBOX, self.onTextEnter)
-        self.cmbFrame.Bind(wx.EVT_TEXT_ENTER, self.onTextEnter)
-        hbox01.Add(self.cmbFrame, 1, flag=wx.EXPAND|wx.RIGHT)
-        self.llbtn = wx.Button(panel1, wx.ID_ANY, "<<")
-        hbox01.Add(self.llbtn, flag=wx.EXPAND|wx.RIGHT)
-        self.lbtn = wx.Button(panel1, wx.ID_ANY, "<")
-        hbox01.Add(self.lbtn, flag=wx.EXPAND|wx.RIGHT)
-        self.rbtn = wx.Button(panel1, wx.ID_ANY, ">")
-        hbox01.Add(self.rbtn, flag=wx.EXPAND|wx.RIGHT)
-        self.rrbtn = wx.Button(panel1, wx.ID_ANY, ">>")
-        hbox01.Add(self.rrbtn, flag=wx.EXPAND|wx.RIGHT)
         vbox0.Add(hbox01, flag=wx.EXPAND|wx.TOP, border=4)
+
+        self.lstTrigger = wx.ListCtrl(panel1, size=(180, 200), style=wx.LC_REPORT|wx.LC_SINGLE_SEL)
+        self.lstTrigger.Bind(wx.EVT_LIST_ITEM_SELECTED, self.lstTrigger_onSelected)
+        hbox01.Add(self.lstTrigger)
+
+        vbox012 = wx.BoxSizer(wx.VERTICAL)
+        hbox01.Add(vbox012, flag=wx.EXPAND|wx.LEFT, border=4)
+        hbox0121 = wx.BoxSizer(wx.HORIZONTAL)
+        vbox012.Add(hbox0121, flag=wx.EXPAND)
+        self.spnFrame = wx.SpinCtrlDouble(panel1, wx.ID_ANY, size=(100,25), min=1)
+        self.spnFrame.SetDigits(0) # this is integer actually. but I want arbitrary increments
+        #self.sliFrame = wx.Slider(panel1)
+        self.spnFrame.Bind(wx.EVT_SPINCTRLDOUBLE, self.onTextEnter)
+        self.stFrameRange = wx.StaticText(panel1, wx.ID_ANY, "")
+        hbox0121.Add(wx.StaticText(panel1, wx.ID_ANY, "Frame no: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox0121.Add(self.spnFrame)#, flag=wx.EXPAND|wx.RIGHT)
+        hbox0121.Add(self.stFrameRange, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        #hbox0121.Add(self.sliFrame, 1, flag=wx.EXPAND|wx.RIGHT)
+
+        self.stShowing = wx.StaticText(panel1, wx.ID_ANY, "Nothing shown")
+        vbox012.Add(self.stShowing, flag=wx.TOP, border=4)
+        
+        hbox0122 = wx.BoxSizer(wx.HORIZONTAL)
+        vbox012.Add(hbox0122, flag=wx.TOP, border=4)
+        self.chkSum = wx.CheckBox(panel1, label="Sum")
+        self.chkSum.Bind(wx.EVT_CHECKBOX, self.chkSum_onChecked)
+        self.spnSumFrame = wx.SpinCtrl(panel1, size=(80, 25))
+        self.spnSumFrame.Bind(wx.EVT_SPINCTRL, self.onSpnSumFrame)
+        self.spnSumDeg = wx.SpinCtrlDouble(panel1, size=(80, 25))
+        self.spnSumDeg.Bind(wx.EVT_SPINCTRLDOUBLE, self.onSpnSumDeg)
+        self.spnSumDeg.SetDigits(4)
+        hbox0122.Add(self.chkSum)
+        hbox0122.Add(self.spnSumFrame)
+        hbox0122.Add(wx.StaticText(panel1, wx.ID_ANY, " frames or "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox0122.Add(self.spnSumDeg)
+        hbox0122.Add(wx.StaticText(panel1, wx.ID_ANY, " degrees"), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+
+        self.chkKeepFrame = wx.CheckBox(panel1, label="Keep frame number when trigger changed")
+        vbox012.Add(self.chkKeepFrame, flag=wx.TOP, border=4)
+        
+        hbox0123 = wx.BoxSizer(wx.HORIZONTAL)
+        vbox012.Add(hbox0123, flag=wx.TOP, border=4)
+        self.llbtn = wx.Button(panel1, wx.ID_ANY, "<<")
+        self.lbtn = wx.Button(panel1, wx.ID_ANY, "<")
+        self.rbtn = wx.Button(panel1, wx.ID_ANY, ">")
+        self.rrbtn = wx.Button(panel1, wx.ID_ANY, ">>")
+        hbox0123.Add(self.llbtn, flag=wx.EXPAND|wx.RIGHT)
+        hbox0123.Add(self.lbtn, flag=wx.EXPAND|wx.RIGHT)
+        hbox0123.Add(self.rbtn, flag=wx.EXPAND|wx.RIGHT)
+        hbox0123.Add(self.rrbtn, flag=wx.EXPAND|wx.RIGHT)
         self.lbtn.Bind(wx.EVT_BUTTON, lambda e: self.next_or_back(-1))
         self.rbtn.Bind(wx.EVT_BUTTON, lambda e: self.next_or_back(+1))
         self.llbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(-1))
         self.rrbtn.Bind(wx.EVT_BUTTON, lambda e: self.play(+1))
 
-        hbox02 = wx.BoxSizer(wx.HORIZONTAL)
-        hbox02.Add(wx.StaticText(panel1, wx.ID_ANY, "Binning: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        hbox0124 = wx.BoxSizer(wx.HORIZONTAL)
+        vbox012.Add(hbox0124, flag=wx.TOP, border=4)
+        hbox0124.Add(wx.StaticText(panel1, wx.ID_ANY, "Binning: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         self.txtBin = wx.TextCtrl(panel1, wx.ID_ANY, size=(100,25), style=wx.TE_PROCESS_ENTER)
         self.txtBin.SetValue("1")
         self.txtBin.Bind(wx.EVT_TEXT_ENTER, self.onTextEnter)
-        hbox02.Add(self.txtBin, flag=wx.EXPAND|wx.RIGHT)
-        vbox0.Add(hbox02, flag=wx.EXPAND|wx.TOP, border=4)
+        hbox0124.Add(self.txtBin, flag=wx.EXPAND|wx.RIGHT)
 
         panel1.SetSizer(vbox0)
         notebook.InsertPage(0, panel1, "File")
@@ -119,7 +164,7 @@ class MainFrame(wx.Frame):
         # panel2
         vbox1 = wx.BoxSizer(wx.VERTICAL)
         #hbox10 = wx.BoxSizer(wx.HORIZONTAL)
-       #hbox10.Add(wx.StaticText(panel2, wx.ID_ANY, "Wavelength: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
+        #hbox10.Add(wx.StaticText(panel2, wx.ID_ANY, "Wavelength: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL)
         #self.txtMonWavelen = wx.TextCtrl(panel2, wx.ID_ANY, size=(100,25))
         #self.txtMonWavelen.SetValue("1.0000")
         #hbox10.Add(self.txtMonWavelen, flag=wx.EXPAND|wx.RIGHT)
@@ -188,6 +233,24 @@ class MainFrame(wx.Frame):
             self.read_h5file()
     # __init__()
 
+    def set_h5file(self, f):
+        if not f.endswith(("_master.h5", "_onlyhits.h5")):
+            r = re.search("(.*)_data_[0-9]+\.h5$", f)
+            if not r:
+                wx.MessageDialog(None, "Choose master h5 file (*_master.h5) or Hit-only h5 file (*_onlyhits.h5)",
+                                 "Error", style=wx.OK).ShowModal()
+                return False
+            f = r.group(1)+"_master.h5"
+            
+        if not os.path.isfile(f):
+            wx.MessageDialog(None, "Selected file does not exist",
+                             "Error", style=wx.OK).ShowModal()
+            return False
+
+        self.h5file = f
+        return True
+    # set_h5file()
+    
     def on_notebook_page_changed(self, ev):
         self.txtInfo.SetValue("")
 
@@ -212,7 +275,8 @@ class MainFrame(wx.Frame):
     def open_hdf5(self, frameno, raise_window=True):
         tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
 
-        busyinfo = wx.lib.agw.pybusyinfo.PyBusyInfo("Loading image..", title="Busy adxv_eiger")
+        #busyinfo = wx.lib.agw.pybusyinfo.PyBusyInfo("Loading image..", title="Busy adxv_eiger")
+        focused = self.FindFocus()
         try: wx.SafeYield()
         except: pass
 
@@ -227,53 +291,110 @@ class MainFrame(wx.Frame):
         finally:
             busyinfo = None
 
+        if focused:
+            focused.SetFocus()
+
     # open_hdf5()
 
     def change_frameno(self, frames):
         if self.onlyhits_keys:
-            self.cmbFrame.Select(frames[0]-1)
             frames = "/entry/data/%s/data"%self.onlyhits_keys[frames[0]-1] # No support for summation
         else:
             if all(map(lambda x: x < 1, frames)): frames = [1]
             if all(map(lambda x: x > self.n_images, frames)): frames = [self.n_images]
             frames = filter(lambda x: 0 < x <= self.n_images, frames)
             if not frames: frames = [1]
-            rstr = make_range_str(frames)
-            if rstr not in self.cmbFrame.GetItems(): self.cmbFrame.Append(rstr)
-            self.cmbFrame.SetStringSelection(rstr)
 
         self.open_hdf5(frames, raise_window=False)
     # change_frameno()
 
+    def chkSum_onChecked(self, ev):
+        if self.chkSum.GetValue():
+            nframe = int(self.spnSumFrame.GetValue())
+            self.spnFrame.SetRange(1, self.n_images_each-nframe+1)
+            self.spnFrame.SetIncrement(nframe)
+        else:
+            self.spnFrame.SetRange(1, self.n_images_each)
+            self.spnFrame.SetIncrement(1)
+
+        self.onTextEnter(None)
+    # chkSum_onChecked()
+        
+    def onSpnSumFrame(self, ev):
+        nframe = int(self.spnSumFrame.GetValue())
+        inc = self.spnSumDeg.GetIncrement()
+        self.spnSumDeg.SetValue(inc*nframe)
+        if self.chkSum.GetValue():
+            self.spnFrame.SetRange(1, self.n_images_each-nframe+1)
+            self.spnFrame.SetIncrement(nframe)
+            self.onTextEnter(None)
+    # onSpnSumFrame()
+
+    def onSpnSumDeg(self, ev):
+        deg = float(self.spnSumDeg.GetValue())
+        inc = self.spnSumDeg.GetIncrement()
+        nframe = int(deg/inc+.5)
+        self.spnSumFrame.SetValue(nframe)
+        if self.chkSum.GetValue():
+            self.spnFrame.SetRange(1, self.n_images_each-nframe+1)
+            self.spnFrame.SetIncrement(nframe)
+            self.onTextEnter(None)
+    # onSpnSumDeg()
+
+    def lstTrigger_onSelected(self, ev):
+        if not self.chkKeepFrame.GetValue():
+            self.spnFrame.SetValue(1)
+
+        if self._lstTrigger_frame_request_workaround is not None:
+            self.spnFrame.SetValue(self._lstTrigger_frame_request_workaround)
+            self._lstTrigger_frame_request_workaround = None
+            
+        self.lstTrigger.EnsureVisible(self.lstTrigger.GetFirstSelected())
+        self.onTextEnter(None)
+    # lstTrigger_onSelected()
+    
     def onTextEnter(self, ev):
         if self.onlyhits_keys:
-            frames = [self.cmbFrame.GetCurrentSelection()+1]
+            frames = [self.lstTrigger.GetFirstSelected()+1]
+            self.stShowing.SetLabel("Showing %s"%self.onlyhits_keys[frames[0]-1])
         else:
-            frames = parse_range(self.cmbFrame.GetValue())
+            trigger = self.lstTrigger.GetFirstSelected() +1
+            frame_sp = int(self.spnFrame.GetValue())
+            frame = (trigger-1)*self.n_images_each + frame_sp
+            sumframe = self.spnSumFrame.GetValue() if self.chkSum.GetValue() else 1
+            max_frame = trigger*self.n_images_each
+            frames = range(frame, min(frame+sumframe-1, max_frame)+1)
+            frame_str = ("frame %d" % frame_sp) if len(frames)<2 else ("frames %d..%d" % (frame_sp, frame_sp+len(frames)-1))
+            self.stShowing.SetLabel("Showing %s of trigger %d" % (frame_str, trigger))
 
         self.change_frameno(frames)
     # onTextEnter()
 
     def next_or_back(self, sign):
-        s = make_range_str(parse_range(self.cmbFrame.GetValue()))
-        if "-" not in s: return self.go_rel(sign)
-        val = 1
-        for x in s.split(","):
-            if "-" not in x: continue
-            x = map(int, x.split("-"))
-            val = max(val, x[1]-x[0]+1)
-        return self.go_rel(sign*val)
-    # next_or_back()
-
-    def go_rel(self, rel):
+        tf = self.lstTrigger.GetFirstSelected() +1
+        tmin, tmax = 1, self.lstTrigger.GetItemCount()
+        
         if self.onlyhits_keys:
-            frames = [self.cmbFrame.GetCurrentSelection()+1]
+            if tmin <= tf+sign <= tmax:
+                self.lstTrigger.Select(tf+sign-1)
         else:
-            frames = parse_range(self.cmbFrame.GetValue())
-
-        frames = map(lambda x: x+rel, frames)
-        self.change_frameno(frames)
-    # go_rel()
+            cf, incf = self.spnFrame.GetValue(), self.spnFrame.GetIncrement()
+            fmin, fmax = self.spnFrame.GetMin(), self.spnFrame.GetMax()
+            
+            if cf+sign*incf < fmin:
+                if tf > tmin:
+                    #self.spnFrame.SetValue(fmax) # this does not work, because listctrl.Select() calls an event, which changes spnFrame value.
+                    self._lstTrigger_frame_request_workaround = fmax
+                    self.lstTrigger.Select(tf-1-1)
+            elif fmax < cf+sign*incf:
+                if tf < tmax:
+                    #self.spnFrame.SetValue(fmin)
+                    self._lstTrigger_frame_request_workaround = fmin
+                    self.lstTrigger.Select(tf+1-1)
+            else: #if fmin <= cf+sign*incf <= fmax:
+                self.spnFrame.SetValue(cf+sign*incf)
+                self.onTextEnter(None)
+    # next_or_back()
 
     def play(self, rel):
         if self.play_timer.IsRunning():
@@ -290,12 +411,13 @@ class MainFrame(wx.Frame):
     # play()
 
     def on_play_timer(self, ev):
-        save = self.cmbFrame.GetValue()
+        save = (self.spnFrame.GetValue(), self.lstTrigger.GetFirstSelected())
         self.next_or_back(self.play_relval)
         try: wx.Yield()
         except: pass
 
-        if save == self.cmbFrame.GetValue(): self.play_stop()
+        if save == (self.spnFrame.GetValue(), self.lstTrigger.GetFirstSelected()):
+            self.play_stop()
     # on_play_timer()
 
     def play_stop(self):
@@ -320,15 +442,8 @@ class MainFrame(wx.Frame):
                             wildcard="Mater HDF5 (*_master.h5 or *_onlyhits.h5)|*.h5")
 
         if dlg.ShowModal() == wx.ID_OK:
-            tmp = dlg.GetPath()
-            if not tmp.endswith(("_master.h5", "_onlyhits.h5")):
-                dlg.Destroy()
-                wx.MessageDialog(None, "Choose master h5 file (*_master.h5) or Hit-only h5 file (*_onlyhits.h5)",
-                                 "Error", style=wx.OK).ShowModal()
-                return
-
-            self.h5file = tmp
-            self.read_h5file()
+            if self.set_h5file(dlg.GetPath()):
+                self.read_h5file()
             
         dlg.Destroy()
     # btnInfile_click()
@@ -348,14 +463,14 @@ class MainFrame(wx.Frame):
                              "Error", style=wx.OK).ShowModal()
             return
 
-        self.h5file = latestfile
-        self.read_h5file()
+        if self.set_h5file(latestfile):
+            self.read_h5file()
     # btnLatest_click ()
 
     def cmbInfile_onChange(self, ev):
         f = self.cmbInfile.GetValue()
-        self.h5file = f
-        self.read_h5file()
+        if self.set_h5file(f):
+            self.read_h5file()
     # cmbInfile_onChange()
 
 
@@ -364,44 +479,101 @@ class MainFrame(wx.Frame):
         glob_f = lambda x: glob.glob(os.path.join(os.path.dirname(self.h5file), x))
         for f in sorted(glob_f("*_master.h5")+glob_f("*_onlyhits.h5")): self.cmbInfile.Append(f)
         self.cmbInfile.SetStringSelection(self.h5file)
+        self.lstTrigger.ClearAll()
 
+        widgets = self.spnFrame, self.chkSum, self.spnSumFrame, self.spnSumDeg, self.chkKeepFrame
+        
         is_onlyhits = self.h5file.endswith("_onlyhits.h5")
         try:
             h5 = h5py.File(self.h5file, "r")
             h = eiger_hdf5_interpreter.Interpreter().getRawHeadDict(self.h5file)
             self.n_images = h["Nimages"]
+            self.n_images_each = h["Nimages_each"]
+        except:
+            self.n_images = self.n_images_each = 0
+            self.txtInfo.SetValue(traceback.format_exc())
+            return
 
+        try:
+            safe_val = lambda x, k, a: x[k].value if k in x else a
+            yes_or_no = lambda x, k: ("no", "yes", "?")[safe_val(x, k, 2)]
             self.txtInfo.SetValue("""\
          Filename: %s
- Number of frames: %d
+         Detector: %s (%s)
+ Number of frames: %d (%d * %d trigger)
              Date: %s
- Phi start, width: %.6f, %.6f deg
+       Omega step: %.4f deg
   Camera distance: %.2f mm
-       Wavelength: %.6f A
-    Exposure time: %.6f sec
+       Wavelength: %.5f A
+       Frame time: %.6f sec 
       Beam center: (%d, %d) px
-    """ % (os.path.basename(self.h5file), self.n_images, h["DateStr"].replace("T", " "),
-           h["PhiStart"], h["PhiWidth"], h["Distance"]*1.e3,
-           h["Wavelength"], h["ExposureTime"], h["BeamX"], h["BeamY"]))
+      Corrections: countrate=%s 
+                   flatfield=%s
+                   efficiency=%s
+         ROI mode: %s
+           Sensor: %s %.1f um
+     Eiger fw ver: %s
+    """ % (os.path.basename(self.h5file),
+           safe_val(h5["/entry/instrument/detector"], "description", "?"), safe_val(h5["/entry/instrument/detector"], "detector_number", "?"),
+           self.n_images, self.n_images_each, h["Ntrigger"],
+           h["DateStr"].replace("T", " "),
+           h["PhiWidth"],
+           h["Distance"]*1.e3,
+           h["Wavelength"],
+           safe_val(h5["/entry/instrument/detector"], "frame_time", float("nan")),
+           h["BeamX"], h["BeamY"],
+           yes_or_no(h5["/entry/instrument/detector"], "countrate_correction_applied"),
+           yes_or_no(h5["/entry/instrument/detector"], "flatfield_correction_applied"),
+           yes_or_no(h5["/entry/instrument/detector"], "efficiency_correction_applied"),
+           safe_val(h5["/entry/instrument/detector/detectorSpecific"], "roi_mode", "?"),
+           h.get("SensorMaterial", "?"), h.get("SensorThickness", float("nan"))*1.e6,
+           safe_val(h5["/entry/instrument/detector/detectorSpecific"], "eiger_fw_version", "?")
+    ))
         except:
-            self.n_images = 0
             self.txtInfo.SetValue(traceback.format_exc())
 
-        self.cmbFrame.Clear()
         if is_onlyhits:
+            for w in widgets: w.Disable()
+            self.stFrameRange.SetLabel("")
             self.onlyhits_keys = sorted(h5["/entry/data"].keys())
-            for v in self.onlyhits_keys:
+            self.lstTrigger.InsertColumn(0, "Frame", width=55)
+            self.lstTrigger.InsertColumn(1, "Spots", width=55)
+            for i, v in enumerate(self.onlyhits_keys):
                 nspots = h5["/entry/data"][v]["data"].attrs.get("n_spots")
-                nspots = " (%3d spots)" % nspots if nspots is not None else ""
-                self.cmbFrame.Append("%s%s"%(v, nspots))
-            self.cmbFrame.SetEditable(False)
-        else:
-            self.onlyhits_keys = []
-            values = filter(lambda x:x>0, sorted(set([1,] + map(lambda x: int(self.n_images*x), (3/4., 1/4.,1/2.,1)))))
-            for v in values: self.cmbFrame.Append(str(v))
-            self.cmbFrame.SetEditable(True)
+                nspots = "%3d" % nspots if nspots is not None else ""
+                frame = int(v[v.rindex("_")+1:])
+                self.lstTrigger.InsertStringItem(i, str(frame))
+                self.lstTrigger.SetStringItem(i, 1, nspots)
+            self.lstTrigger.Select(0) # this calls an event to load image
 
-        self.change_frameno([1])
+        else:
+            for w in widgets: w.Enable()
+            self.onlyhits_keys = []
+            self.stFrameRange.SetLabel(" (from 1 to %d)"%self.n_images_each)
+            self.spnFrame.SetRange(1, self.n_images_each)
+            self.spnFrame.SetIncrement(1)
+            self.spnSumFrame.SetRange(1, self.n_images_each)
+            self.spnSumDeg.SetIncrement(h["PhiWidth"])
+            self.spnSumDeg.SetRange(h["PhiWidth"], h["PhiWidth"]*self.n_images_each)
+            if h["PhiWidth"] > 1e-5:
+                self.spnSumDeg.Enable()
+                self.spnSumFrame.SetValue(int(1./h["PhiWidth"]+.5))
+                self.onSpnSumFrame(None)
+            else:
+                self.spnSumFrame.SetValue(1)
+                self.spnSumDeg.Disable()
+                
+            self.lstTrigger.InsertColumn(0, "Trigger")
+            self.lstTrigger.InsertColumn(1, "Omega")
+            omega = h5["/entry/sample/goniometer/omega"]
+            for i in xrange(h["Ntrigger"]):
+                self.lstTrigger.InsertStringItem(i, "%d"%(i+1))
+                try:
+                    oms = omega[i*self.n_images_each]
+                    self.lstTrigger.SetStringItem(i, 1, "%.3f"%oms)
+                except: pass
+
+            self.lstTrigger.Select(0) # this calls an event to load image
     # read_h5file()
 
     def on_monitor_timer(self, ev):

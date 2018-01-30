@@ -72,6 +72,7 @@ class Interpreter:
             self.raw_head_dict["Oscillation_axis"] = tuple(h5[omega_key].attrs["vector"])
 
         self.raw_head_dict["Nimages_each"] = detectorsp["nimages"].value
+        self.raw_head_dict["Ntrigger"] = detectorsp["ntrigger"].value
         self.raw_head_dict["Nimages"] = 0
         for k in sorted(h5["entry/data"].keys()):
             try:
