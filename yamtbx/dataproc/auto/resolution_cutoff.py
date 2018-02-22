@@ -44,7 +44,7 @@ def fit_curve_for_cchalf(s2_list, cc_list, log_out, verbose=True):
     
     x0 = [0.5*min(s2_list), 1.] #Initial d0, r
     log_out.write("  Initial d0, r = %s\n" % x0)
-    lsq = scipy.optimize.least_squares(fun, x0, args=(s2_list, cc_list), loss="soft_l1", f_scale=.1)
+    lsq = scipy.optimize.least_squares(fun, x0, args=(s2_list, cc_list), loss="soft_l1", f_scale=.3)
     #lsq = fit_ed(s_list, cc_list)
 
     if verbose:
