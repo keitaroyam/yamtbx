@@ -57,7 +57,7 @@ class CCClustering:
         open(os.path.join(self.wdir, "filenames.lst"), "w").write("\n".join(xac_files))
     # __init__()
 
-    def do_clustering(self, nproc=1, b_scale=False, use_normalized=False, cluster_method="ward", distance_eqn="sqrt(1-cc)", html_maker=None):
+    def do_clustering(self, nproc=1, b_scale=False, use_normalized=False, cluster_method="ward", distance_eqn="sqrt(1-cc)", min_common_refs=3, html_maker=None):
         """
         Using correlation as distance metric (for hierarchical clustering)
         https://stats.stackexchange.com/questions/165194/using-correlation-as-distance-metric-for-hierarchical-clustering
@@ -138,7 +138,7 @@ class CCClustering:
         cc_data_for_html = []
         for (i,j), (cc,nref) in zip(args, results):
             cc_data_for_html.append((i,j,cc,nref))
-            if cc==cc and nref>2: continue
+            if cc==cc and nref>=min_common_refs: continue
             idx_bad[i] = idx_bad.get(i, 0) + 1
             idx_bad[j] = idx_bad.get(j, 0) + 1
             nans.append([i,j])

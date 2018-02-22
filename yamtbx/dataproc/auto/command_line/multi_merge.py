@@ -169,6 +169,9 @@ cc_clustering {
  cc_to_distance = "sqrt(1-cc)"
   .type = str
   .help = "distance in cluster analysis. options: sqrt(1-cc), 1-cc, sqrt(1-cc^2)"
+ min_common_refs = 3
+  .type = int(value_min=3)
+  .help = "Minimum number of common reflections between two datasets. Datasets below this limit are excluded in downstream analysis."
  min_ios = None
   .type = float
   .help = minimum I/sigma for CC calculation
@@ -601,6 +604,7 @@ def run(params):
                                   use_normalized=params.cc_clustering.use_normalized,
                                   cluster_method=params.cc_clustering.method,
                                   distance_eqn=params.cc_clustering.cc_to_distance,
+                                  min_common_refs=params.cc_clustering.min_common_refs,
                                   html_maker=html_report)
         summary_out = os.path.join(ccc_wdir, "cc_cluster_summary.dat")
         clusters = cc_clusters.show_cluster_summary(d_min=params.d_min, out=open(summary_out, "w"))
