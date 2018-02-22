@@ -31,12 +31,21 @@ def calc_lcv(cells):
     Mbc, Lbc = aldists(Dbc)
     Mca, Lca = aldists(Dca)
 
-    Sab = Lab[numpy.where(Mab==numpy.amax(Mab))][0]
-    Sbc = Lbc[numpy.where(Mbc==numpy.amax(Mbc))][0]
-    Sca = Lca[numpy.where(Mca==numpy.amax(Mca))][0]
 
-    lcv = numpy.amax([Sab,Sbc,Sca])
-    alcv = numpy.amax([Mab,Mbc,Mca])
+    # take max of M series
+    iab = numpy.where(Mab==numpy.amax(Mab))
+    ibc = numpy.where(Mbc==numpy.amax(Mbc))
+    ica = numpy.where(Mca==numpy.amax(Mca))
+    Lab = Lab[iab][0]
+    Lbc = Lbc[ibc][0]
+    Lca = Lca[ica][0]
+    Mab = Mab[iab][0]
+    Mbc = Mbc[ibc][0]
+    Mca = Mca[ica][0]
+    
+    midx = numpy.argmax([Mab,Mbc,Mca])
+    lcv = [Lab,Lbc,Lca][midx]
+    alcv = [Mab,Mbc,Mca][midx]
 
     return lcv*100., alcv
 # calc_lcv()
