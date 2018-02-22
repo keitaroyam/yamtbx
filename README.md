@@ -18,3 +18,5 @@ These packages are included as a part of yamtbx.
 * [D3.js](http://d3js.org/) by Mike Bostock (New BSD License)
 * [d3-tip](https://github.com/Caged/d3-tip) by Justin Palmer (MIT License)
 
+### Contact Author
+Please use [this form](https://docs.google.com/forms/d/e/1FAIpQLSdINVTX6HtreMzuyeQk7VLsycKLFAL3SmDdARqQg8zpt46MXw/viewform) to contact me.
