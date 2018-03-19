@@ -2,6 +2,17 @@
 # chkconfig: 345 85 15
 # description: Cheetah spot finder for Eiger streaming
 # processname: shika_cheetah_daemon
+
+### BEGIN INIT INFO
+# Provides:        shika_cheetah_daemon
+# Required-Start: $local_fs $network $remote_fs
+# Should-Start: 
+# Required-Stop:
+# Should-Stop:
+# Default-Start:  2 3 5
+# Default-Stop:
+# Description:    Cheetah spot finder for Eiger streaming
+### END INIT INFO
 #
 # This script needs to be saved as /etc/init.d/shika_cheetah_daemon
 # and chmod u+x /etc/init.d/shika_cheetah_daemon
@@ -24,16 +35,16 @@
 
 # Source function library.
 . /etc/init.d/functions
-export PATH=/oys/xtal/cctbx/build/bin2:/oys/xtal/cctbx/build_dev/bin2:${PATH}
+export PATH=/oys/xtal/cctbx/snapshots/dials-v1-8-3/build/bin2:${PATH}
 . /oys/xtal/yamtbx/setenv.sh
 
 SERVICE_NAME="shika_cheetah_daemon"
-PYSCR=<>
+PYSCR=/usr/local/cheetah_daemon/shika_daemon.py
 
 start() {
 	echo -n "Starting ${SERVICE_NAME}: "
-	test -e /ramdisk/32xu/ || mkdir /ramdisk/32xu/
-        chmod 777 /ramdisk/32xu/
+        #test -e /ramdisk/32xu/ || mkdir /ramdisk/32xu/
+        #chmod 777 /ramdisk/32xu/
 	yamtbx.python "$PYSCR" start
 }	
 

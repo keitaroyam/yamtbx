@@ -75,7 +75,7 @@ adxv = None
  .type = path
  .help = adxv command
 
-bl = 32xu 41xu 26b1 26b2 38b1 12b2 other
+bl = 32xu 41xu 44xu 26b1 26b2 38b1 12b2 other
  .type = choice(multi=False)
  .help = Choose beamline where you start program
 blconfig = []

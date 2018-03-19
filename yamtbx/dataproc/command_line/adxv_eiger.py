@@ -451,7 +451,7 @@ class MainFrame(wx.Frame):
     def btnLatest_click(self, ev):
         latestlog = os.path.join(os.environ["HOME"], ".bss_latest_file_%s.log" % self.bl)
         if not os.path.isfile(latestlog):
-            wx.MessageDialog(None, ".bss_latest_file_%s.log not found in $HOME." % self.bl,
+            wx.MessageDialog(None, "%s not found." % latestlog,
                              "Error", style=wx.OK).ShowModal()
             return
 

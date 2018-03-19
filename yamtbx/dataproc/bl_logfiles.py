@@ -287,7 +287,7 @@ class BssDiffscanLog:
             assert (prefix, num).count(None)==2
             bf = os.path.basename(filename)
             prefix = bf[:bf.rindex("_")+1]
-            num = int(bf[bf.rindex("_")+1:bf.index(".")])
+            num = int(bf[bf.rindex("_")+1:bf.rindex(".")])
         else:
             assert None not in (prefix, num)
             
@@ -385,7 +385,7 @@ def interpret_attenuator_label(label):
         sp = label.split()
         if len(sp) == 2 and sp[1].endswith(("mm","um")):
             fac = 1e3 if sp[1].endswith("mm") else 1
-            thickness = int(sp[1][:-2]) * fac
+            thickness = float(sp[1][:-2]) * fac
             return (sp[0], thickness)
         else:
             return ("??", float("nan"))

@@ -5,8 +5,8 @@ Copy this script and start_shika.sh to secure location (only root can edit)
 Setup /etc/init.d/shika_cheetah_daemon
 
 From client:
-wget -O - http://host:8080/start/$(id -u)/$(id -g) 2>/dev/null
-wget -O - http://host:8080/stop 2>/dev/null
+wget -O - http://ramchan:8080/start/$(id -u)/$(id -g) 2>/dev/null
+wget -O - http://ramchan:8080/stop 2>/dev/null
 """
 
 import daemon.runner
@@ -18,6 +18,7 @@ import os
 import sys
 import subprocess
 import pwd
+import time
 
 EXEC_SH = "/usr/local/cheetah_daemon/start_shika.sh"
 PID_FILE = "/var/run/shikaeiger_sh.pid"
@@ -51,10 +52,11 @@ class start_program:
 
         try: pwd.getpwuid(uid)
         except KeyError:
-            yield "UID (%d) does not exist\n" % (uid, gid)
+            yield "UID (%d) does not exist\n" % uid
             return
 
         for k in stop_program().GET(): yield k
+        print "Starting program with %d/%d (now= %s)" % (uid, gid, time.ctime())
         yield "Starting program with %d/%d\n" % (uid, gid)
         #p = subprocess.Popen(EXEC_SH, shell=True,
         #                     preexec_fn=lambda: change_user(uid,gid)) # This fails when running as daemon
@@ -86,12 +88,13 @@ class stop_program:
             return
         
         pid = int(open(PID_FILE).read())
+        print "Killing children of %d (now= %s)" % (pid, time.ctime())
         yield "Killing children of %d\n" % pid
-        print "Killing children of %d\n" % pid
 
         # Check process exists
         try: os.kill(pid, 0)
         except OSError:
+            print "PID %d does not exist" % pid
             yield "PID %d does not exist\n" % pid
             return
 
@@ -107,11 +110,12 @@ class stop_program:
         for p in reversed(children):
             try:
                 proc = psutil.Process(p)
-                print "  killing %d (name= %s, user= %s)" % (p, proc.name(), proc.username())
+                print "  killing %d (name= %s, user= %s, ctime= %s)" % (p, proc.name(), proc.username(), time.ctime(proc.create_time()))
             except psutil.NoSuchProcess: continue
             os.kill(p, signal.SIGKILL)
         os.kill(pid, signal.SIGKILL)
 
+        print "All child processes killed (now= %s)" % time.ctime()
         yield "All child processes killed\n"
     # GET()
 # class stop_program
@@ -120,8 +124,8 @@ class App:
     # Reference: http://www.gavinj.net/2012/06/building-python-daemon-process.html
     def __init__(self):
         self.stdin_path = '/dev/null'
-        self.stdout_path = '/dev/tty'
-        self.stderr_path = '/dev/tty'
+        self.stdout_path = '/dev/null'
+        self.stderr_path = '/dev/null'
         self.pidfile_path =  "/var/run/shikaeiger.pid"
         self.pidfile_timeout = 5
     # __init__()
