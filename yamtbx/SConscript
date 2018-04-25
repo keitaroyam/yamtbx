@@ -49,6 +49,6 @@ if (not env_etc.no_boost_python):
 # .py files needed at run time, put it in for_use.  If package is
 # built entirely at compile time, put it in for_build
 
-SConscript("dataproc/SConscript")
+#SConscript("dataproc/SConscript")
 SConscript("dataproc/crystfel/boost_python/SConscript")
 
