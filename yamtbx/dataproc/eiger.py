@@ -251,3 +251,36 @@ def get_masterh5_related_filenames(masterh5):
 
     return ret
 # get_masterh5_related_filenames()
+
+def make_dummy_h5_for_test(wdir, data):
+    """
+    Dectris original H5ToXds does not read this dummy file. Such a file does not seem to 
+    """
+    assert data.ndim == 3 and data.shape[0] == 1
+    create_data_file(os.path.join(wdir, "test_data_000001.h5"), data, None, 1, 1, compression="bslz4")
+
+    master_h5_file = os.path.join(wdir, "test_master.h5")
+    
+    h = h5py.File(master_h5_file, "w")
+    h.create_group("/entry")
+    h.create_group("/entry/data")
+    h["/entry/data/data_000001"] = h5py.ExternalLink("test_data_000001.h5", "/entry/data/data")
+
+    h.create_group("/entry/instrument/detector/detectorSpecific") #/nimages
+    h["/entry/instrument/detector/detectorSpecific/nimages"] = 1
+    h["/entry/instrument/detector/detectorSpecific/x_pixels_in_detector"] = data.shape[2]
+    h["/entry/instrument/detector/detectorSpecific/y_pixels_in_detector"] = data.shape[1]
+
+    pm = h.create_dataset("/entry/instrument/detector/detectorSpecific/pixel_mask", (data.shape[1],data.shape[2]), dtype=numpy.uint32)
+    pm[:] = numpy.zeros((data.shape[1],data.shape[2]), dtype=numpy.uint32)
+
+    h["/entry"].attrs["NX_class"] = "NXentry"
+    h["/entry/data"].attrs["NX_class"] = "NXdata"
+    h["/entry/instrument"].attrs["NX_class"] = "NXinstrument"
+    h["/entry/instrument/detector"].attrs["NX_class"] = "NXdetector"
+    h["/entry/instrument/detector/detectorSpecific"].attrs["NX_class"] = "NXcollection"
+
+    h.close()
+
+    return master_h5_file
+# make_dummy_h5_for_test()

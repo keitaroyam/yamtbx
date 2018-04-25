@@ -68,13 +68,49 @@ def tst_xds():
 def tst_h5toxds():
     print "Testing H5ToXds.."
     rcode, out, err = util.call("H5ToXds")
+    ignore_msg = "(You can ignore this if you don't process hdf5 files which usually mean Eiger data)"
 
-    if rcode == 127: # FIXME 127 is "command not found". Need to test if H5ToXds works
-        print "  NG (You can ignore this if you don't process hdf5 files which usually mean Eiger data)"
+    if rcode == 127: # 127 is "command not found".
+        print "  Not installed. NG %s" % ignore_msg
         return False
 
-    print "  OK"
-    return True
+    import numpy
+    from yamtbx.dataproc.eiger import make_dummy_h5_for_test
+    from yamtbx.dataproc import cbf
+
+    tmpdir = util.get_temp_local_dir("h5test")
+    data = numpy.random.randint(0, 65535, size=100, dtype=numpy.uint32).reshape((1,10,10))
+    master_h5 = make_dummy_h5_for_test(tmpdir, data)
+    rcode, out, err = util.call("H5ToXds", "%s 1 1.cbf"%os.path.basename(master_h5), wdir=tmpdir)
+    cbfout = os.path.join(tmpdir, "1.cbf")
+    if not os.path.isfile(cbfout):
+        print "  H5ToXds exists, but not works. Probably Dectris original H5ToXds? Test it with real h5 file. %s" % ignore_msg
+        if out.strip():
+            print "  -- stdout:"
+            print out
+        if err.strip():
+            print "  -- stderr:"
+            print err
+
+        shutil.rmtree(tmpdir) 
+        return False
+
+    data_read, _, _ = cbf.load_minicbf_as_numpy(cbfout)
+    shutil.rmtree(tmpdir)
+    
+    if numpy.all(data_read.flatten() == data.flatten()):
+        print "  OK"
+        return True
+    else:
+        print "  H5ToXds exists, but not correctly works. Probably Dectris original H5ToXds? Test it with real h5 file. %s" % ignore_msg
+        if out.strip():
+            print "  -- stdout:"
+            print out
+        if err.strip():
+            print "  -- stderr:"
+            print err
+
+        return False
 # tst_xds()
 
 def tst_xdsstat():
@@ -192,6 +228,8 @@ def tst_dxtbx_eiger():
         goniometer_model = GoniometerFactory(sample).model
 
         _test = detector_model[0].get_fast_axis() + detector_model[0].get_slow_axis() + beam_model.get_direction() + goniometer_model.get_rotation_axis()
+        os.remove(tmpf)
+        
         if _test == (1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, -1.0,  1.0, 0.0, 0.0):
             print "  OK"
             return True
@@ -225,20 +263,25 @@ def tst_adxv():
 def tst_scipy():
     print "Testing SciPy.."
 
-    try: import scipy.optimize
+    try: import scipy
     except ImportError:
         print "  Not installed. NG"
-        return False
-
-    try: scipy.optimize.least_squares
-    except AttributeError:
-        print "  scipy.optimize.least_squares is not available. Update the version. NG"
         return False
 
     v = scipy.version.full_version
     vv = map(int, v.split("."))
     if vv < [0, 18, 1]:
         print "  SciPy version installed (%s) is too old. Use 0.18.1 or newer." % v
+        return False
+
+    try: import scipy.optimize
+    except ImportError:
+        print "  Scipy %s installed, but does not work properly (import scipy.optimize failed). NG" % v
+        return False
+
+    try: scipy.optimize.least_squares
+    except AttributeError:
+        print "  scipy.optimize.least_squares is not available. Update the version. NG"
         return False
 
     print "  %s installed. OK" % v
@@ -310,9 +353,14 @@ def run():
 
     failed = []
 
-    for f in (tst_jsdir, tst_R, tst_xds, tst_xdsstat, tst_h5toxds, tst_ccp4, tst_dials, tst_dials_module,
-              tst_dxtbx_eiger, tst_adxv, tst_numpy, tst_scipy, tst_networkx, tst_matplotlib, tst_wx):
-        ret = f()
+    for f in (tst_jsdir, tst_R, tst_numpy, tst_scipy, tst_networkx, tst_matplotlib, tst_wx,
+              tst_xds, tst_xdsstat, tst_ccp4, tst_dials, tst_dials_module, tst_dxtbx_eiger, tst_adxv, tst_h5toxds):
+        try:
+            ret = f()
+        except:
+            print traceback.format_exc()
+            ret = False
+            
         if not ret: failed.append(f.func_name)
 
     print
