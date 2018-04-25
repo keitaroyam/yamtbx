@@ -1,58 +1,62 @@
 # KAMO
 
+Author: [Keitaro Yamashita](https://docs.google.com/forms/d/e/1FAIpQLSdINVTX6HtreMzuyeQk7VLsycKLFAL3SmDdARqQg8zpt46MXw/viewform).
 English version is [here](kamo-en.md).
 
 ## 概要
 *KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system*は，（高分子）単結晶X線回折データの自動処理＆マージのために開発中のプログラムです．
-基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)のフロントエンドという形態を取りますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能です．
+積分・スケーリングには基本的に[XDS package](http://xds.mpimf-heidelberg.mpg.de)を用いることを想定していますが，オプションで[DIALS](https://dials.github.io/)や[Aimless](http://www.ccp4.ac.uk/html/aimless.html)も使用可能です．
 現在のところ，small wedgeデータ(5-10°/結晶)の自動処理・マージを主眼に開発しています．
 
-SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています（但し多くのケースが未テストです）．
+SPring-8でのオンラインデータ解析のために設計されていますが，ローカルのデータに対しても使えるようになっています．
 
-本マニュアルは2015-12-18現在のものです．
+本マニュアルは2018-02-22現在のものです．
 
-   * [概要](#概要)
-      * [依存プログラム・ライブラリ](#依存プログラムライブラリ)
-      * [注意](#注意)
-   * [使用方法](#使用方法)
-      * [GUIの起動](#guiの起動)
-      * [GUIの説明](#guiの説明)
-      * [Small wedgeデータのマージ](#small-wedgeデータのマージ)
-      * [index ambiguityの解消 (kamo.resolve_indexing_ambiguity)](#index-ambiguityの解消-kamoresolve_indexing_ambiguity)
-   * [KAMOは内部で何をやるのか](#kamoは内部で何をやるのか)
-      * [データセットの検出](#データセットの検出)
-      * [各wedgeの処理 (kamo)](#各wedgeの処理-kamo)
-      * [マージの準備 (kamoの"Multi-merge strategy"ボタン)](#マージの準備-kamoのmulti-merge-strategyボタン)
-      * [複数結晶に由来するデータのマージ (kamo.multi_merge)](#複数結晶に由来するデータのマージ-kamomulti_merge)
-         * [データのクラスタリング](#データのクラスタリング)
-         * [bad frameの検出](#bad-frameの検出)
-         * [bad datasetの検出](#bad-datasetの検出)
-         * [scaling referenceの選定](#scaling-referenceの選定)
-   * [FAQ](#faq)
-      * [KAMO](#kamo)
-         * [チェックボックスを1つ1つチェックしていくのが面倒](#チェックボックスを1つ1つチェックしていくのが面倒)
-         * [格子定数が既知なのでそれを使って欲しい](#格子定数が既知なのでそれを使って欲しい)
-         * [ヘッダが間違っているので正しい値を与えたい](#ヘッダが間違っているので正しい値を与えたい)
-      * [kamo.multi_merge](#kamomulti_merge)
-         * [精密化に使うためのデータはどこ？](#精密化に使うためのデータはどこ)
-   * [ローカル環境での使用方法](#ローカル環境での使用方法)
-      * [DIALSを利用した環境構築](#dialsを利用した環境構築)
-      * [KAMOのアップデート](#kamoのアップデート)
-      * [起動](#起動)
-   * [文献](#文献)
-      * [KAMOの引用](#kamoの引用)
-      * [KAMOを利用した研究](#kamoを利用した研究)
-   * [バージョン履歴](#バージョン履歴)
+   * [KAMO](#kamo)
+      * [概要](#概要)
+         * [依存プログラム・ライブラリ](#依存プログラムライブラリ)
+         * [注意](#注意)
+      * [使用方法](#使用方法)
+         * [GUIの起動](#guiの起動)
+         * [GUIの説明](#guiの説明)
+         * [Small wedgeデータのマージ](#small-wedgeデータのマージ)
+         * [index ambiguityの解消 (kamo.resolve_indexing_ambiguity)](#index-ambiguityの解消-kamoresolve_indexing_ambiguity)
+      * [KAMOは内部で何をやるのか](#kamoは内部で何をやるのか)
+         * [データセットの検出](#データセットの検出)
+         * [各wedgeの処理 (kamo)](#各wedgeの処理-kamo)
+         * [マージの準備 (kamoの"Multi-merge strategy"ボタン)](#マージの準備-kamoのmulti-merge-strategyボタン)
+         * [複数結晶に由来するデータのマージ (kamo.multi_merge)](#複数結晶に由来するデータのマージ-kamomulti_merge)
+            * [データのクラスタリング](#データのクラスタリング)
+            * [bad frameの検出](#bad-frameの検出)
+            * [bad datasetの検出](#bad-datasetの検出)
+            * [scaling referenceの選定](#scaling-referenceの選定)
+      * [FAQ](#faq)
+         * [KAMO](#kamo-1)
+            * [チェックボックスを1つ1つチェックしていくのが面倒](#チェックボックスを1つ1つチェックしていくのが面倒)
+            * [特定のディレクトリだけ処理したい（除きたい）](#特定のディレクトリだけ処理したい除きたい)
+            * [格子定数が既知なのでそれを使って欲しい](#格子定数が既知なのでそれを使って欲しい)
+            * [ヘッダが間違っているので正しい値を与えたい](#ヘッダが間違っているので正しい値を与えたい)
+         * [kamo.multi_merge](#kamomulti_merge)
+            * [精密化に使うためのデータはどこ？](#精密化に使うためのデータはどこ)
+      * [ローカル環境での使用方法](#ローカル環境での使用方法)
+         * [DIALSを利用した環境構築](#dialsを利用した環境構築)
+               * [トラブルシューティング](#トラブルシューティング)
+         * [KAMOのアップデート](#kamoのアップデート)
+         * [起動](#起動)
+      * [文献](#文献)
+         * [KAMOの引用](#kamoの引用)
+         * [KAMOを利用した研究](#kamoを利用した研究)
+      * [バージョン履歴](#バージョン履歴)
 
 
 ### 依存プログラム・ライブラリ
 以下のプログラム・ライブラリを使用しています．
 
-* [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (動作上必須)
-* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx 1.x](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (動作上必須)
-* [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), [H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換) (EIGERの場合)
+* [CCTBX](https://github.com/cctbx/cctbx_project/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/)
+* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx 1.x](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/)
+* [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), [H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換) (H5ToXdsはEIGERの場合のみ)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
-* [R](https://www.r-project.org/) (BLEND, CCクラスタリングに必要) with rjson
+* [R](https://www.r-project.org/) with rjson (BLENDを使う場合必要)
 * [DIALS](https://dials.github.io/) (完全には未対応)
 
 
@@ -67,22 +71,19 @@ KAMOはまだ発展途上のプログラムです．インタフェース面や�
 
 特定のサブディレクトリのみを対象にしたいときは，`include_dir=hoge-1111-\*`という感じでディレクトリ名を指定する(複数指定可)か，あるいは対象ディレクトリ名が書かれたリストファイルを与えます．
 
-* 例1: BL32XUでsmall wedge
+* 例1: BL32XUで実験中に自動処理を開始
 
 	kamo bl=32xu
-* 例2: BL41XUで通常(1 or 数結晶でコンプリート)データ測定
-
-	kamo bl=41xu small_wedges=false
-* 例3: BL32XUでZoo (自動データ収集)を使ったとき
+* 例2: BL32XUで自動データ収集(ZOO)を使っているときの自動処理
 
 	kamo bl=32xu mode=zoo
-* 例4: ローカルにあるデータを処理（ディレクトリを直接探索．上記の場合はBSSのログからデータセットの場所を探索）
+* 例3: ローカルにあるデータを処理（ディレクトリを直接探索．上記の場合はBSSのログからデータセットの場所を探索）
 
 	kamo bl=other
 
 `-h`オプションを付けるとヘルプ＆全パラメータリストが見れます．
 
-過去のデータを処理する際は例えば`date=2015-12-31`とすると，指定日の2日前から指定日までのデータを探索します（デフォルトは`date=today`）．
+ビームラインにおいて過去のデータを処理する際は例えば`date=2015-12-31`とすると，指定日の2日前から指定日までのデータを探索します（デフォルトは`date=today`）．`bl=other`指定時は，date指定は関係なく単に指定したディレクトリ以下のデータがすべて処理されます．
 
 起動すると自動的にデータセットを探索し，処理を開始します．
 処理結果は，`workdir=`で指定した場所(デフォルト:\_kamoproc/)に，同じディレクトリ構造で，*prefix*\_*startimage*-*endimage*/という名前のディレクトリができ，その下がXDS/DIALSの実行場所になっています．たとえば以下のような感じです．
@@ -120,8 +121,8 @@ DeltaPhi | 1枚あたりの振動幅(°)
 Cstatus | data **c**ollectionのステータス(never/running/finished)
 Pstatus | data **p**rocessingのステータス(never/running/giveup/finished)
 Cmpl. | データセットのCompleteness
-SG | 空間群
-Resn. | 分解能リミットの推定値 (small_wedges=trueの時はピークサーチの結果から，falseのときはCORRECT.LPの分解能100分割のテーブルでI/sigmaが1を切るところ)
+SG | 推定された空間群
+Resn. | 分解能リミットの推定値 (small-wedgeの場合あまりアテにならない！)
 
 
 ### Small wedgeデータのマージ
@@ -131,22 +132,27 @@ Resn. | 分解能リミットの推定値 (small_wedges=trueの時はピーク�
 5. Proceedボタンを押し，ターミナル画面を見る．指定した対称性と異なる対称で処理されたデータを，指定した対称で処理しなおしている
 6. "Do It Yourself!"と表示されたら完了．Reindex operatorが存在する場合は表示されるので，留意する(`kamo.resolve_indexing_ambiguity`を使って解決できます)
 7. ターミナルで指示された場所に移動し，スクリプトを修正・実行する．
-スクリプト(merge_blend.sh)は以下のようになっている
+スクリプト(たとえばmerge\_blend.sh)は以下のようになっている
 ```
 # settings
 dmin=2.8 # resolution
-anomalous=false # true or false	
+anomalous=false # true or false
+lstin=formerge.lst # list of XDS_ASCII.HKL files
+use_ramdisk=true # set false if there is few memory or few space in /tmp
 # _______/setting
-      
-kamo.multi_merge \
-    workdir=blend_${dmin}A_framecc_b \
-    lstin=formerge.lst d_min=${dmin} anomalous=${anomalous} \
-    program=xscale xscale.reference=bmin \
-    reject_method=framecc+lpstats rejection.lpstats.stats=em.b \
-    clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None
+
+kamo.multi_merge \\
+        workdir=blend_${dmin}A_framecc_b+B \\
+        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
+        space_group=None reference.data=None \\
+        program=xscale xscale.reference=bmin xscale.degrees_per_batch=None \\
+        reject_method=framecc+lpstats rejection.lpstats.stats=em.b+bfactor \\
+        clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
+        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=par
 ```
-8. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run_02/)から，error modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun_03/に保存される．これが最終結果となる．各結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
-9. 処理完了後，作業ディレクトリ(blend_\*/)以下のreport.htmlをブラウザで表示すれば全最終結果の統計値を一望できる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC1/2が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
+8. このスクリプトを実行すると，まずBLENDによる格子定数に基づいた階層的クラスタリングが行われ，見つかったクラスタのうちcompletenessが90%以上・redundancy 2以上になるクラスタすべてについて，マージを試みる．まず単純にxscaleでマージ(run\_01/)し，そのマージ結果とのCCを計算することで悪いフレームを見つける．悪いフレームを除いてマージした結果(run\_02/)から，スケールの*B*値とerror modelの*b*を基準にOutlierを検出し，悪いデータセットを除いてマージした結果がrun\_03/に保存される．これが最終結果となる．各結果のディレクトリ/ccp4にはmtzおよびctruncateとphenix.xtirageのログも保存される．
+9. 処理完了後，作業ディレクトリ(blend_\*/)以下のreport.htmlをブラウザで表示すれば全最終結果の統計値を一望できる．結果を受けて，場合によっては分解能リミットを変えて再実行する．精密化に使うクラスタの選び方は，だいたいCC<sub>1/2</sub>が最大になるものを選べば問題ないと思われる（フィードバックお待ちしています）．
 
 ### index ambiguityの解消 (kamo.resolve_indexing_ambiguity)
 *P*6や*P*4など，あるいは*P*2でも&beta;~90&deg;の場合など，格子の対称性が空間群の対称性よりも高い場合，index ambiguityが生じます．複数の結晶を用いる場合，これを揃えておかなければなりません．
@@ -182,7 +188,7 @@ XDSを使って処理を行う．基本的にgenerate_XDS.INPと同じ内容のX
 * IDXREF.LPの差ベクトルクラスタリングの結果から格子が半分になっていると思われる場合は，倍にして試す
 * 既知の格子定数＆対称性が与えられている場合は，その利用を試す
 
-対称性の判断は，まずINTEGRATE.HKLに対してpointlessを実行し，次にXDS_ASCII.HKLに対しても実行する．両者で判断が一致しない場合，ISaが大きい方を採用する．
+対称性の判断は，まずINTEGRATE.HKLに対してpointlessを実行し，次にXDS_ASCII.HKLに対しても実行する．両者で判断が一致しない場合，Probabilityが大きい方を採用する．
 
 高分解能カットオフはユーザが決めるべきとの立場を取るが，あまりにノイズの多い高角をスケーリングに含めると結果が適切にならないため，細かく切ったシェルでCC1/2が0.5を下回るところで分解能を切り，そのスケール結果をXDS_ASCII.HKL/CORRECT.LPとしている(GUIにはその結果が表示される)．分解能を切ってないXDS_ASCII_fullres.HKL/CORRECT_fullres.LPは別に保存される．
 
@@ -212,7 +218,7 @@ XDSを使って処理を行う．基本的にgenerate_XDS.INPと同じ内容のX
 BLENDまたはデータセット間CCを用いたクラスタリングが可能です．BLENDについては本家のマニュアル・論文を参照のこと．
 
 `clustering=cc`とすると，CCを用いたクラスタリングを利用できます．さらに，`cc_clustering.b_scale=`でWilson-Bによるスケーリングを行うかどうか，`cc_clustering.use_normalized=`で規格化構造因子を用いるかどうかを選択できます(true/false)．
-`cc_clustering.d_min=`でCCの計算に使用する分解能リミットを制限できます．今のところ単純にRのhclust()関数を使っており，他のすべてのデータと共通反射を持つデータしかクラスタリングに用いることができないため，対称性の低い結晶の場合での使用は現実的ではありません．
+`cc_clustering.d_min=`でCCの計算に使用する分解能リミットを制限できます．今の方法では，他のすべてのデータと共通反射を持つデータしかクラスタリングに用いることができないため，対称性の低い結晶の場合での使用は現実的ではありません．
 
 #### bad frameの検出
 
@@ -221,7 +227,7 @@ BLENDまたはデータセット間CCを用いたクラスタリングが可能�
 
 #### bad datasetの検出
 XSCALE.LPの統計値からbad datasetを検出する(`reject_method=lpstats`)．
-デフォルトの挙動では，error modelの*b*からTukeyの方法でOutlierを検出する(`rejection.lpstats.stats=em.b rejection.lpstats.iqr_coeff=1.5`)．`rejection.lpstats.stats=`には`em.b`の他，`pairwise_cc`および`bfactor`が選択可能である．`pairwise_cc`はデータセット間のCCを悪くしているデータセットを除くもので，デフォルトでは0.8以下になるデータセットを除くようになっている(`rejection.lpstats.pwcc.method=abs rejection.lpstats.pwcc.abs_cutoff=0.8`)が，Tukeyの方法を選ぶこともできる.
+デフォルトの挙動では，スケールの*B*とerror modelの*b*からTukeyの方法でOutlierを検出する(`rejection.lpstats.stats=em.b+bfactor rejection.lpstats.iqr_coeff=1.5`)．`rejection.lpstats.stats=`には`pairwise_cc`も選択可能である．`pairwise_cc`はデータセット間のCCを悪くしているデータセットを除くもので，デフォルトでは0.8以下になるデータセットを除くようになっている(`rejection.lpstats.pwcc.method=abs rejection.lpstats.pwcc.abs_cutoff=0.8`)が，Tukeyの方法を選ぶこともできる.
 
 #### scaling referenceの選定
 主に，最終的なOverall B-factorに影響を及ぼします．XSCALEでは最初に書いたINPUT_FILE=がリファレンスになる仕様ですが，KAMOのデフォルトでは`xscale.reference=bmin`になっており，*B*が最も小さい，つまり（XSCALEでは）最も分解能に対するfall-offが小さい（高分解能まで強度が出ている）ものをリファレンスにします．
@@ -229,9 +235,12 @@ XSCALE.LPの統計値からbad datasetを検出する(`reject_method=lpstats`)�
 
 ## FAQ
 ### KAMO
-##### チェックボックスを1つ1つチェックしていくのが面倒
+#### チェックボックスを1つ1つチェックしていくのが面倒
 全部にチェックを入れたいときは"Check all"ボタンを押すと，全部にチェックが入ります．
 また，1つチェックを入れて，Shiftキーを押しながらもう1つにチェックを入れると，間にあるもの全てにチェックが入ります．
+
+#### 特定のディレクトリだけ処理したい（除きたい）
+`include_dir=`あるいは`exclude_dir`を使います．複数指定(`include_dir=`を何度も書く)やリストファイル(\*.lst)も指定可能です．
 
 #### 格子定数が既知なのでそれを使って欲しい
 KAMOを起動するときに，たとえば
@@ -242,6 +251,8 @@ kamo known.unit_cell=10,20,30,90,90,90 known.space_group=p222
 という形で格子定数を与えることができます（必ずspace_groupとセットで与えてください）．
 格子定数は指数付けの時の事前情報として使われ，また，一致しない場合はデータ処理が行われません．
 この方法だと全処理対象に対して同じ格子定数を用いますので，複数種類のデータがあるときは気をつけて下さい．
+
+また，格子定数を指定する事によって，かえって結果が悪くなるケースも見られますので，慎重に使って下さい．
 
 #### ヘッダが間違っているので正しい値を与えたい
 該当イメージが存在するディレクトリに，`kamo_override.config`というファイルを用意すると，処理開始時にそこから情報を読んで使用します．以下の例のように書いて下さい．上書きする必要の無い情報は書かないで下さい．
@@ -272,11 +283,11 @@ DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，
 2. [DIALS](https://dials.github.io/installation.html)-1.5以上をインストールする
 3. networkxをdials.pythonから使えるようにする
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -m easy_install networkx==1.11`
+   2. `./bin/libtbx.python -m pip install networkx==1.11`
 4. scipyをdials.pythonから使えるようにする
-   1. Macの場合，XcodeおよびCommand-line toolsを導入後，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストール. Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストール
+   1. Macの場合，App StoreからXcodeを導入後，
    2. `cd $DIALS/build`
-   3. `./bin/libtbx.python -m easy_install scipy==0.18.1`
+   3. `./bin/libtbx.python -m pip install scipy==0.18.1`
 5. 以下のコマンドを実行する
 ```
 cd $DIALS/modules
@@ -293,13 +304,15 @@ kamo.test_installation
 
 ##### トラブルシューティング
 
-* (Mac) scipyの導入時に`as: I don't understand 'm' flag!`というエラーで止まる
+* scipyのインストールに失敗する（ビルドが始まった場合）
+   * Macの場合，Xcodeのバージョンに合った[Command-line tools](https://developer.apple.com/download/more/)を導入し，[gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS)をインストールして再度試す．
+   * Linuxの場合はパッケージマネージャ(yum等)でblas-develとlapack-develをインストールして再度試す．
+* (Mac) scipyのビルド時に`as: I don't understand 'm' flag!`というエラーで止まる
    * 上記の方法でgfortranを導入したか確認する．MacPortsを使用している場合は/opt/local/binを環境変数PATHから外してもう一度試す．[参考URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l). あるいは/usr/local/gfortran/bin/gfortranが優先利用されるようにPATHの設定を見直す．
-* (Mac) scipyの導入時に`gcc: error: unrecognized command line option ‘-stdlib=libc++’`というエラーで止まる
+* (Mac) scipyのビルド時に`gcc: error: unrecognized command line option ‘-stdlib=libc++’`というエラーで止まる
    * Xcode付属のgccが使われているか確認する(Xcodeおよびcommand-line toolsは導入済みか？他の方法で入れたgccがシステムに無いか)．/usr/bin/g++が使われるようにPATHの設定を見直す．
 * DIALS/PHENIX環境を使っているのに，kamo.test\_installationでwxPythonがNGになる
    * まずDIALS/PHENIXのGUIがちゃんと立ち上がるか確認してください(dials.image\_viewerなど)．Ubuntuの場合，libjpeg62などを導入する必要があるそうです．
-
 ### KAMOのアップデート
 以下の手順で最新版にアップデートできます
 1. `cd $DIALS/modules/yamtbx`
@@ -329,7 +342,11 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 
 ### KAMOの引用
 
-現在論文準備中につき，当英語版ドキュメントのURL https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md を引用して頂ますようお願いします．
+以下の論文を引用ください．
+* Yamashita, Hirata, and Yamamoto (2018) "KAMO: towards automated data processing for microcrystals." *Acta Cryst. D*__74__ doi: [10.1107/S2059798318004576](https://doi.org/10.1107/S2059798318004576).
+
+論文出版前は，当英語版ドキュメントのURL https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md を引用して頂いていました．
+両方引いて頂いても構いません．
 
 ### KAMOを利用した研究
 * Furukawa *et al.* (2018) "Remote Coupled Drastic β-Barrel to β-Sheet Transition of the Protein Translocation Motor." *Structure*  doi: [10.1016/j.str.2018.01.002](https://doi.org/10.1016/j.str.2018.01.002) PDB: [5YHF](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHF)

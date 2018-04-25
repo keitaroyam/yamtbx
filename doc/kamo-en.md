@@ -1,58 +1,63 @@
 # KAMO
 
+Author: [Keitaro Yamashita](https://docs.google.com/forms/d/e/1FAIpQLSdINVTX6HtreMzuyeQk7VLsycKLFAL3SmDdARqQg8zpt46MXw/viewform).
 Japanese version is [here](kamo-ja.md).
 
 ## Overview
-*KAMO (in Japanese: Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru; to process thoroughly-collected data in better way than manually and give back to user) system* is the program for automated processing and merging of (MX) crystal diffraction data.
+KAMO is the program for automated processing and merging of (MX) crystal diffraction data.
 Basically KAMO uses [XDS package](http://xds.mpimf-heidelberg.mpg.de), but it supports [DIALS](https://dials.github.io/) and [Aimless](http://www.ccp4.ac.uk/html/aimless.html) optionally.
 Currently, the development is focused on processing and merging of small wedge data (5-10°/crystal).
 
 KAMO is designed for online analysis for SPring-8 MX beamlines; however, it can be used offline for local data. Please let me know if you need support for your beamline/detector.
 
-This manual is for 2015-12-18.
+This manual is for 2018-02-22.
 
-   * [Overview](#overview)
-      * [Dependencies](#dependencies)
-      * [Warning](#warning)
-   * [Usage](#usage)
-      * [GUI](#gui)
-      * [GUI explanations](#gui-explanations)
-      * [Merging small wedge data](#merging-small-wedge-data)
-      * [Resolution of index ambiguity (kamo.resolve_indexing_ambiguity)](#resolution-of-index-ambiguity-kamoresolve_indexing_ambiguity)
-   * [What KAMO does internally](#what-kamo-does-internally)
-      * [Dataset detection](#dataset-detection)
-      * [wedge data processing (kamo)](#wedge-data-processing-kamo)
-      * [Preparing for merging (kamo's "Multi-merge strategy" button)](#preparing-for-merging-kamos-multi-merge-strategy-button)
-      * [Merging of multiple wedges (kamo.multi_merge)](#merging-of-multiple-wedges-kamomulti_merge)
-         * [Clustering](#clustering)
-         * [Bad frame detection](#bad-frame-detection)
-         * [Bad dataset detection](#bad-dataset-detection)
-         * [Choice of scaling reference](#choice-of-scaling-reference)
-   * [FAQ](#faq)
-      * [KAMO](#kamo)
-         * [I'm too lazy to click all checkboxes](#im-too-lazy-to-click-all-checkboxes)
-         * [I want to use prior unit cell information](#i-want-to-use-prior-unit-cell-information)
-         * [I want to give the correct experimental parameters as image header is wrong](#i-want-to-give-the-correct-experimental-parameters-as-image-header-is-wrong)
-      * [kamo.multi_merge](#kamomulti_merge)
-         * [Where is the data for structural refinement?](#where-is-the-data-for-structural-refinement)
-   * [How can I use KAMO at home?](#how-can-i-use-kamo-at-home)
-      * [Installation](#installation)
-      * [How to update KAMO](#how-to-update-kamo)
-      * [Launch](#launch)
-   * [Citations](#citations)
-      * [How to cite the use of KAMO](#how-to-cite-the-use-of-kamo)
-      * [Researches which used KAMO](#researches-which-used-kamo)
-   * [Version history](#version-history)
+*What does KAMO mean?* 'Kamo' itself means a mallard in Japanese. KAMO is an acronym of Japanese words standing for "the system to process thoroughly-collected data in a better way than manually" (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru).
 
+   * [KAMO](#kamo)
+      * [Overview](#overview)
+         * [Dependencies](#dependencies)
+         * [Warning](#warning)
+      * [Usage](#usage)
+         * [GUI](#gui)
+         * [GUI explanations](#gui-explanations)
+         * [Merging small wedge data](#merging-small-wedge-data)
+         * [Resolution of index ambiguity (kamo.resolve_indexing_ambiguity)](#resolution-of-index-ambiguity-kamoresolve_indexing_ambiguity)
+      * [What KAMO does internally](#what-kamo-does-internally)
+         * [Dataset detection](#dataset-detection)
+         * [wedge data processing (kamo)](#wedge-data-processing-kamo)
+         * [Preparing for merging (kamo's "Multi-merge strategy" button)](#preparing-for-merging-kamos-multi-merge-strategy-button)
+         * [Merging of multiple wedges (kamo.multi_merge)](#merging-of-multiple-wedges-kamomulti_merge)
+            * [Clustering](#clustering)
+            * [Bad frame detection](#bad-frame-detection)
+            * [Bad dataset detection](#bad-dataset-detection)
+            * [Choice of scaling reference](#choice-of-scaling-reference)
+      * [FAQ](#faq)
+         * [KAMO](#kamo-1)
+               * [I'm too lazy to click all checkboxes](#im-too-lazy-to-click-all-checkboxes)
+            * [I want to process specified directories only or exclude some directories](#i-want-to-process-specified-directories-only-or-exclude-some-directories)
+            * [I want to use prior unit cell information](#i-want-to-use-prior-unit-cell-information)
+            * [I want to give the correct experimental parameters as image header is wrong](#i-want-to-give-the-correct-experimental-parameters-as-image-header-is-wrong)
+         * [kamo.multi_merge](#kamomulti_merge)
+            * [Where is the data for structural refinement?](#where-is-the-data-for-structural-refinement)
+      * [How can I use KAMO at home?](#how-can-i-use-kamo-at-home)
+         * [Installation](#installation)
+               * [Troubleshooting tips](#troubleshooting-tips)
+         * [How to update KAMO](#how-to-update-kamo)
+         * [Launch](#launch)
+      * [Citations](#citations)
+         * [How to cite the use of KAMO](#how-to-cite-the-use-of-kamo)
+         * [Researches which used KAMO](#researches-which-used-kamo)
+      * [Version history](#version-history)
 
 ### Dependencies
 KAMO uses following programs and libraries.
 
-* [CCTBX](http://cctbx.sourceforge.net/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (essential)
+* [CCTBX](https://github.com/cctbx/cctbx_project/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (essential)
 * [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx 1.x](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (essential)
-* [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), H5ToXds (for EIGER data)
+* [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) (H5ToXds is only required for EIGER data)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
-* [R](https://www.r-project.org/) (required for BLEND, CC-based clustering) with rjson
+* [R](https://www.r-project.org/) with rjson (required for BLEND)
 * [DIALS](https://dials.github.io/) (not fully-supported yet)
 
 
@@ -69,19 +74,17 @@ If you want to process data in specific sub-directory, give the directory names 
 * case 1: online analysis of small wedge at BL32XU
 
 	kamo bl=32xu
-* case 2: online analysis of normal data (1 or a few crystals for complete data) at BL41XU
-
-	kamo bl=41xu small_wedges=false
-* case 3: online analysis of data collected with Zoo (automatic system) at BL32XU
+* case 2: online analysis of data collected with ZOO (automatic system) at BL32XU
 
 	kamo bl=32xu mode=zoo
-* case 4: offline analysis of local data (KAMO will find directories. In above cases, datasets will be found using BSS log files)
+* case 3: offline analysis of local data (KAMO will find directories. In above cases, datasets will be found using BSS log files)
 
 	kamo bl=other
 
 Use `-h` option to see help and list of all parameters.
 
-For processing old data, for example, give `date=2015-12-31` to find data collected from the specified date to two days before (by default `date=today`).
+For processing old data on beamline, for example, give `date=2015-12-31` to find data collected from the specified date to two days before (by default `date=today`).
+When `bl=other`, the date parameter is ignored and files in specified directory are processed.
 
 KAMO automatically finds datasets and start processing when the program started.
 The processing results are saved in the directory specified by `workdir=` (default: \_kamoproc/), which has the same directory as data directory, and in *prefix*\_*startimage*-*endimage*/ XDS/DIALS is run. Example is below:
@@ -119,8 +122,8 @@ DeltaPhi | Rotation width per 1 frame (°)
 Cstatus | data **c**ollection status (never/running/finished)
 Pstatus | data **p**rocessing status (never/running/giveup/finished)
 Cmpl. | Dataset completeness
-SG | Space group
-Resn. | Estimated resolution limit (Based on peak search result when small_wedges=true; based on I/sigma<1 basis using the 100 resolution-bins table in CORRECT.LP)
+SG | Space group estimated
+Resn. | Estimated resolution limit (unreliable for small-wedge cases)
 
 
 ### Merging small wedge data
@@ -129,22 +132,27 @@ Resn. | Estimated resolution limit (Based on peak search result when small_wedge
 3. Select the group to be merged and its symmetry. The most frequent symmetry is chosen by default. Choose the correct one if known.
 5. Click Proceed button, and look at the terminal. The datasets processed with different symmetry are reprocessed with the specified symmetry.
 6. Completed when "Do It Yourself!" appeared. Keep in mind the reindex operator(s) if existed. Indexing ambiguity can be resolved using `kamo.resolve_indexing_ambiguity`.
-7. Go to the working directory for merging, and modify and start the script. The scrip (merge_blend.sh) is automatically prepared like this:
+7. Go to the working directory for merging, and modify and start the script. The scrip (for example merge\_blend.sh) is automatically prepared like this:
 ```
 # settings
 dmin=2.8 # resolution
-anomalous=false # true or false	
+anomalous=false # true or false
+lstin=formerge.lst # list of XDS_ASCII.HKL files
+use_ramdisk=true # set false if there is few memory or few space in /tmp
 # _______/setting
-      
-kamo.multi_merge \
-    workdir=blend_${dmin}A_framecc_b \
-    lstin=formerge.lst d_min=${dmin} anomalous=${anomalous} \
-    program=xscale xscale.reference=bmin \
-    reject_method=framecc+lpstats rejection.lpstats.stats=em.b \
-    clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None
+
+kamo.multi_merge \\
+        workdir=blend_${dmin}A_framecc_b+B \\
+        lstin=${lstin} d_min=${dmin} anomalous=${anomalous} \\
+        space_group=None reference.data=None \\
+        program=xscale xscale.reference=bmin xscale.degrees_per_batch=None \\
+        reject_method=framecc+lpstats rejection.lpstats.stats=em.b+bfactor \\
+        clustering=blend blend.min_cmpl=90 blend.min_redun=2 blend.max_LCV=None blend.max_aLCV=None \\
+        max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
+#        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=par
 ```
-8. When this script is started, first the hierarchical clustering analysis by BLEND is performed. The clusters with high completeness (>90%) are subjected to merging. First simply run xscale to merge (run_01/), and find the bad frames based on the CC between the merged result and intensities on each frame. From the merging result after excluding the bad frames (run_02/), bad datasets are detected based on error model's *b* value, and the merging result without bad datasets is saved in run_03/. This is the final result. In each run_\*/ccp4 mtz and the log files of ctruncate and phenix.xtirage are saved.
-9. When processing is over, report.html in the working directory (blend_\*/) can be viewed with web browser. All final results can be visually inspected. Based on the results, re-execute the script by changing high resolution limi if needed. For refinement, empirically, the result with the largest CC1/2 should be appropriate (we welcome your feedback).
+8. When this script is started, first the hierarchical clustering analysis by BLEND is performed. The clusters with high completeness (>90%) are subjected to merging. First simply run xscale to merge (run\_01/), and find the bad frames based on the CC between the merged result and intensities on each frame. From the merging result after excluding the bad frames (run\_02/), bad datasets are detected based on *B* scale and error model's *b* value, and the merging result without bad datasets is saved in run\_03/. This is the final result. In each run\_\*/ccp4 mtz and the log files of ctruncate and phenix.xtirage are saved.
+9. When processing is over, report.html in the working directory (blend\_\*/) can be viewed with web browser. All final results can be visually inspected. Based on the results, re-execute the script by changing high resolution limi if needed. For refinement, empirically, the result with the largest CC<sub>1/2</sub> should be appropriate (we welcome your feedback).
 
 ### Resolution of index ambiguity (kamo.resolve_indexing_ambiguity)
 Like *P*6, *P*4, or even in *P*2 with &beta;~90&deg;, when the lattice symmetry is higher than space group symmetry, the indexing ambiguity problem exists. This must be resolved when merging multiple crystals.
@@ -181,7 +189,7 @@ When indexing failed, the following things are considered:
 * Looking at difference vector clustering in IDXREF.LP; double the cell length if it seems to be halved.
 * Try to index using the cell and symmetry if previously known
 
-Concerning the decision of symmetry, first INTEGRATE.HKL is analyzed by pointless, and then XDS_ASCII.HKL is analyzed too. If results are not consistent, the one with larger ISa is employed.
+Concerning the decision of symmetry, first INTEGRATE.HKL is analyzed by pointless, and then XDS_ASCII.HKL is analyzed too. If results are not consistent, the one with larger probability is employed.
 
 High resolution cutoff should be determined by user, but inclusion of much noise at higher resolution shell may affect scaling. KAMO cuts resolution at CC1/2 < 0.5 and the scaled result is saved as XDS_ASCII.HKL/CORRECT.LP (displayed on GUI). The result without any resolution cutoff is saved separately as XDS_ASCII_fullres.HKL/CORRECT_fullres.LP.
 
@@ -211,7 +219,7 @@ Basically, the program
 BLEND or CC-based clustering is available. See the original document and paper for BLEND.
 
 When `clustering=cc`, CC-based clustering is invoked. Relevant options are `cc_clustering.b_scale=` (if scale data by Wilson-B before CC calculation) and `cc_clustering.use_normalized=` (if normalized structure factor is used).
-Use `cc_clustering.d_min=` to limit the resolution. Currently we are using hclust() function in R and only datasets which have common reflections with all others can be used. Probably not useful for low-symmetry crystals.
+Use `cc_clustering.d_min=` to limit the resolution. Currently only datasets which have common reflections with all others can be used. Probably not useful for low-symmetry crystals.
 
 #### Bad frame detection
 
@@ -220,7 +228,7 @@ By default `rejection.framecc.method=tukey rejection.framecc.iqr_coeff=1.5`, whi
 
 #### Bad dataset detection
 Bad datasets are detected using statistics in XSCALE.LP (`reject_method=lpstats`).
-By default, error model's *b* value is subjected to Tukey's outlier detection (`rejection.lpstats.stats=em.b rejection.lpstats.iqr_coeff=1.5`). You can give `pairwise_cc` and `bfactor` as well as `em.b` to `rejection.lpstats.stats=`. `pairwise_cc` is to remove datasets which give bad CC (by default CC<0.8; `rejection.lpstats.pwcc.method=abs rejection.lpstats.pwcc.abs_cutoff=0.8`, but optionally Tukey's method can be used).
+By default, *B* scale and error model's *b* value is subjected to Tukey's outlier detection (`rejection.lpstats.stats=em.b+bfactor rejection.lpstats.iqr_coeff=1.5`). You can also give `pairwise_cc` to `rejection.lpstats.stats=`. `pairwise_cc` is to remove datasets which give bad CC (by default CC<0.8; `rejection.lpstats.pwcc.method=abs rejection.lpstats.pwcc.abs_cutoff=0.8`, but optionally Tukey's method can be used).
 
 #### Choice of scaling reference
 This affects overall B-factor of merged data. In XSCALE, the first INPUT_FILE= is used as reference. In KAMO, by default `xscale.reference=bmin`, which selects data with smallest *B* (that has smallest intensity fall-off w.r.t. resolution in XDS) as reference.
@@ -232,6 +240,9 @@ This affects overall B-factor of merged data. In XSCALE, the first INPUT_FILE= i
 If you want to check all, click "Check all" button.
 Alternatively, click two checkboxes keeping Shift-key pressed to check all in-between items.
 
+#### I want to process specified directories only or exclude some directories
+Use `include_dir=` or `exclude_dir`.  Multiple directories can be specified by repeating `include_dir=`. Alternatively a list file (\*.lst) can be specified.
+
 #### I want to use prior unit cell information
 You can give it when KAMO starts:
 
@@ -241,6 +252,8 @@ kamo known.unit_cell=10,20,30,90,90,90 known.space_group=p222
 Please make sure to give pace_group as well.
 The unit cell parameters are used in indexing as prior information. If not indexed with the cell, the data processing will not proceed.
 Note that you cannot use this parameter when you have more than one kind of crystals.
+
+Please carefully use this function since sometimes this leads to worse result.
 
 #### I want to give the correct experimental parameters as image header is wrong
 Please prepare the file named `kamo_override.config` in the image file directory, which will be interpreted by the program. Example below (don't write information which is not need to be overridden):
@@ -271,11 +284,11 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
 2. Install [DIALS](https://dials.github.io/installation.html)-1.5 or newer
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -m easy_install networkx==1.11`
+   2. `./bin/libtbx.python -m pip networkx==1.11`
 4. Install scipy to dials.python
-   1. If Mac, install Xcode, command-line tools, and then [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS). If Linux, install blas-devel and lapack-devel using yum or something.
+   1. If Mac, install Xcode.
    2. `cd $DIALS/build`
-   3. `./bin/libtbx.python -m easy_install scipy==0.18.1`
+   3. `./bin/libtbx.python -m pip scipy==0.18.1`
 5. Run the following commands
 ```
 cd $DIALS/modules
@@ -291,9 +304,12 @@ kamo.test_installation
 to check if dependencies are all installed.
 
 ##### Troubleshooting tips
-* (Mac) Installation of scipy stops with error "as: I don't understand 'm' flag!"
+* scipy installation fails (in case building started)
+   * If Mac, install [Command-line tools](https://developer.apple.com/download/more/) and [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS) and try again.
+   * If Linux, install blas-devel and lapack-devel using yum or something.
+* (Mac) building of scipy stops with error "as: I don't understand 'm' flag!"
    * Make sure you installed gfortran following the way mentioned above. If you are using MacPorts, try excluding /opt/local/bin from environment variable PATH. [Reference URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l). Alternatively review PATH to use /usr/local/gfortran/bin/gfortran.
-* (Mac) Installation of scipy stops with error `gcc: error: unrecognized command line option ‘-stdlib=libc++’`
+* (Mac) building of scipy stops with error `gcc: error: unrecognized command line option ‘-stdlib=libc++’`
    * Make sure gcc installed with Xcode is used (did you install Xcode and command-line tools? Any other gcc installed with different methods?). Review PATH to use /usr/bin/g++.
 * Installing with DIALS/PHENIX environment, but kamo.test\_installation claims wxPython is NG
    * Please check if some GUI program of DIALS/PHENIX successfully starts (e.g. dials.image\_viewer)．In case of Ubuntu, you may need to install libjpeg62 package.
@@ -325,7 +341,10 @@ Alternatively, when `use_dxtbx=true`, [dxtbx](https://doi.org/10.1107/S160057671
 
 ### How to cite the use of KAMO
 
-As the paper is in preparation, please refer to this documentation URL: https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md
+Please cite following paper.
+* Yamashita, Hirata, and Yamamoto (2018) "KAMO: towards automated data processing for microcrystals." *Acta Cryst. D*__74__ doi: [10.1107/S2059798318004576](https://doi.org/10.1107/S2059798318004576).
+
+You can also cite this documentation's URL: https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md
 
 ### Researches which used KAMO 
 
