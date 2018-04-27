@@ -284,11 +284,11 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
 2. Install [DIALS](https://dials.github.io/installation.html)-1.5 or newer
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -m pip networkx==1.11`
+   2. `./bin/libtbx.python -m easy_install networkx==1.11`
 4. Install scipy to dials.python
    1. If Mac, install Xcode.
    2. `cd $DIALS/build`
-   3. `./bin/libtbx.python -m pip scipy==0.18.1`
+   3. If Linux: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>If Mac: `./bin/libtbx.python -m pip install scipy==0.18.1`
 5. Run the following commands
 ```
 cd $DIALS/modules

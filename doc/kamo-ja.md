@@ -283,11 +283,11 @@ DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，
 2. [DIALS](https://dials.github.io/installation.html)-1.5以上をインストールする
 3. networkxをdials.pythonから使えるようにする
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -m pip install networkx==1.11`
+   2. `./bin/libtbx.python -m easy_install networkx==1.11`
 4. scipyをdials.pythonから使えるようにする
    1. Macの場合，App StoreからXcodeを導入後，
    2. `cd $DIALS/build`
-   3. `./bin/libtbx.python -m pip install scipy==0.18.1`
+   3. Linuxの場合: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>Macの場合: `./bin/libtbx.python -m pip install scipy==0.18.1`
 5. 以下のコマンドを実行する
 ```
 cd $DIALS/modules
