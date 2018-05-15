@@ -43,7 +43,7 @@ class ReduceMaster:
 
     def compress_large_datasets(self, compress):
         if not compress: return
-        assert compress in ("bslz4",)
+        assert compress in ("bslz4", "bslz4_and_gzipshuf")
 
         self.large_datasets = []
         self.h.visititems(self.find_large_dataset_visitor)
@@ -58,6 +58,18 @@ class ReduceMaster:
                                       compression=bitshuffle.h5.H5FILTER,
                                       compression_opts=(0, bitshuffle.h5.H5_COMPRESS_LZ4),
                                       chunks=None, dtype=data.dtype, data=data)
+            elif compress == "bslz4_and_gzipshuf":
+                if "pixel_mask" in path: # bslz4
+                    self.h.create_dataset(path, data.shape,
+                                          compression=bitshuffle.h5.H5FILTER,
+                                          compression_opts=(0, bitshuffle.h5.H5_COMPRESS_LZ4),
+                                          chunks=None, dtype=data.dtype, data=data)
+                else: # gzip+shuf
+                    self.h.create_dataset(path, data.shape,
+                                          compression="gzip",shuffle=True,
+                                          chunks=None, dtype=data.dtype, data=data)
+            else:
+                raise "Never reaches here."
 
     # compress_large_datasets()
 # class ReduceMaster
@@ -185,7 +197,9 @@ def modify_master(tmp, trg, bssid, omega_offset_by_trigger=None):
         redmas.remove_redundant(("flatfield","pixel_mask","trimbit"))
 
         # Compress large data with bslz4 (for compatibility with Neggia plugin)
-        redmas.compress_large_datasets("bslz4")
+        #redmas.compress_large_datasets("bslz4")
+        # Compress large data with bslz4 for pixel_mask and gzip+shuf for others (for compatibility with Neggia plugin and autoPROC)
+        redmas.compress_large_datasets("bslz4_and_gzipshuf")
     except:
         print traceback.format_exc()
 
@@ -398,7 +412,7 @@ def run(prefix, wdir, bssid, jobmode, opts):
                     print p.stdout.read()
                 else:
                     args = ["ssh", opts.ssh_host, """\
-"cd '%s'; env ctime_master=%d master_h5='%s' tmpdir='%s' dbfile='%s' bash /oys/xtal/yamtbx/bl32xu/eiger/qsub_hit_extract_online.sh" > hitextract_%s.log 2>&1 \
+"cd '%s'; env ctime_master=%d master_h5='%s' tmpdir='%s' dbfile='%s' bash /oys/xtal/yamtbx/bl32xu/eiger/qsub_hit_extract_online.sh" > hitextract_%s.log 2>&1 & \
 """ % (wdir, ctime_master, master_h5, tmpdir, dbfile, prefix)]
                     print " ".join(args)
                     p = subprocess.Popen(" ".join(args), shell=True, cwd=wdir) # as background job

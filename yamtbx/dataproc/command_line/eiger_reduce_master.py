@@ -26,12 +26,15 @@ replace = False
 remove_filters_first = False
  .type = bool
  .help = "Run h5repack -f NONE to remove all filters first."
-compress = *bslz4
+compress = bslz4 *bslz4_and_gzipshuf
  .type = choice(multi=False)
- .help = "Compress large datasets in master.h5"
+ .help = "Compress large datasets in master.h5. bslz4_and_gzipshuf is to apply bslz4 for pixel_mask and gzip+shuf for other datasets."
 remove_detectorModule_data = flatfield pixel_mask trimbit
  .type = choice(multi=True)
  .help = "Optionally remove data in /entry/instrument/detector/detectorSpecific/detectorModule_* flatfield and pixel_mask are redundant information."
+remove_overall = flatfield pixel_mask
+ .type = choice(multi=True)
+ .help = "Optionally remove flatfield and pixel_mask data in /entry/instrument/detector/detectorSpecific/. NOTE they (especially pixel_mask) may be necessary data."
 """
 
 class ReduceMaster:
@@ -51,6 +54,14 @@ class ReduceMaster:
                     del detSp[k][kk]
     # remove_redundant()
 
+    def remove_datasets(self, kinds):
+        assert set(kinds).issubset(("flatfield","pixel_mask"))
+        detSp = self.h["/entry/instrument/detector/detectorSpecific"]
+
+        for k in kinds:
+            print "Removing %s" % k
+            del detSp[k]
+
     def find_large_dataset_visitor(self, path, obj):
         if type(obj) is h5py.Dataset and obj.size > 100:
             self.large_datasets.append(path)
@@ -58,7 +69,7 @@ class ReduceMaster:
 
     def compress_large_datasets(self, compress):
         if not compress: return
-        assert compress in ("bslz4",)
+        assert compress in ("bslz4", "bslz4_and_gzipshuf")
 
         self.large_datasets = []
         self.h.visititems(self.find_large_dataset_visitor)
@@ -73,6 +84,18 @@ class ReduceMaster:
                                       compression=bitshuffle.h5.H5FILTER,
                                       compression_opts=(0, bitshuffle.h5.H5_COMPRESS_LZ4),
                                       chunks=None, dtype=data.dtype, data=data)
+            elif compress == "bslz4_and_gzipshuf":
+                if "pixel_mask" in path: # bslz4
+                    self.h.create_dataset(path, data.shape,
+                                          compression=bitshuffle.h5.H5FILTER,
+                                          compression_opts=(0, bitshuffle.h5.H5_COMPRESS_LZ4),
+                                          chunks=None, dtype=data.dtype, data=data)
+                else: # gzip+shuf
+                    self.h.create_dataset(path, data.shape,
+                                          compression="gzip",shuffle=True,
+                                          chunks=None, dtype=data.dtype, data=data)
+            else:
+                raise "Never reaches here."
 
     # compress_large_datasets()
 
@@ -109,6 +132,9 @@ def run(params):
         if params.remove_detectorModule_data:
             redmas.remove_redundant(params.remove_detectorModule_data)
 
+        if params.remove_overall:
+            redmas.remove_datasets(params.remove_overall)
+
         if params.compress:
             redmas.compress_large_datasets(params.compress)
 
@@ -138,16 +164,16 @@ All features are optional:
 - Remove filters
 - Apply bslz4 filters to large datasets
 - Remove unnecessary data to save the disk space
+- Remove (maybe necessary but) large data to further save the disk space
 
 You need h5repack program. You also need phenix-1.11 or later if you use phenix.python; dials.python may be used instead.
 
 * Usage:
-%(command_name)s yours_master.h5 [h5out=yours_master_reduced.h5] [remove_filters_first=True] [compress=bslz4] [remove_detectorModule_data=flatfield+pixel_mask+trimbit]
+%(command_name)s yours_master.h5 [h5out=yours_master_reduced.h5] [remove_filters_first=True] [compress=bslz4_and_gzipshuf] [remove_detectorModule_data=flatfield+pixel_mask+trimbit]
 
 * In case you're BL32XU user, collected data before 2017, and want to use Neggia plugin for XDS (and reduce file size anyway):
 mv yours_master.h5 yours_master.h5.org
 %(command_name)s yours_master.h5.org h5out=yours_master.h5 compress=bslz4 remove_detectorModule_data=flatfield+pixel_mask+trimbit
-
 
 Default parameters:""" % dict(command_name=command_name)
 
