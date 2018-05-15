@@ -24,7 +24,11 @@ EXEC_SH = "/usr/local/cheetah_daemon/start_shika.sh"
 PID_FILE = "/var/run/shikaeiger_sh.pid"
 
 def get_all_children(pid, ret):
-    children = psutil.Process(pid).children()
+    try:
+        children = psutil.Process(pid).children()
+    except Exception, e:
+        print "error in getting children of pid %s" % pid
+        return
     ret.extend(map(lambda x: x.pid, children))
     for cp in children:
         get_all_children(cp.pid, ret)
@@ -47,15 +51,20 @@ class start_program:
 
         # Security
         if uid < 500 or gid < 500:
+            print "Invalid UID (%d) or GID (%d)" % (uid, gid)
             yield "Invalid UID (%d) or GID (%d)\n" % (uid, gid)
             return
 
-        try: pwd.getpwuid(uid)
+        try:
+            pwd.getpwuid(uid)
         except KeyError:
-            yield "UID (%d) does not exist\n" % uid
+            print "UID (%d) does not exist" % (uid,)
+            yield "UID (%d) does not exist\n" % (uid,)
             return
 
-        for k in stop_program().GET(): yield k
+        for k in stop_program().GET():
+            print k
+            yield k
         print "Starting program with %d/%d (now= %s)" % (uid, gid, time.ctime())
         yield "Starting program with %d/%d\n" % (uid, gid)
         #p = subprocess.Popen(EXEC_SH, shell=True,
@@ -112,8 +121,10 @@ class stop_program:
                 proc = psutil.Process(p)
                 print "  killing %d (name= %s, user= %s, ctime= %s)" % (p, proc.name(), proc.username(), time.ctime(proc.create_time()))
             except psutil.NoSuchProcess: continue
-            os.kill(p, signal.SIGKILL)
-        os.kill(pid, signal.SIGKILL)
+            try: os.kill(p, signal.SIGKILL)
+            except Exception, e: print "    Error in killing %s: %s" % (p, e.message)
+        try: os.kill(pid, signal.SIGKILL)
+        except Exception, e: print "    Error in killing %s: %s" % (pid, e.message)
 
         print "All child processes killed (now= %s)" % time.ctime()
         yield "All child processes killed\n"
