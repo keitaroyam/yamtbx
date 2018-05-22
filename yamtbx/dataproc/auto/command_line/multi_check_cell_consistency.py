@@ -63,19 +63,22 @@ class CellGraph:
 
         if xac_file:
             correct_lp = util.return_first_found_file(("CORRECT.LP_noscale", "CORRECT.LP"), wd=xdsdir)
+            if not correct_lp:
+                print "CORRECT.LP not found in %s" % xdsdir
+                return None, None
             p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
             try:
                 xac = XDS_ASCII(xac_file, read_data=False)
             except:
                 print "Invalid XDS_ASCII format:", xac_file
-                return
+                return None, None
             xs = xac.symm
 
         elif os.path.isfile(dials_hkl): # DIALS
             xs = run_dials_auto.get_most_possible_symmetry(xdsdir)
             if xs is None:
                 print "Cannot get crystal symmetry:", xdsdir
-                return
+                return None, None
 
             p1cell = list(xs.niggli_cell().unit_cell().parameters())
             # force obtuse angle
@@ -124,7 +127,7 @@ class CellGraph:
 
     # add_proc_result()
 
-    def _average_p1_cell(self, keys):
+    def _transformed_cells(self, keys):
         cells = [self.p1cells[keys[0]].parameters()]
         for key in keys[1:]:
             cell = self.p1cells[key]
@@ -134,24 +137,36 @@ class CellGraph:
                 cell = cell.change_basis(self.cbops[(key, keys[0])].inverse()) # correct??
 
             cells.append(cell.parameters())
-
-        cells = numpy.array(cells)
+        return cells
+    # _transformed_cells()
+    
+    def _average_p1_cell(self, keys):
+        cells = numpy.array(self._transformed_cells(keys))
         return map(lambda i: cells[:,i].mean(), xrange(6))
     # _average_p1_cell()
 
     def group_xds_results(self, out, show_details=True):
-        print >>out, "Making groups from %d results\n" % len(self.p1cells)
+        print >>out, "Making groups from %d results\n" % len(self.p1cells) # Show total and failed!!
         
         self.groups = map(lambda g: list(g), nx.connected_components(self.G))
         self.groups.sort(key=lambda x:-len(x))
         self.grouped_dirs = []
         self.reference_symmetries = []
 
+        #details_str = "group file a b c al be ga\n"
+        #ofs_debug = open("cell_debug.dat", "w")
+        #ofs_debug.write("group xdsdir a b c al be ga\n")
+
         for i, keys in enumerate(self.groups):
             self.reference_symmetries.append([])
             avg_cell = uctbx.unit_cell(self._average_p1_cell(keys))
             print >>out, "[%2d]"%(i+1), len(keys), "members:"
             print >>out, " Averaged P1 Cell=", " ".join(map(lambda x:"%.2f"%x, avg_cell.parameters()))
+
+            #from yamtbx.util.xtal import format_unit_cell
+            #for xd, uc in zip(map(lambda k:self.dirs[k], keys), self._transformed_cells(keys)):
+            #    ofs_debug.write("%3d %s %s\n" % (i, xd, format_unit_cell(uc)))
+            
             #print >>out, " Members=", keys
             if show_details:
                 # by explore_metric_symmetry
@@ -163,7 +178,7 @@ class CellGraph:
                     trans_cell = avg_cell.change_basis(cbop)
 
                     if pg.group() == sgtbx.space_group_info("I2").group():
-                        print >>out, "Warning!! I2 cell was given." # Not sure if this happens..
+                        print >>out, "Warning!! I2 cell was given." # this should not happen..
 
                     # Transform to best cell
                     fbc = crystal.find_best_cell(crystal.symmetry(trans_cell, space_group_info=pg,
