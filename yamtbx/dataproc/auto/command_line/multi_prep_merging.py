@@ -28,6 +28,8 @@ import sys
 import shutil
 import numpy
 import traceback
+import tempfile
+import glob
 from cStringIO import StringIO
 
 master_params_str = """
@@ -86,6 +88,8 @@ def prepare_dials_files(wd, out, space_group=None, reindex_op=None, moveto=None)
 # prepare_dials_files()
 
 def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_symm, sgnum, sgnum_laue, prep_dials_files=False):
+    # XXX Unsafe if multiple processes run this function for the same target directory at the same time
+
     sym, wd, wdr = sym_wd_wdr
     out = StringIO()
     print >>out,  os.path.relpath(wd, topdir),
@@ -215,6 +219,8 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
     """
     wd: directory where XDS file exists
     wdr: wd to return; a directory where transformed file should be saved.
+
+    If wd!=wdr, files in wd/ are unchanged during procedure. Multiprocessing is unsafe when wd==wdr.
     """
 
     out = StringIO()
@@ -231,26 +237,22 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
         log_out.flush()
         return (wdr, None)
 
-    if xac_file.endswith(".org"): xac_file_org, xac_file = xac_file, xac_file[:-4]
-    else: xac_file_org = xac_file+".org"
+    if xac_file.endswith(".org"): xac_file_out = xac_file[:-4]
+    else: xac_file_out = xac_file
 
-    if not os.path.isfile(xac_file_org):
-        os.rename(xac_file, xac_file_org)
-
-    xac = XDS_ASCII(xac_file_org, read_data=False)
+    xac = XDS_ASCII(xac_file, read_data=False)
     print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
                                ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
 
     if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
         if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10): # XXX Check unit cell consistency!!
             print >>out,  "  Already scaled with specified symmetry"
-            os.rename(xac_file_org, xac_file) # rename back
             log_out.write(out.getvalue())
             log_out.flush()
 
             if wd != wdr: shutil.copy2(xac_file, wdr)
 
-            if prep_dials_files and not xac_file.endswith("DIALS.HKL"):
+            if prep_dials_files and "DIALS.HKL" not in xac_file:
                 prepare_dials_files(wd, out, moveto=wdr)
 
             return (wdr, (numpy.array(xac.symm.unit_cell().parameters()), 
@@ -267,17 +269,20 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
         log_out.flush()
         return (wdr, None)
 
-    hklout = os.path.join(wdr, os.path.basename(xac_file))
+    if wd == wdr:
+        dest = tempfile.mkdtemp(prefix="multiprep", dir=wd)
+    else:
+        dest = wdr
+        
+    hklout = os.path.join(dest, os.path.basename(xac_file_out))
 
     newcell = xac.write_reindexed(op=cosets.combined_cb_ops()[0],
                                   space_group=reference_symm.space_group(),
                                   hklout=hklout)
-    ret = (numpy.array(newcell.parameters()), hklout)
-           
 
     if "DIALS.HKL" in os.path.basename(xac_file):
-        outstr = 'output.experiments="%sreindexed_experiments.json" ' % os.path.join(wdr, "")
-        outstr += 'output.reflections="%sreindexed_reflections.pickle" ' % os.path.join(wdr, "")
+        outstr = 'output.experiments="%sreindexed_experiments.json" ' % os.path.join(dest, "")
+        outstr += 'output.reflections="%sreindexed_reflections.pickle" ' % os.path.join(dest, "")
         for f in ("experiments.json", "indexed.pickle"):
             if not os.path.isfile(os.path.join(os.path.dirname(xac_file), f)): continue
             util.call('dials.reindex %s change_of_basis_op=%s space_group="%s" %s'%(f, 
@@ -289,12 +294,26 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
         prepare_dials_files(wd, out,
                             space_group=reference_symm.space_group(),
                             reindex_op=cosets.combined_cb_ops()[0],
-                            moveto=wdr)
+                            moveto=dest)
 
-    newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
-    print >>out,  "  Reindexed to transformed cell: %s with %s" % (newcell, cosets.combined_cb_ops()[0].as_hkl())
+    newcell_str = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
+    print >>out,  "  Reindexed to transformed cell: %s with %s" % (newcell_str, cosets.combined_cb_ops()[0].as_hkl())
     log_out.write(out.getvalue())
     log_out.flush()
+
+    if wd == wdr:
+        for f in glob.glob(os.path.join(dest, "*")):
+            f_in_wd = os.path.join(wd, os.path.basename(f))
+            if os.path.exists(f_in_wd) and not os.path.exists(f_in_wd+".org"): os.rename(f_in_wd, f_in_wd+".org")
+            os.rename(f, f_in_wd)
+
+        shutil.rmtree(dest)
+        ret = (numpy.array(newcell.parameters()), 
+               os.path.join(wd, os.path.basename(xac_file_out)))
+    else:
+        ret = (numpy.array(newcell.parameters()), hklout)
+           
+
     return (wdr, ret)
 # reindex_with_specified_symm_worker()
 
