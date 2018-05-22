@@ -364,6 +364,12 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2018-05-22
+   * kamo.test\_installation: 2018-04-25の更新によるバグを修正(Numpy 1.11以前でも動くように)
+   * マージ準備ルーチンのバグを修正
+* 2018-04-25
+   * 論文公開にあわせてドキュメントを更新
+   * kamo.test\_installation: H5ToXdsの実行テストを追加
 * 2018-02-22
    * kamo.multi\_merge: cc\_clustering.min\_common\_refs= オプションを追加(共通反射数の最小値を設定．下回るデータは除外されます)
    * CC<sub>1/2</sub> vs resolutionのカーブフィッティングのパラメータを改善

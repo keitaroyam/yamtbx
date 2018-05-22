@@ -362,6 +362,12 @@ You can also cite this documentation's URL: https://github.com/keitaroyam/yamtbx
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2018-05-22
+   * kamo.test\_installation: fixed a bug introduced in 2018-04-25 (did not work before Numpy 1.11)
+   * Bug fixes in file preparation for merging
+* 2018-04-25
+   * Updated this doc with published KAMO paper
+   * kamo.test\_installation: updated H5ToXds test by actually running a program
 * 2018-02-22
    * kamo.multi\_merge: added an option cc\_clustering.min\_common\_refs= to set the minimum acceptable number of common reflections.
    * Improved least-square fitting for CC<sub>1/2</sub> vs resolution curve.
