@@ -68,6 +68,8 @@ def group_img_files_template(img_files, skip_0=False):
         if skip_0: numbers_int = filter(lambda x: x!=0, numbers_int)
         if len(set(numbers_digit)) != 1:
             pass
+        if not numbers_int:
+            continue
 
         template_str = "%(pref)s%(digit)s%(ext)s" % dict(pref= pref,
                                                          digit= "?"*numbers_digit[0],
