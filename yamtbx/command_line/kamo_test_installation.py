@@ -79,7 +79,7 @@ def tst_h5toxds():
     from yamtbx.dataproc import cbf
 
     tmpdir = util.get_temp_local_dir("h5test")
-    data = numpy.random.randint(0, 65535, size=100, dtype=numpy.uint32).reshape((1,10,10))
+    data = numpy.random.randint(0, 65535, size=100).astype(numpy.uint32).reshape((1,10,10))
     master_h5 = make_dummy_h5_for_test(tmpdir, data)
     rcode, out, err = util.call("H5ToXds", "%s 1 1.cbf"%os.path.basename(master_h5), wdir=tmpdir)
     cbfout = os.path.join(tmpdir, "1.cbf")
