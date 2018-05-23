@@ -2,29 +2,33 @@
 
 English version is [here](eiger-en.md).
 
-本稿ではBL32XUにおけるEIGER X 9Mに関して記述します．
+本稿ではSPring-8 BL32XU/BL41XU/BL44XUにおけるEIGER X 9M/16Mに関して記述します．
 本内容はEIGERのfirmware更新などによって変更される可能性があります．
 
-  * [EIGER HDF5について](#eiger-hdf5について) 
+  * [EIGER HDF5について](#eiger-hdf5について)
      * [内部データの圧縮(filter)](#内部データの圧縮filter)
-     * [BL32XUにおけるmaster.h5の改変](#bl32xuにおけるmasterh5の改変)
-     * [BL32XUにおけるonlyhits.h5に関して](#bl32xuにおけるonlyhitsh5に関して)
-  * [ソフトウェアの導入](#ソフトウェアの導入) 
+     * [SPring-8におけるmaster.h5の改変](#spring-8におけるmasterh5の改変)
+     * [SPring-8におけるonlyhits.h5に関して](#spring-8におけるonlyhitsh5に関して)
+     * [マルチ(複数データセットのまとまった)HDF5に関して](#マルチ複数データセットのまとまったhdf5に関して)
+     * [4M ROI](#4m-roi)
+     * [Bad pixelについて](#bad-pixelについて)
+  * [ソフトウェアの導入](#ソフトウェアの導入)
      * [HDF5 software](#hdf5-software)
-     * [eiger2cbf (H5ToXds互換)](#eiger2cbf-h5toxds互換) 
-     * [bitshuffle plugin (少し上級編)](#bitshuffle-plugin-少し上級編) 
-     * [Neggia plugin (XDSでpluginを使った処理を行いたい場合のみ)](#neggia-plugin-xdsでpluginを使った処理を行いたい場合のみ) 
-        * [コンパイル済みのバイナリを入手する](#コンパイル済みのバイナリを入手する) 
-        * [自分でビルドする](#自分でビルドする) 
-  * [イメージの表示](#イメージの表示) 
-  * [データ処理の方法](#データ処理の方法) 
+     * [eiger2cbf (H5ToXds互換)](#eiger2cbf-h5toxds互換)
+     * [bitshuffle plugin (少し上級編)](#bitshuffle-plugin-少し上級編)
+     * [Neggia plugin (XDSでpluginを使った処理を行いたい場合のみ)](#neggia-plugin-xdsでpluginを使った処理を行いたい場合のみ)
+        * [コンパイル済みのバイナリを入手する](#コンパイル済みのバイナリを入手する)
+        * [自分でビルドする](#自分でビルドする)
+  * [イメージの表示](#イメージの表示)
+  * [データ処理の方法](#データ処理の方法)
      * [XDS](#xds)
-        * [H5ToXdsを使う方法](#h5toxdsを使う方法) 
-        * [pluginを使う方法](#pluginを使う方法) 
+        * [H5ToXdsを使う方法](#h5toxdsを使う方法)
+        * [pluginを使う方法](#pluginを使う方法)
+        * [autoPROCを使う場合](#autoprocを使う場合)
      * [DIALS](#dials)
      * [iMosflm](#imosflm)
      * [HKL-2000](#hkl-2000)
-  * [参考](#参考) 
+  * [参考](#参考)
 
 ## EIGER HDF5について
 
@@ -33,40 +37,40 @@ HDF5はファイルシステムのような階層構造を持っており，そ�
 
 EIGERの出力するhdf5は，masterとdataの2種類からなります．例えばprefixをsampleとしてデータを収集すると，
 
-* sample_master.h5 - 実験に関する情報（波長やビームセンターなど）の他，検出器の設定情報
-* sample_data_??????.h5 - 回折イメージ
+* sample\_master.h5 - 実験に関する情報（波長やビームセンターなど）の他，検出器の設定情報
+* sample\_data_??????.h5 - 回折イメージ
 
 data h5には複数の回折イメージが含まれており，通常100枚ごとに1ファイル作られます．
-つまり100枚以下ならばsample_data_000001.h5のみ，200枚以下ならそれに加えてsample_data_000002.h5も出力されます．
+つまり100枚以下ならばsample\_data\_000001.h5のみ，200枚以下ならそれに加えてsample\_data\_000002.h5も出力されます．
 
 sample_master.h5にはdata h5へのリンク(hdf5のExternalLinkという機能)も含まれており，master h5を開くことで，透過的に回折データを読めるようになっています．
 実際のデータはdata h5の方に入っていますが，それを意識すること無くデータを読めます．master h5を与えるだけでデータ処理が行えるのは，この仕組みからです．
 
 ### 内部データの圧縮(filter)
 
-HDF5は内部的にデータを圧縮することができるようになっています('filter'と呼ばれる機能)．EIGERのデータはLZ4アルゴリズムまたはbitshuffle+LZ4 (bslz4)によって圧縮されるようになっており，通常はbslz4です(bslz4はlz4に比べ30-50%ほど小さくなります)．
-master.h5は通常圧縮されていません(masterにはflatfieldやpixel maskなどそこそこ大きい情報が格納されています)が，BL32XUではbyteshuffle+gzipによって圧縮するようにしています(2017A期より，bslz4での圧縮に変更)．
+HDF5は内部的にデータを圧縮することができるようになっています('filter'と呼ばれる機能)．EIGERのデータはLZ4アルゴリズムまたはbitshuffle+LZ4 (bslz4)によって圧縮されるようになっており，SPring-8では通常はbslz4です(bslz4はlz4に比べ30-50%ほど小さくなります)．
+master.h5は通常圧縮されていませんが，そのままだと巨大なので(flatfieldやpixel maskなどを含む)，SPring-8では圧縮および不要データの削除をするようにしています．
 
 データを読む際には，圧縮されていようがいまいが，同じように読むことができます（HDF5のライブラリが自動的に解凍処理を行います）．ただし非標準のFilter (bslz4も該当)の場合は，プラグインをインストールしなければ読めません．
 
-### BL32XUにおけるmaster.h5の改変
+### SPring-8におけるmaster.h5の改変
 
-BL32XUでは，EIGERから直接出力されるmaster.h5ではなく以下のような改変を行ったものをユーザに提供しています．
+SPring-8 MX-BLでは，EIGERから直接出力されるmaster.h5ではなく以下のような改変を行ったものをユーザに提供しています．
 （含まれている情報を適切に修正し，かつ，ファイルサイズを削減する目的です）
 * 不要データの除去
   * /entry/instrument/detector/detectorSpecific/detectorModule\_*/以下のflatfield,pixel\_mask,trimbitを削除
   * これらのデータはtrimbitを除き，検出器全体での情報が別に保存されている
-* サイズの大きな配列の圧縮(bslz4)
+* サイズの大きな配列データの圧縮(pixel\_maskのみbslz4，他はgzip+shuf)
 * 結晶回転軸の情報を付与(/entry/sample/transformations/omega)
 * omegaのテーブルを適切に修正(/entry/sample/goniometer/)
 
-### BL32XUにおけるonlyhits.h5に関して
+### SPring-8におけるonlyhits.h5に関して
 
 回折スキャン(diffraction scan)の結果は巨大であることが多く，通常ほとんどスポットの写っていないフレームであるため，
-BL32XUではスポットの写っているフレームのみを抽出したonlyhits.h5を作成し，それだけを持ち帰れるようにしています．
+SPring-8ではスポットの写っているフレームのみを抽出したonlyhits.h5を作成し，それだけを持ち帰れるようにしています．
 
 中身はmaster.h5のコピーに加え，/entry/data以下にフレーム情報を記録しています．
-/entry/data/直下にprefix + image numberの名前のgroupが存在し(そのasttributeとしてn_spotsの情報あり)，その直下にあるdataset `data`がフレームのデータです．
+/entry/data/直下にprefix + image numberの名前のgroupが存在し(そのasttributeとしてn\_spotsの情報あり)，その直下にあるdataset `data`がフレームのデータです．
 
 onlyhits.h5は後述の`yamtbx.adxv_eiger`で開くことができます．
 
@@ -80,12 +84,25 @@ onlyhits.h5は後述の`yamtbx.adxv_eiger`で開くことができます．
 EIGER 9Mおよび16Mには4M ROI (region of interest)の機能があります．
 詳細は後日更新します．
 
+### Bad pixelについて
+
+検出器のイメージデータで，ピクセル強度が65535または4294967295になっているピクセルがある場合があります(それぞれ16bitまたは32bitのとき)．
+このようなピクセルになる原因として以下の可能性があります (厳密にはEIGERの運用モードにも依存します)
+* pixel\_maskに登録されたbad pixelである (dead regionや，既知の故障pixelなど)
+* 内部の12bitカウンタ(4M以上は800 Hz)で計数中に一度でも溢れた (overflow)
+* countrate\_correction\_count\_cutoffを超えている (count rate補正の範囲外だった)
+* その他？
+
+この数字になったpixelがどう処理されるかは処理プログラム依存です．
+cbfファイルを介して処理する場合，負値に置き換える挙動が一般的です．
+（データ処理時，もともと死んでるピクセルなのか，強度もといcpsが大きすぎたピクセルなのか区別ができないのはちょっと問題な気も…）
+
 ## ソフトウェアの導入
 
-まず以下のソフトウェアを導入します．
+以下のソフトウェアの導入を推奨します．
 
 ### HDF5 software
-generate_XDS.INPは[HDF5 software](https://www.hdfgroup.org/HDF5/release/obtain5.html)に含まれるh5dumpを利用します．
+generate\_XDS.INPは[HDF5 software](https://www.hdfgroup.org/HDF5/release/obtain5.html)に含まれるh5dumpを利用します．
 各種パッケージマネージャでhdf5を導入可能かと思います．MacでMacPortsをお使いの場合は，
 ```
 sudo port install hdf5
@@ -115,8 +132,11 @@ chmod +x H5ToXds
 eiger2cbfは，以下のようにmaster.h5を与えて使います．
 
 * `eiger2cbf sample_master.h5` .. 格納されているフレーム数を出力
-* `eiger2cbf sample_master.h5 10 sample_10.cbf` .. 10枚目(最初の番号は1)のフレームをsample_10.cbfとして保存
-* `eiger2cbf sample_master.h5 1:100 sample` .. 1-100枚目をsample_??????.cbfとして保存
+* `eiger2cbf sample_master.h5 10 sample_10.cbf` .. 10枚目(最初の番号は1)のフレームをsample\_10.cbfとして保存
+* `eiger2cbf sample_master.h5 1:100 sample` .. 1-100枚目をsample\_??????.cbfとして保存
+
+BL32XUで2016Aあたりに測定されたデータの一部はflatfield補正が入ってない場合があり，その場合はデータ処理時に補正を行ったほうが良いです．
+[修正版eiger2cbf](https://github.com/keitaroyam/eiger2cbf)を使って頂くとflatfield補正がない場合に補正済みcbfを出力できます．
 
 ### bitshuffle plugin (少し上級編)
 必ずしも必須ではありませんが，[bitshuffle](https://github.com/kiyo-masui/bitshuffle) pluginを導入しておくとh5dumpやhdfview，あるいはadxv経由でbslz4圧縮されたhdf5も開けるようになります．
@@ -153,10 +173,10 @@ hdf5形式のまま表示するには，以下の方法があります．
 
 * [ALBULA](https://www.dectris.com/products/albula-software)
 * [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (要[bitshuffle plugin](#bitshuffle-plugin-少し上級編). 但し実験情報が読まれないため分解能が正しく表示されない)
-* dials.image_viewer (DIALSプログラムに同梱)
-* yamtbx.adxv_eiger (32XUで標準使用の拙作スクリプト．adxvを使用)
+* dials.image\_viewer (DIALSプログラムに同梱)
+* yamtbx.adxv\_eiger (32XUで標準使用の拙作スクリプト．adxvを使用)
 
-yamtbx.adxv_eigerは以下の方法で導入できます．[KAMO](kamo-ja.md#ローカル環境での使用方法)またはyamtbxを導入済みの場合は既に使えるようになっています．
+yamtbx.adxv\_eigerは以下の方法で導入できます．[KAMO](kamo-ja.md#ローカル環境での使用方法)またはyamtbxを導入済みの場合は既に使えるようになっています．
 
 1. [PHENIX](http://www.phenix-online.org/)-1.11以上をインストールする
 2. 以下のコマンドを実行する(yamtbxをcloneする場所はどこでも良いので，適当に読み替えて下さい)
@@ -208,10 +228,18 @@ LIB= /where-you-installed/plugin-name.so
 処理したい場合，変換作業が必要です．yamtbxを導入済みの方は，
 ```
 mv yours_master.h5 yours_master.h5.org
-yamtbx.eiger_reduce_master yours_master.h5.org h5out=yours_master.h5 compress=bslz4
+yamtbx.eiger_reduce_master yours_master.h5.org h5out=yours_master.h5
 ```
 として，master.h5を変換して下さい．
 yamtbxを導入されてない場合は，[こちらのスクリプト](https://github.com/keitaroyam/yamtbx/blob/master/yamtbx/dataproc/command_line/eiger_reduce_master.py)を`phenix.python` (ver. 1.11以降)から立ち上げて下さい．
+
+#### autoPROCを使う場合
+`ReversePhi="yes"`オプションを指定する必要があります．
+see: [autoPROC wiki](https://www.globalphasing.com/autoproc/wiki/index.cgi?BeamlineSettings#spring8).
+
+**注意！** 2017Aから2018A(の5月頃まで)の間に収集されたデータをautoPROCで処理しようとするとエラーになります．
+これは，autoPROCのツールがbslz4で圧縮されたmaster.h5を処理できないためで，2018A(の5月頃)以降はpixel\_mask以外をgzip+shufによる圧縮に変更しました．
+この期間中に測定したデータを処理したい場合は，上述の`yamtbx.eiger_reduce_master`を用いて変換してください．
 
 ### DIALS
 ver. dev-652 (1.dev.193)以降はBL32XUのEIGER hdf5に対応しています．
@@ -288,5 +316,6 @@ ver. 714 (Sep 2016)より，hdf5を直接読めるようになりました．そ
 ## 参考
 * [EIGER X series (Dectris公式サイト)](https://www.dectris.com/products/eiger/eiger-x-for-synchrotron)
 * [Eiger - XDSwiki](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Eiger)
+* [Casanas et al. (2016) EIGER detector: application in macromolecular crystallography. Acta Cryst. D72, 1036-1048](https://doi.org/10.1107/S2059798316012304)
 * [HDF5 - The HDF Group](https://www.hdfgroup.org/HDF5/)
 * [NeXus](http://www.nexusformat.org/) 将来的にEIGER hdf5もNeXus互換形式になります（現在は限定的）
