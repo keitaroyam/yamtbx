@@ -56,10 +56,35 @@ def read_stream_data(frames, bss_job_mode=4):
     else:
         RuntimeError("Unknown encoding (%s)"%header["encoding"])
 
+    bad_sel = data==2**(byte*8)-1
     data = data.astype(numpy.int32)
-    data[data==2**(byte*8)-1] = -1
+    data[bad_sel] = -1
     return header, data
 # read_stream_data()
+
+def data_as_int32_masked(data, apply_pixel_mask, h5handle):
+    bad_sel = data == 2**(data.dtype.itemsize*8)-1
+    data = data.astype(numpy.int32)
+    data[bad_sel] = -3 # To see pixels not masked by pixel mask.
+    if apply_pixel_mask and "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5handle:
+        mask = h5handle["/entry/instrument/detector/detectorSpecific/pixel_mask"][:]
+        data[mask==1] = -1
+        data[mask>1] = -2
+
+    return data
+# data_as_int32()
+
+def data_iter(h5master, apply_pixel_mask=True, return_raw=False):
+    h5 = h5py.File(h5master, "r")
+    data = None
+
+    for k in sorted(h5["/entry/data"].keys()):
+        if not h5["/entry/data"].get(k): continue
+        for data in h5["/entry/data"][k]:
+            if not return_raw:
+                data = data_as_int32_masked(data, apply_pixel_mask, h5)
+            yield data
+# extract_data()
 
 def extract_data(h5master, frameno, apply_pixel_mask=True, return_raw=False):
     h5 = h5py.File(h5master, "r")
@@ -92,15 +117,7 @@ def extract_data(h5master, frameno, apply_pixel_mask=True, return_raw=False):
     if return_raw:
         return data
 
-    byte = data.dtype.itemsize
-    data = data.astype(numpy.int32)
-    data[data==2**(byte*8)-1] = -3 # To see pixels not masked by pixel mask.
-    if apply_pixel_mask and "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5:
-        mask = h5["/entry/instrument/detector/detectorSpecific/pixel_mask"][:]
-        data[mask==1] = -1
-        data[mask>1] = -2
-
-    return data
+    return data_as_int32_masked(data, apply_pixel_mask, h5)
 # extract_data()
 
 def extract_data_path(h5master, path, apply_pixel_mask=True, return_raw=False):
@@ -115,15 +132,7 @@ def extract_data_path(h5master, path, apply_pixel_mask=True, return_raw=False):
         return data
 
     data = data[:]
-    byte = data.dtype.itemsize
-    data = data.astype(numpy.int32)
-    data[data==2**(byte*8)-1] = -3 # To see pixels not masked by pixel mask.
-    if apply_pixel_mask and "/entry/instrument/detector/detectorSpecific/pixel_mask" in h5:
-        mask = h5["/entry/instrument/detector/detectorSpecific/pixel_mask"][:]
-        data[mask==1] = -1
-        data[mask>1] = -2
-
-    return data
+    return data_as_int32_masked(data, apply_pixel_mask, h5)
 # extract_data()
 
 def extract_data_range_sum(h5master, frames):
@@ -138,9 +147,9 @@ def extract_data_range_sum(h5master, frames):
                 if i_seen in frames:
                     i_found += 1
                     tmp = h5["/entry/data"][k][i,]
-                    badnum = 2**(tmp.dtype.itemsize*8)-1
+                    bad_sel = tmp == 2**(tmp.dtype.itemsize*8)-1
                     tmp = tmp.astype(numpy.int32)
-                    tmp[tmp==badnum] = -1 # XXX if not always 'bad' pixel...
+                    tmp[bad_sel] = -1 # XXX if not always 'bad' pixel...
                     if data is None: data = tmp.astype(numpy.int32)
                     else: data += tmp
         except KeyError:
@@ -226,6 +235,12 @@ def compress_h5data(h5obj, path, data, chunks, compression="bslz4"):
 
     return dataset
 # compress_h5data()
+
+def get_data_file_nr_range(data_h5):
+    h5 = h5py.File(data_h5, "r")
+    data = h5["/entry/data/data"]
+    return (data.attrs["image_nr_low"], data.attrs["image_nr_high"])
+# get_data_file_nr_range()
 
 def create_data_file(outfile, data, chunks, nrlow, nrhigh, compression="bslz4"):
     h5 = h5py.File(outfile, "w")
