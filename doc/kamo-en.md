@@ -285,7 +285,7 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx==1.11`
-4. Install scipy to dials.python
+4. Install scipy to dials.python (Skip this if using DIALS 1.10 or newer)
    1. If Mac, install Xcode.
    2. `cd $DIALS/build`
    3. If Linux: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>If Mac: `./bin/libtbx.python -m pip install scipy==0.18.1`
@@ -348,6 +348,8 @@ You can also cite this documentation's URL: https://github.com/keitaroyam/yamtbx
 
 ### Researches which used KAMO 
 
+* Asada *et al.* (2018) "Crystal structure of the human angiotensin II type 2 receptor bound to an angiotensin II analog." *Nature Structural & Molecular Biology*  doi: [10.1038/s41594-018-0079-8](https://doi.org/10.1038/s41594-018-0079-8) PDB: [5XJM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJM)
+* Tsuyuguchi *et al.* (2018) "Crystal structures of human CK2α2 in new crystal forms arising from a subtle difference in salt concentration." *Acta Cryst. F*  doi: [10.1107/S2053230X18005204](https://doi.org/10.1107/S2053230X18005204) PDB: [5Y9M](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y9M)
 * Furukawa *et al.* (2018) "Remote Coupled Drastic β-Barrel to β-Sheet Transition of the Protein Translocation Motor." *Structure*  doi: [10.1016/j.str.2018.01.002](https://doi.org/10.1016/j.str.2018.01.002) PDB: [5YHF](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHF)
 * Hori *et al.* (2018) "Na<sup>+</sup>-mimicking ligands stabilize the inactive state of leukotriene B<sub>4</sub> receptor BLT1." *Nature Chemical Biology* doi: [10.1038/nchembio.2547](https://doi.org/10.1038/nchembio.2547) PDB: [5X33](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X33) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-BLT1-data-(5X33))
 * Suno *et al.* (2017) "Crystal Structures of Human Orexin 2 Receptor Bound to the Subtype-Selective Antagonist EMPA." *Structure*  doi: [10.1016/j.str.2017.11.005](https://doi.org/10.1016/j.str.2017.11.005) PDB: [5WQC](http://www.rcsb.org/pdb/explore/explore.do?structureId=5WQC) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-OX2R-data-(5WQC))

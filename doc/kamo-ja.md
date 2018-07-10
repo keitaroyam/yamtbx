@@ -284,7 +284,7 @@ DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，
 3. networkxをdials.pythonから使えるようにする
    1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx==1.11`
-4. scipyをdials.pythonから使えるようにする
+4. scipyをdials.pythonから使えるようにする (DIALS 1.10以降の環境を使う場合は不要)
    1. Macの場合，App StoreからXcodeを導入後，
    2. `cd $DIALS/build`
    3. Linuxの場合: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>Macの場合: `./bin/libtbx.python -m pip install scipy==0.18.1`
@@ -349,6 +349,8 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 両方引いて頂いても構いません．
 
 ### KAMOを利用した研究
+* Asada *et al.* (2018) "Crystal structure of the human angiotensin II type 2 receptor bound to an angiotensin II analog." *Nature Structural & Molecular Biology*  doi: [10.1038/s41594-018-0079-8](https://doi.org/10.1038/s41594-018-0079-8) PDB: [5XJM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJM)
+* Tsuyuguchi *et al.* (2018) "Crystal structures of human CK2α2 in new crystal forms arising from a subtle difference in salt concentration." *Acta Cryst. F*  doi: [10.1107/S2053230X18005204](https://doi.org/10.1107/S2053230X18005204) PDB: [5Y9M](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y9M)
 * Furukawa *et al.* (2018) "Remote Coupled Drastic β-Barrel to β-Sheet Transition of the Protein Translocation Motor." *Structure*  doi: [10.1016/j.str.2018.01.002](https://doi.org/10.1016/j.str.2018.01.002) PDB: [5YHF](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHF)
 * Hori *et al.* (2018) "Na<sup>+</sup>-mimicking ligands stabilize the inactive state of leukotriene B<sub>4</sub> receptor BLT1." *Nature Chemical Biology* doi: [10.1038/nchembio.2547](https://doi.org/10.1038/nchembio.2547) PDB: [5X33](http://www.rcsb.org/pdb/explore/explore.do?structureId=5X33) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-BLT1-data-(5X33))
 * Suno *et al.* (2017) "Crystal Structures of Human Orexin 2 Receptor Bound to the Subtype-Selective Antagonist EMPA." *Structure*  doi: [10.1016/j.str.2017.11.005](https://doi.org/10.1016/j.str.2017.11.005) PDB: [5WQC](http://www.rcsb.org/pdb/explore/explore.do?structureId=5WQC) Raw data and processing note: [link](https://github.com/keitaroyam/yamtbx/wiki/Processing-OX2R-data-(5WQC))
