@@ -6,6 +6,7 @@ This software is released under the new BSD License; see LICENSE.
 """
 import os, glob, re
 from yamtbx.dataproc import XIO
+from yamtbx.util import directory_included
 import traceback
 
 IMG_EXTENSIONS = ".img", ".osc", ".cbf", ".mccd", ".mar1600", "_master.h5"
@@ -298,7 +299,12 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False, split_hdf_miniset=Tru
             ret.append([img_template, minf, maxf])
 
     for f in h5files:
-        im = XIO.Image(f)
+        try:
+            im = XIO.Image(f)
+        except:
+            print "Error on reading", f
+            print traceback.format_exc()
+            continue
 
         if not split_hdf_miniset:
             ret.append([f.replace("_master.h5","_??????.h5"), 1, im.header["Nimages"]])
@@ -312,6 +318,73 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False, split_hdf_miniset=Tru
 
     return ret
 # find_data_sets()
+
+def find_data_sets_from_dataset_paths_txt(input_file, include_dir=[], logger=None):
+
+    def shorten_frame_range_if_missing(img_template, nr1, nr2):
+        if "_??????.h5" in img_template:
+            nr1 = max(nr1, 1)
+
+            try:
+                im = XIO.Image(img_template.replace("_??????.h5", "_master.h5"))
+                nr2 = min(nr2, im.header["Nimages"])
+            except:
+                print "Error on reading", img_template
+                print traceback.format_exc()
+                nr1 = nr2 = 0
+        else:
+            files = glob.glob(img_template)
+            if files:
+                numbers = sorted(map(lambda x: int(x[img_template.index("?"):img_template.rindex("?")+1]), files))
+                nr1 = max(nr1, numbers[0])
+                nr2 = min(nr2, numbers[-1])
+            else:
+                nr1 = nr2 = 0
+                
+        return nr1, nr2
+    # shorten_frame_range_if_missing()
+
+    re_ds_num = re.compile("^(.*) *, *([0-9]+) *, *([0-9]+) *$")
+    ret = []
+    
+    for l in open(input_file):
+        if not l.endswith(os.linesep): continue
+        if not l.strip(): continue
+        r = re_ds_num.search(l)
+        if not r:
+            if logger: logger.warning("Invalid line indataset_paths_txt: %s" % l.strip())
+            continue
+        tmpl = r.group(1)
+        tmpl = tmpl.replace("#", "?")
+        if tmpl.endswith("master.h5"):
+            tmpl = tmpl[:-len("master.h5")] + "??????.h5"
+
+        if not "?" in tmpl:
+            if logger: logger.error("Invalid template string in indataset_paths_txt: %s" % l.strip())
+            continue
+
+        if not os.path.isabs(tmpl): tmpl = os.path.abspath(tmpl)
+
+        if not directory_included(tmpl, include_dir=include_dir):
+            if logger: logger.info("Skipping dataset not included in include_dir: %s" % tmpl)
+            continue
+            
+        nr1o, nr2o = int(r.group(2)), int(r.group(3))
+        nr1, nr2 = shorten_frame_range_if_missing(tmpl, nr1o, nr2o)
+
+        if nr1 == nr2 == 0:
+            if logger: logger.error("template does not match any file: %s" % tmpl)
+            continue
+
+        if (nr1, nr2) != (nr1o, nr2o) and logger:
+            logger.warning("Frame range automatically changed from %s to %s" % ((nr1o,nr2o), (nr1, nr2)))
+
+        ret.append([tmpl, nr1, nr2])
+        
+    return ret
+# find_data_sets_from_dataset_paths_txt()
+        
+    
 
 if __name__ == "__main__":
     import sys

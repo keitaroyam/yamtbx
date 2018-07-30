@@ -16,7 +16,7 @@ from yamtbx.dataproc.xds import xdsstat
 from yamtbx.dataproc.xds import xparm
 from yamtbx.dataproc.xds.command_line import estimate_resolution_by_spotxds
 from yamtbx.dataproc.adxv import Adxv
-from yamtbx.dataproc.dataset import find_existing_files_in_template
+from yamtbx.dataproc import dataset
 from yamtbx.dataproc.bl_logfiles import BssJobLog
 from yamtbx.dataproc.auto.command_line.multi_check_cell_consistency import CellGraph
 from yamtbx.util import batchjob, directory_included, read_path_list, safe_float, expand_wildcard_in_list
@@ -103,6 +103,14 @@ logwatch_interval = 30
 logwatch_once = None
  .type = bool
  .help = find datasets only once (when program started). Default: true if bl=other, otherwise false.
+
+dataset_paths_txt = None
+ .type = path
+ .help = "A text file that contains dataset_template, start, end frame numbers separeted by comma in each line."
+         "If specified, the update of the file is checked and data processing will start."
+         "Each line should end with newline character."
+         "template should look lie /foo/bar_??????.cbf"
+
 check_all_files_exist = True
  .type = bool
  .help = "Check all files in job exist before starting processing"
@@ -464,71 +472,88 @@ class BssJobs:
         pickle.dump(self.jobs, open(os.path.join(config.params.workdir, "jobs.pkl"), "wb"), 2)
     # update_jobs()
 
-    def update_jobs_from_files(self, root_dir, include_dir=[], exclude_dir=[]):
-        from yamtbx.dataproc import dataset
-        from yamtbx.dataproc.bl_logfiles import JobInfo
+    def _register_job_from_file(self, ds, root_dir, exclude_dir):
         from yamtbx.dataproc import XIO
+        from yamtbx.dataproc.bl_logfiles import JobInfo
 
+        tmpl, nr = ds[0], tuple(ds[1:3])
+        prefix = tmpl[:tmpl.index("_?" if "_?" in tmpl else "?")]
+
+        if not directory_included(tmpl, root_dir, [], exclude_dir):
+            mylog.info("This directory is not in topdir or in exclude_dir. Skipped: %s"%tmpl)
+            return
+
+        job = JobInfo(None)
+        job.filename = tmpl
+
+        images = filter(lambda x: os.path.isfile(x), dataset.template_to_filenames(*ds))
+
+        if len(images) == 0:
+            return
+
+        h = XIO.Image(images[0]).header
+        job.osc_end = h.get("PhiEnd", 0)
+
+        if len(images) > 1:
+            h_next = XIO.Image(images[1]).header
+            h_last = XIO.Image(images[-1]).header
+            job.osc_end = h_last.get("PhiEnd", 0)
+            if h_next.get("PhiStart", 0) == h.get("PhiStart", 0):
+                print "This job may be scan?:",  tmpl
+                return
+
+        job.wavelength = h.get("Wavelength", 0)
+        job.osc_start =  h.get("PhiStart", 0)
+        job.osc_step = h.get("PhiWidth", 0)
+        job.status = "finished"
+        job.exp_time = h.get("ExposureTime", 0)
+        job.distance = h.get("Distance", 0)
+        job.attenuator = None, 0
+        job.detector = "?"
+        job.prefix = prefix
+
+        if job.osc_step == 0 or job.osc_end - job.osc_start == 0:
+            print "This job don't look like osc data set:",  tmpl
+            return
+
+        if config.params.split_data_by_deg is None or job.osc_step==0:
+            self.jobs[(prefix, nr)] = job
+            self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
+        else:
+            n_per_sp = int(config.params.split_data_by_deg/job.osc_step+.5)
+            for i in xrange(nr[1]//n_per_sp+1):
+                if (i+1)*n_per_sp < nr[0]: return
+                if nr[1] < i*n_per_sp+1: return
+                nr2 = (max(i*n_per_sp+1, nr[0]), min((i+1)*n_per_sp, nr[1]))
+                self.jobs[(prefix, nr2)] = job # This will share the same job object.. any problem??
+                self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
+    # _register_job_from_file()
+    
+    def update_jobs_from_files(self, root_dir, include_dir=[], exclude_dir=[]):
         if include_dir == []: include_dir = [root_dir]
         # XXX what if include_dir has sub directories..
 
         for rd in include_dir:
             for ds in dataset.find_data_sets(rd, skip_0=True, skip_symlinks=False, split_hdf_miniset=config.params.split_hdf_miniset):
-                tmpl, nr = ds[0], tuple(ds[1:3])
-                prefix = tmpl[:tmpl.index("_?" if "_?" in tmpl else "?")]
-                    
-                if not directory_included(tmpl, root_dir, [], exclude_dir):
-                    mylog.info("This directory is not in topdir or in exclude_dir. Skipped: %s"%tmpl)
-                    continue
-
-                job = JobInfo(None)
-                job.filename = tmpl
-
-                images = filter(lambda x: os.path.isfile(x), dataset.template_to_filenames(*ds))
-
-                if len(images) == 0:
-                    continue
-
-                h = XIO.Image(images[0]).header
-                job.osc_end = h.get("PhiEnd", 0)
-
-                if len(images) > 1:
-                    h_next = XIO.Image(images[1]).header
-                    h_last = XIO.Image(images[-1]).header
-                    job.osc_end = h_last.get("PhiEnd", 0)
-                    if h_next.get("PhiStart", 0) == h.get("PhiStart", 0):
-                        print "This job may be scan?:",  tmpl
-                        continue
-
-                job.wavelength = h.get("Wavelength", 0)
-                job.osc_start =  h.get("PhiStart", 0)
-                job.osc_step = h.get("PhiWidth", 0)
-                job.status = "finished"
-                job.exp_time = h.get("ExposureTime", 0)
-                job.distance = h.get("Distance", 0)
-                job.attenuator = None, 0
-                job.detector = "?"
-                job.prefix = prefix
-
-                if job.osc_step == 0 or job.osc_end - job.osc_start == 0:
-                    print "This job don't look like osc data set:",  tmpl
-                    continue
-                    
-                if config.params.split_data_by_deg is None or job.osc_step==0:
-                    self.jobs[(prefix, nr)] = job
-                    self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
-                else:
-                    n_per_sp = int(config.params.split_data_by_deg/job.osc_step+.5)
-                    for i in xrange(nr[1]//n_per_sp+1):
-                        if (i+1)*n_per_sp < nr[0]: continue
-                        if nr[1] < i*n_per_sp+1: continue
-                        nr2 = (max(i*n_per_sp+1, nr[0]), min((i+1)*n_per_sp, nr[1]))
-                        self.jobs[(prefix, nr2)] = job # This will share the same job object.. any problem??
-                        self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
-
+                self._register_job_from_file(ds, root_dir, exclude_dir)
+                
         # Dump jobs
         pickle.dump(self.jobs, open(os.path.join(config.params.workdir, "jobs.pkl"), "wb"), 2)
     # update_jobs_from_files()
+
+    def update_jobs_from_dataset_paths_txt(self, root_dir, include_dir=[], exclude_dir=[]):
+        if not os.path.isfile(config.params.dataset_paths_txt):
+            mylog.warning("config.params.dataset_paths_txt=%s is not a file or does not exist" % config.params.dataset_paths_txt)
+            return
+
+        if include_dir == []: include_dir = [root_dir]
+
+        for ds in dataset.find_data_sets_from_dataset_paths_txt(config.params.dataset_paths_txt, include_dir, logger=mylog):
+            self._register_job_from_file(ds, root_dir, exclude_dir)
+
+        # Dump jobs
+        pickle.dump(self.jobs, open(os.path.join(config.params.workdir, "jobs.pkl"), "wb"), 2)
+    # update_jobs_from_dataset_paths_txt()
 
     def process_data(self, key):
         if key not in self.jobs:
@@ -551,7 +576,7 @@ class BssJobs:
         if not os.path.exists(workdir): os.makedirs(workdir)
         
         # Prepare XDS.INP
-        img_files = find_existing_files_in_template(job.filename, nr[0], nr[1],
+        img_files = dataset.find_existing_files_in_template(job.filename, nr[0], nr[1],
                                                     datadir=os.path.dirname(prefix), check_compressed=True)
         if len(img_files) == 0:
             mylog.error("No files found for %s %s" % (job.filename, nr))
@@ -638,7 +663,7 @@ for i in xrange(%(repeat)d-1):
         if not os.path.exists(workdir): os.makedirs(workdir)
         
         # Prepare
-        img_files = find_existing_files_in_template(bssjob.filename, nr[0], nr[1],
+        img_files = dataset.find_existing_files_in_template(bssjob.filename, nr[0], nr[1],
                                                     datadir=os.path.dirname(prefix), check_compressed=True)
         if len(img_files) == 0:
             mylog.error("No files found for %s %s" % (bssjob.filename, nr))
@@ -885,6 +910,9 @@ class WatchLogThread:
                     if config.params.blconfig:
                         #joblogs, prev_job_finished, job_is_running = bssjobs.check_bss_log(date, -config.params.checklog_daybefore)
                         bssjobs.update_jobs(date, -config.params.checklog_daybefore) #joblogs, prev_job_finished, job_is_running)
+                    elif config.params.dataset_paths_txt:
+                        bssjobs.update_jobs_from_dataset_paths_txt(config.params.topdir,
+                                                                   config.params.include_dir, config.params.exclude_dir)
                     else:
                         bssjobs.update_jobs_from_files(config.params.topdir,
                                                        config.params.include_dir, config.params.exclude_dir)
@@ -1439,8 +1467,7 @@ class ResultLeftPanel(wx.Panel):
         if masterh5:
             mainFrame.adxv.open_hdf5(masterh5, frame, raise_window=raise_window)
         else:
-            from yamtbx.dataproc.dataset import template_to_filenames
-            path = template_to_filenames(job.filename, frame, frame)[0]
+            path = dataset.template_to_filenames(job.filename, frame, frame)[0]
             mainFrame.adxv.open_image(path, raise_window=raise_window)
     # btnPredictShow_click()
 
@@ -1938,7 +1965,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         config.params.blconfig.append("/isilon/BL32XU/BLsoft/PPPP/10.Zoo/ZooConfig")
 
     if config.params.logwatch_once is None:
-        config.params.logwatch_once = (config.params.bl == "other")
+        config.params.logwatch_once = (config.params.bl == "other" and not config.params.dataset_paths_txt)
 
     bssjobs = BssJobs()
 

@@ -180,7 +180,12 @@ def num_th_str(v):
     return s+"th"
 # num_th_str()
 
-def directory_included(path, topdir, include_dir=[], exclude_dir=[]):
+def directory_included(path, topdir=None, include_dir=[], exclude_dir=[]):
+    if topdir is None:
+        for d in include_dir:
+            if directory_included(path, d): return True
+        return False
+            
     l1 = filter(lambda x: x, path.split(os.sep))
     l2 = filter(lambda x: x, topdir.split(os.sep))
 
