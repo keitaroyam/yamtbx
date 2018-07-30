@@ -45,6 +45,7 @@ This manual is for 2018-02-22.
                * [Troubleshooting tips](#troubleshooting-tips)
          * [How to update KAMO](#how-to-update-kamo)
          * [Launch](#launch)
+      * [For online use at non-SPring-8 site](#for-online-use-at-non-spring-8-site)
       * [Citations](#citations)
          * [How to cite the use of KAMO](#how-to-cite-the-use-of-kamo)
          * [Researches which used KAMO](#researches-which-used-kamo)
@@ -337,6 +338,25 @@ Goniometer rotation axis is, if header does not have that information, recognize
 If you want to specify the rotation axis, you can give `reverse_phi=false` (or `true`) or `rotation_axis=1,0,0`.
 Alternatively, when `use_dxtbx=true`, [dxtbx](https://doi.org/10.1107/S1600576714011996) is used to recognize beamline geometry.
 
+## For online use at non-SPring-8 site
+Here an instruction for beamline staff is described.
+
+For the online use at non-SPring-8 sites, an option `dataset_paths_txt=` has been added to KAMO. This works with `bl=other`.
+A file path should be given to this option, and the text file should include dataset template, start/end frame numbers in each line (separated by commas).
+The example follows:
+```
+/hoge/fuga/180730/01/data1_??????.img, 1, 360
+/hoge/fuga/180730/02/data2_??????.img, 1, 3600
+```
+KAMO can start data processing immediately if a data collection program updates this text file just after the collection.
+This text file is regularly checked with an interval specified by `logwatch_interval=` (30 sec by default).
+
+In conclusion, start KAMO like this if the text file name is dataset\_paths.txt:
+```
+kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
+```
+
+
 ## Citations
 
 ### How to cite the use of KAMO
@@ -348,6 +368,7 @@ You can also cite this documentation's URL: https://github.com/keitaroyam/yamtbx
 
 ### Researches which used KAMO 
 
+* Franz *et al.* (2018) "Structure of the bifunctional cryptochrome aCRY from *Chlamydomonas reinhardtii*." *Nucleic Acids Research* doi: [10.1093/nar/gky621](https://doi.org/10.1093/nar/gky621) PDB: [5ZM0](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZM0)
 * Asada *et al.* (2018) "Crystal structure of the human angiotensin II type 2 receptor bound to an angiotensin II analog." *Nature Structural & Molecular Biology*  doi: [10.1038/s41594-018-0079-8](https://doi.org/10.1038/s41594-018-0079-8) PDB: [5XJM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJM)
 * Tsuyuguchi *et al.* (2018) "Crystal structures of human CK2α2 in new crystal forms arising from a subtle difference in salt concentration." *Acta Cryst. F*  doi: [10.1107/S2053230X18005204](https://doi.org/10.1107/S2053230X18005204) PDB: [5Y9M](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y9M)
 * Furukawa *et al.* (2018) "Remote Coupled Drastic β-Barrel to β-Sheet Transition of the Protein Translocation Motor." *Structure*  doi: [10.1016/j.str.2018.01.002](https://doi.org/10.1016/j.str.2018.01.002) PDB: [5YHF](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHF)
@@ -364,6 +385,8 @@ You can also cite this documentation's URL: https://github.com/keitaroyam/yamtbx
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2018-07-30
+   * KAMO: dataset\_paths\_txt= option was added for online use at non-SPring-8 sites
 * 2018-05-22
    * kamo.test\_installation: fixed a bug introduced in 2018-04-25 (did not work before Numpy 1.11)
    * Bug fixes in file preparation for merging

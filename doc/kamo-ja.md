@@ -43,6 +43,7 @@ SPring-8でのオンラインデータ解析のために設計されています
                * [トラブルシューティング](#トラブルシューティング)
          * [KAMOのアップデート](#kamoのアップデート)
          * [起動](#起動)
+      * [SPring-8以外の場所でオンライン処理を行う方法](#SPring-8以外の場所でオンライン処理を行う方法)
       * [文献](#文献)
          * [KAMOの引用](#kamoの引用)
          * [KAMOを利用した研究](#kamoを利用した研究)
@@ -338,6 +339,24 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 明示的に指示する場合は，`reverse_phi=false` (or `true`)や`rotation_axis=1,0,0`という形で指定してください．
 あるいは`use_dxtbx=true`を指定すると，[dxtbx](https://doi.org/10.1107/S1600576714011996)を使って判断します．
 
+## SPring-8以外の場所でオンライン処理を行う方法
+この項目はビームラインスタッフ向けの記述です．
+
+SPring-8以外の環境でのオンライン処理に対応するため，KAMOの起動オプションに`dataset_paths_txt=`を追加しました．このオプションは`bl=other`と一緒に指定します．
+このオプションにはファイル名を指定し，そのテキストファイルは各行にデータセットのテンプレートと開始・終了番号を含みます（カンマ区切り）．
+例えば以下のような感じです
+```
+/hoge/fuga/180730/01/data1_??????.img, 1, 360
+/hoge/fuga/180730/02/data2_??????.img, 1, 3600
+```
+このようなファイルをデータ収集プログラムに（必ずデータ収集が完了してから）出力してもらえれば，KAMOは実験と並行して処理を進めることが可能です．
+このテキストファイルは`logwatch_interval=`で指定した間隔でチェックされます(デフォルトは30秒)．
+
+つまり例えば上記テキストファイルの名前がdataset\_paths.txtだとすると，以下のようにしてKAMOを起動します．
+```
+kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
+```
+
 ## 文献
 
 ### KAMOの引用
@@ -349,6 +368,7 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 両方引いて頂いても構いません．
 
 ### KAMOを利用した研究
+* Franz *et al.* (2018) "Structure of the bifunctional cryptochrome aCRY from *Chlamydomonas reinhardtii*." *Nucleic Acids Research* doi: [10.1093/nar/gky621](https://doi.org/10.1093/nar/gky621) PDB: [5ZM0](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZM0)
 * Asada *et al.* (2018) "Crystal structure of the human angiotensin II type 2 receptor bound to an angiotensin II analog." *Nature Structural & Molecular Biology*  doi: [10.1038/s41594-018-0079-8](https://doi.org/10.1038/s41594-018-0079-8) PDB: [5XJM](http://www.rcsb.org/pdb/explore/explore.do?structureId=5XJM)
 * Tsuyuguchi *et al.* (2018) "Crystal structures of human CK2α2 in new crystal forms arising from a subtle difference in salt concentration." *Acta Cryst. F*  doi: [10.1107/S2053230X18005204](https://doi.org/10.1107/S2053230X18005204) PDB: [5Y9M](http://www.rcsb.org/pdb/explore/explore.do?structureId=5Y9M)
 * Furukawa *et al.* (2018) "Remote Coupled Drastic β-Barrel to β-Sheet Transition of the Protein Translocation Motor." *Structure*  doi: [10.1016/j.str.2018.01.002](https://doi.org/10.1016/j.str.2018.01.002) PDB: [5YHF](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHF)
@@ -366,6 +386,8 @@ kamo bl=other batch.engine=sh batch.sh_max_jobs=2
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2018-07-30
+   * KAMO: SP8以外の施設でのオンライン処理に対応するため，dataset\_paths\_txt=オプションを追加．
 * 2018-05-22
    * kamo.test\_installation: 2018-04-25の更新によるバグを修正(Numpy 1.11以前でも動くように)
    * マージ準備ルーチンのバグを修正
