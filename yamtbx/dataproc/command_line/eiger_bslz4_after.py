@@ -26,6 +26,11 @@ def run_safe(infile, check_data=True):
     startt = time.time()
     h5in = h5py.File(infile, "r")
 
+    if not "/entry/data/data" in h5in:
+        print "Error: /entry/data/data not found in %s" % infile
+        print "Please give data h5 file(s)."
+        return
+
     if is_bslz4_applied(h5in, "/entry/data/data"):
         print "SKIPPING. Already bslz4'd: %s" % infile
         return
