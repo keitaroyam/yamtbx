@@ -1,0 +1,7 @@
+Import("env_cctbx_boost_python_ext")
+env = env_cctbx_boost_python_ext.Clone()
+env.Prepend(LIBS=["cctbx"])
+env.SharedLibrary(target="#lib/yamtbx_dataproc_crystfel_ext", source=[
+  "crystfel_ext.cpp",
+  "merge_equivalents.cpp",
+])
