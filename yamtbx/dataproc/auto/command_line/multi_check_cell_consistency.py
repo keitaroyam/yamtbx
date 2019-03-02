@@ -16,6 +16,7 @@ from yamtbx.dataproc import pointless
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.dials.command_line import run_dials_auto
 from yamtbx import util
+from yamtbx.util import xtal
 
 import os
 import sys
@@ -267,14 +268,14 @@ class CellGraph:
 
     def get_symmetry_reference_matched(self, group_idx, ref_cs):
         ref_pg = ref_cs.space_group().build_derived_reflection_intensity_group(True)
-        ref_cell = numpy.array(ref_cs.unit_cell().parameters())
+        ref_cell = ref_cs.unit_cell()
 
         symms = filter(lambda x: x[0].group()==ref_pg, self.reference_symmetries[group_idx])
         if len(symms) == 0: return None
 
         if len(symms) > 1:
-            cells = map(lambda x: numpy.array(x[1].parameters()), symms)
-            celldiffs = map(lambda c: sum(abs(c-ref_cell)), cells)
+            # TODO if different too much?
+            celldiffs = map(lambda s: s[1].bases_mean_square_difference(ref_cell), symms)
             min_idx = celldiffs.index(min(celldiffs))
             return crystal.symmetry(symms[min_idx][1], space_group_info=symms[min_idx][0],
                                     assert_is_compatible_unit_cell=False)

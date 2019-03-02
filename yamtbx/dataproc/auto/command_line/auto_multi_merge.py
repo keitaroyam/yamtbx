@@ -7,6 +7,7 @@ This software is released under the new BSD License; see LICENSE.
 import libtbx.phil
 import iotbx.phil
 import iotbx.file_reader
+from cctbx import crystal
 from cctbx.crystal import reindex
 from cctbx.array_family import flex
 from cctbx import miller
@@ -52,6 +53,13 @@ reference = None
  .type = path
  .help = Reference for symmetry and reindexing
 
+space_group = None
+ .type = str
+ .help = Preferred space group (need unit_cell also)
+unit_cell = None
+ .type = floats(6)
+ .help = Preferred unit cell parameters (need space_group also)
+
 merge {
   d_min_start = 1.8
    .type = float
@@ -87,7 +95,7 @@ batch {
 
 def read_sample_info(csvin, datadir=None):
     reader = csv.reader(open(csvin, "rU"))
-    header = map(lambda x: x.strip(), next(reader))
+    header = map(lambda x: x.strip().lower(), next(reader))
     hidxes = dict(map(lambda x:(x[1],x[0]), enumerate(header)))
     puck_flag = set(["uname","puck","pin","name"]).issubset(header)
 
@@ -95,6 +103,10 @@ def read_sample_info(csvin, datadir=None):
 
     if not puck_flag and not set(["name","topdir"]).issubset(header):
         print "Error! CSV file is invalid (header is not good)"
+        return ret
+
+    if len(set(["space_group","unit_cell"]).intersection(header)) == 1:
+        print "Error! Both space_group and unit_cell should be specified if you have preferred cell."
         return ret
 
     for vals in reader:
@@ -122,6 +134,7 @@ def read_sample_info(csvin, datadir=None):
         ret[sample_name][0].extend(ddirs)
 
         # Custom parameters
+        # XXX if specified more than once for a sample?
         if "anomalous" in hidxes:
             tmp = vals[hidxes["anomalous"]].strip().lower()
             if tmp != "":
@@ -131,6 +144,17 @@ def read_sample_info(csvin, datadir=None):
             tmp = vals[hidxes["reference"]].strip()
             if tmp != "":
                 ret[sample_name][1]["reference"] = tmp
+
+        if "unit_cell" in hidxes and "space_group" in hidxes:
+            tmp1 = vals[hidxes["unit_cell"]].strip()
+            tmp2 = vals[hidxes["space_group"]].strip()
+            if tmp1 and tmp2:
+                try:
+                    xs = crystal.symmetry(tmp1, tmp2)
+                except:
+                    raise Exception("Invalid space_group and/or unit_cell (space_group=%s unit_cell=%s)"%(tmp2, tmp1))
+                
+                ret[sample_name][1]["reference_sym"]  = xs
             
     return ret
 # read_sample_info()
@@ -193,7 +217,7 @@ def decide_resolution(summarydat, params, log_out):
     return est.d_min
 # decide_resolution()
 
-def auto_merge(workdir, topdirs, cell_method, ref_array, merge_params, rescut_params, log_out_all=None):
+def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, rescut_params, log_out_all=None):
     log_out = multi_out()
     log_out.register("log", open(os.path.join(workdir, "multi_merge.log"), "w"))
     if log_out_all: log_out.register("original", log_out_all)
@@ -202,7 +226,7 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, merge_params, rescut_pa
 
     xdsdirs = []
     for topdir in topdirs:
-        for root, dirnames, filenames in os.walk(topdir):
+        for root, dirnames, filenames in os.walk(topdir, followlinks=True):
             if "XDS.INP" in filenames: xdsdirs.append(root)
 
     log_out.write("NOTE: %6d xds directories detected.\n" % len(xdsdirs))
@@ -222,9 +246,9 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, merge_params, rescut_pa
         log_out.write("Error: No data!\n")
         return
 
-    if ref_array:
+    if ref_array or ref_sym:
         group = 1 # TODO select group id by comparing to reference cell
-        reference_symm = cm.get_symmetry_reference_matched(group-1, ref_array)
+        reference_symm = cm.get_symmetry_reference_matched(group-1, ref_array if ref_array else ref_sym)
     else:
         group = 1
         reference_symm = cm.get_most_frequent_symmetry(group-1)
@@ -330,6 +354,22 @@ def run(params):
     log_out.write("\n")
 
 
+    if (params.space_group, params.unit_cell).count(None) == 1:
+        log_out.write("Error: Specify both space_group and unit_cell!")
+        return
+
+    ref_sym_global = None
+    if params.space_group is not None:
+        try:
+            ref_sym_global = crystal.symmetry(params.unit_cell, params.space_group)
+            if not ref_sym_global.change_of_basis_op_to_reference_setting().is_identity_op():
+                xs_refset = ref_sym_global.as_reference_setting()
+                log_out.write('Sorry. Currently space group in non-reference setting is not supported. In this case please give space_group=%s unit_cell="%s" instead.' % (str(xs_refset.space_group_info()).replace(" ",""), format_unit_cell(xs_refset.unit_cell())))
+                return
+        except:
+            log_out.write("Invalid crystal symmetry. Check space_group= and unit_cell=.")
+            return
+
     ref_arrays = {}
 
     if params.reference:
@@ -366,6 +406,7 @@ def run(params):
     for k in samples:
         params2 = copy.deepcopy(params)
         ref_array = ref_arrays.get(params.reference, None)
+        ref_sym = ref_sym_global
         params2.merge.reference.data = params.reference
             
 
@@ -375,6 +416,8 @@ def run(params):
         if "reference" in samples[k][1]:
             ref_array = ref_arrays[samples[k][1]["reference"]]
             params2.merge.reference.data = samples[k][1]["reference"]
+        if "reference_sym" in samples[k][1]:
+            ref_sym = samples[k][1]["reference_sym"]
 
         if params2.merge.reference.data:
             params2.merge.reference.data = os.path.abspath(params2.merge.reference.data)
@@ -386,7 +429,7 @@ def run(params):
         if batchjobs:
             shname = "multimerge.sh"
             pickle.dump(dict(workdir=workdir, topdirs=samples[k][0],
-                             cell_method=params2.cell_method, ref_array=ref_array,
+                             cell_method=params2.cell_method, ref_array=ref_array, ref_sym=ref_sym,
                              merge_params=params2.merge, rescut_params=params2.rescut),
                         open(os.path.join(workdir, "kwargs.pkl"), "w"), -1)
             job = batchjob.Job(workdir, shname, nproc=params2.batch.nproc_each)
@@ -404,7 +447,7 @@ auto_merge(**kwargs); \
         else:
             try:
                 auto_merge(workdir=workdir, topdirs=samples[k][0],
-                           cell_method=params2.cell_method, ref_array=ref_array,
+                           cell_method=params2.cell_method, ref_array=ref_array, ref_sym=ref_sym,
                            merge_params=params2.merge, rescut_params=params2.rescut,
                            log_out_all=log_out)
             except:
