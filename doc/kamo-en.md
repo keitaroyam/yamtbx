@@ -374,6 +374,8 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 
 ### Researches which used KAMO 
 
+1. Kato *et al.* (2019) "Crystal structure of plant vacuolar iron transporter VIT1." *Nature Plants* doi:[10.1038/s41477-019-0367-2](https://doi.org/10.1038/s41477-019-0367-2) PDB: [6IU3](https://www.rcsb.org/structure/6IU3) [6IU4](https://www.rcsb.org/structure/6IU4) [6IU5](https://www.rcsb.org/structure/6IU5) [6IU6](https://www.rcsb.org/structure/6IU6) [6IU8](https://www.rcsb.org/structure/6IU8) [6IU9](https://www.rcsb.org/structure/6IU9) Raw data: [Zenodo#2532136](https://zenodo.org/record/2532136) [Zenodo#2532134](https://zenodo.org/record/2532134) [Zenodo#2532138](https://zenodo.org/record/2532138)
+1. Terakado-Kimura *et al.* (2019) "Structures of the 5-HT<sub>2A</sub> receptor in complex with the antipsychotics risperidone and zotepine." *Nature Structural & Molecular Biology* doi:[10.1038/s41594-018-0180-z](https://doi.org/10.1038/s41594-018-0180-z) PDB: [6A93](http://www.rcsb.org/pdb/explore/explore.do?structureId=6A93) [6A94](http://www.rcsb.org/pdb/explore/explore.do?structureId=6A94)
 1. Morimoto *et al.* (2019) "Crystal structure of the endogenous agonist-bound prostanoid receptor EP3." *Nature Chemical Biology* doi: [10.1038/s41589-018-0171-8](https://doi.org/10.1038/s41589-018-0171-8) PDB: [6AK3](http://www.rcsb.org/pdb/explore/explore.do?structureId=6AK3) Raw data: [CXIDB#91](http://www.cxidb.org/id-91.html)
 1. Toyoda *et al.* (2019) "Ligand binding to human prostaglandin E receptor EP4 at the lipid-bilayer interface." *Nature Chemical Biology* doi: [10.1038/s41589-018-0131-3](https://doi.org/10.1038/s41589-018-0131-3) PDB: [5YWY](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YWY) [5YHL](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YHL) Raw data: [Zenodo#1173791](https://zenodo.org/record/1173791)
 1. Suno *et al.* (2018) "Structural insights into the subtype-selective antagonist binding to the M<sub>2</sub> muscarinic receptor." *Nature Chemical Biology* doi: [10.1038/s41589-018-0152-y](https://doi.org/10.1038/s41589-018-0152-y) PDB: [5ZK8](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZK8) [5ZKC](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZKC) [5ZKB](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZKB) [5ZK3](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZK3) [5YC8](http://www.rcsb.org/pdb/explore/explore.do?structureId=5YC8) Raw data: [Zenodo#1172266](https://zenodo.org/record/1172266) [Zenodo#1094808](https://zenodo.org/record/1094808)
@@ -403,6 +405,9 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2019-03-02
+   * kamo.auto\_multi\_merge: add option to specify preferred unit cell and symmetry
+   * kamo.test\_installation: changed h5 reading test due to [cctbx#282](https://github.com/cctbx/cctbx_project/issues/282)
 * 2018-07-30
    * KAMO: dataset\_paths\_txt= option was added for online use at non-SPring-8 sites
 * 2018-05-22
