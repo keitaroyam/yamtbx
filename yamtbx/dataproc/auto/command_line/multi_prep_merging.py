@@ -580,9 +580,10 @@ def run(params):
         params.xdsdir = util.read_path_list(params.xdsdir[0])
         
     xds_dirs = []
-    for xd in params.xdsdir:
-        xds_dirs.extend(map(lambda x: x[0], filter(lambda x: any(map(lambda y: y.startswith("XDS_ASCII.HKL"), x[2])) or "DIALS.HKL" in x[2],
-                                                   os.walk(os.path.abspath(xd)))))
+    for xd0 in params.xdsdir:
+        for xd in glob.glob(xd0):
+            xds_dirs.extend(map(lambda x: x[0], filter(lambda x: any(map(lambda y: y.startswith("XDS_ASCII.HKL"), x[2])) or "DIALS.HKL" in x[2],
+                                                       os.walk(os.path.abspath(xd)))))
     
     for i, xd in enumerate(xds_dirs):
         cm.add_proc_result(i, xd)
