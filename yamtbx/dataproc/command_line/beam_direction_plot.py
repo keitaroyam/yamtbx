@@ -25,6 +25,8 @@ ref_symm = None
 
 plot_out = "beam_plot.pdf"
  .type = path
+plot_title = "Beam direction plot"
+ .type = str
 dat_out = None
  .type = path
 """
@@ -133,7 +135,7 @@ ggsave("beam.png", p)
 """ % dat_out
 # make_dat()
 
-def make_plot(angles, plot_out):
+def make_plot(angles, plot_out, plot_title="Beam direction plot"):
     r = map(lambda x: 2*numpy.sin(x[0]/2.), angles)
     phi = map(lambda x: x[1], angles)
 
@@ -146,7 +148,7 @@ def make_plot(angles, plot_out):
     ax.set_yticklabels(map(lambda x: "%.0f$^\circ$"%x, numpy.rad2deg(theta_labs)))
     ax.grid(True)
 
-    ax.set_title("Beam direction plot", va='bottom')
+    ax.set_title(plot_title, va='bottom')
     plt.savefig(plot_out, dpi=150)
     plt.gcf().clear() # Required when plot more than once
     print
@@ -175,7 +177,7 @@ def run(params):
             angles.extend(from_xparm(arg, ref_xs))
 
     if params.dat_out: make_dat(angles, params.dat_out)
-    if params.plot_out: make_plot(angles, params.plot_out)
+    if params.plot_out: make_plot(angles, params.plot_out, plot_title=params.plot_title)
 # run()
 
 def run_from_args(argv):
