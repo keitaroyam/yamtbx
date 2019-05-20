@@ -366,7 +366,7 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ### KAMOの引用
 
 以下の論文を引用ください．
-* Yamashita, Hirata, and Yamamoto (2018) "KAMO: towards automated data processing for microcrystals." *Acta Cryst. D*__74__ doi: [10.1107/S2059798318004576](https://doi.org/10.1107/S2059798318004576).
+* Yamashita, Hirata, and Yamamoto (2018) "KAMO: towards automated data processing for microcrystals." *Acta Cryst. D*__74__, 441-449. doi: [10.1107/S2059798318004576](https://doi.org/10.1107/S2059798318004576).
 
 論文出版前は，当英語版ドキュメントのURL https://github.com/keitaroyam/yamtbx/blob/master/doc/kamo-en.md を引用して頂いていました．
 両方引いて頂いても構いません．
@@ -374,6 +374,11 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 また，XDS, DIALS, POINTLESS, BLENDなど一緒に使ったプログラムの文献も引用して頂くようお願いします．
 
 ### KAMOを利用した研究
+1. Liu *et al.* (2019) "Structural Insights into the Process of GPCR-G Protein Complex Formation" *Cell* doi: [10.1016/j.cell.2019.04.021](https://doi.org/10.1016/j.cell.2019.04.021) PDB: [6E67](http://www.rcsb.org/pdb/explore/explore.do?structureId=6E67) [6EG8](http://www.rcsb.org/pdb/explore/explore.do?structureId=6EG8)
+1. Nagamura *et al.* (2019) "Structural basis for oligomerization of the prokaryotic peptide transporter PepT<sub>So2</sub>." *Acta Cryst. F*  doi: [10.1107/S2053230X19003546](https://doi.org/10.1107/S2053230X19003546) PDB: [6JKC](http://www.rcsb.org/pdb/explore/explore.do?structureId=6JKC)  [6JKD](http://www.rcsb.org/pdb/explore/explore.do?structureId=6JKD) Raw data: [Zenodo#2533841](https://zenodo.org/record/2533841)
+1. Inoue *et al.* (2019) "Structural Basis of Sarco/Endoplasmic Reticulum Ca<sup>2+</sup>-ATPase 2b Regulation via Transmembrane Helix Interplay." *Cell Reports* doi: [10.1016/j.celrep.2019.03.106](https://doi.org/10.1016/j.celrep.2019.03.106) PDB: [5ZTF](http://www.rcsb.org/pdb/explore/explore.do?structureId=5ZTF)
+1. Hashimoto *et al.* (2019) "Protein encapsulation in the hollow space of hemocyanin crystals containing a covalently conjugated ligand." *Biochemical and Biophysical Research Communications* doi: [10.1016/j.bbrc.2019.04.062](https://doi.org/10.1016/j.bbrc.2019.04.062)
+1. Umeda *et al.* (2019) "Crystallization of the human tetraspanin protein CD9." *Acta Cryst. F*  doi: [10.1107/S2053230X1801840X](https://doi.org/10.1107/S2053230X1801840X)
 1. Kato *et al.* (2019) "Crystal structure of plant vacuolar iron transporter VIT1." *Nature Plants* doi:[10.1038/s41477-019-0367-2](https://doi.org/10.1038/s41477-019-0367-2) PDB: [6IU3](https://www.rcsb.org/structure/6IU3) [6IU4](https://www.rcsb.org/structure/6IU4) [6IU5](https://www.rcsb.org/structure/6IU5) [6IU6](https://www.rcsb.org/structure/6IU6) [6IU8](https://www.rcsb.org/structure/6IU8) [6IU9](https://www.rcsb.org/structure/6IU9) Raw data: [Zenodo#2532136](https://zenodo.org/record/2532136) [Zenodo#2532134](https://zenodo.org/record/2532134) [Zenodo#2532138](https://zenodo.org/record/2532138)
 1. Terakado-Kimura *et al.* (2019) "Structures of the 5-HT<sub>2A</sub> receptor in complex with the antipsychotics risperidone and zotepine." *Nature Structural & Molecular Biology* doi:[10.1038/s41594-018-0180-z](https://doi.org/10.1038/s41594-018-0180-z) PDB: [6A93](http://www.rcsb.org/pdb/explore/explore.do?structureId=6A93) [6A94](http://www.rcsb.org/pdb/explore/explore.do?structureId=6A94)
 1. Morimoto *et al.* (2019) "Crystal structure of the endogenous agonist-bound prostanoid receptor EP3." *Nature Chemical Biology* doi: [10.1038/s41589-018-0171-8](https://doi.org/10.1038/s41589-018-0171-8) PDB: [6AK3](http://www.rcsb.org/pdb/explore/explore.do?structureId=6AK3) Raw data: [CXIDB#91](http://www.cxidb.org/id-91.html)
@@ -406,6 +411,9 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2019-05-20
+   * kamo.test\_installation: 新しいxdsstatに対応
+   * KAMO: スポット数プロットのバグ修正，scan\_varyingオプションのサポート(DIALS)，BL45XUのオンライン使用のサポート
 * 2019-03-02
    * kamo.auto\_multi\_merge: 格子定数・対称性を指定可能に
    * kamo.test\_installation: dxtbxのEIGER対応の仕方が変わったため修正([cctbx#282](https://github.com/cctbx/cctbx_project/issues/282))
