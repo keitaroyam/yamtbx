@@ -57,7 +57,7 @@ def load_xds_special(cbfin):
     return header, data, M.dim_slow(), M.dim_fast()
 # load_xds_special()
 
-def save_numpy_data_as_cbf(data, size1, size2, title, cbfout, pilatus_header=None):
+def save_numpy_data_as_cbf(data, size1, size2, title, cbfout, pilatus_header=None, header_convention="PILATUS_1.2"):
     h = pycbf.cbf_handle_struct()
     h.new_datablock(title)
 
@@ -65,7 +65,7 @@ def save_numpy_data_as_cbf(data, size1, size2, title, cbfout, pilatus_header=Non
 
     if pilatus_header is not None:
         h.require_column('header_convention')
-        h.set_value('"PILATUS_1.2"')
+        h.set_value('"%s"'%header_convention)
         h.require_column('header_contents')
         h.set_value(pilatus_header)
 
