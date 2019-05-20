@@ -115,8 +115,8 @@ def tst_h5toxds():
 
 def tst_xdsstat():
     print "Testing XDSSTAT.."
-    rcode, out, err = util.call("xdsstat")
-    if rcode != 2:
+    rcode, out, err = util.call("xdsstat", stdin="\n")
+    if rcode != 0:
         print "  Not installed. NG"
         return False
 
