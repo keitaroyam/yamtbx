@@ -43,6 +43,9 @@ noscale = False
 extra = *cc rfactor rsplit no
   .type = choice(multi=False)
   .help = Plot CC or R-factor when two data given.
+force_same_cell = False
+  .type = bool
+  .help = Use the same cell for all data
 scale {
   dmin = None
     .type = float
@@ -117,6 +120,7 @@ if __name__ == "__main__":
             assert arrays[0].anomalous_flag()
             data = arrays[0].as_intensity_array().anomalous_differences()
         elif arrays[0].is_complex_array() or arrays[0].is_xray_reconstructed_amplitude_array() or arrays[0].is_xray_amplitude_array():
+            print "Warning - amplitude or complex array %s" % labels
             data = arrays[0].as_intensity_array().as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
         elif arrays[0].is_integer_array() or arrays[0].is_real_array():
             print "Warning - no experimental array %s" % labels
@@ -131,6 +135,10 @@ if __name__ == "__main__":
         #if "hkl" in mtzfile:
         #    Is[-1][1] = miller.array(miller_set=Is[-1][1], data= Is[-1][1].data() * flex.exp(4.8*Is[-1][1].d_star_sq().data()))
 
+    if params.force_same_cell:
+        for x in Is[1:]:
+            x[1] = x[1].customized_copy(crystal_symmetry=Is[0][1])
+        
     # Take common sets
     Is = commonalize(Is) ####
 
@@ -238,7 +246,7 @@ if __name__ == "__main__":
     matplotlib.use('Agg') # Allow to work without X
     from pylab import *
     from matplotlib.ticker import FuncFormatter
-    s2_formatter = lambda x,pos: "inf" if x == 0 else "%.2f" % (1./math.sqrt(x))
+    s2_formatter = lambda x,pos: "inf" if x<1e-10 else "%.2f" % (1./math.sqrt(x))
 
     #from matplotlib.backends.backend_pdf import PdfPages
 
