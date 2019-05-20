@@ -168,8 +168,7 @@ class SpotXds:
     # collected_spots()
 
     def indexed_and_unindexed_by_frame(self):
-        if len(self.items) == 0: return
-        if self.items[3][0] is None: return
+        if len(self.items) == 0: return []
         data = {}
         for xyz, intensity, iseg, hkl in self.items:
             frame = int(xyz[2])+1
@@ -197,7 +196,7 @@ class SpotXds:
 
     def indexed_and_unindexed_on_detector(self, with_resolution=True):
         if len(self.items) == 0: return
-        if self.items[3][0] is None: return
+
         data = {"indexed": [], "unindexed": []}
 
         if with_resolution:
@@ -221,7 +220,7 @@ class SpotXds:
 
     def indexed_and_unindexed_by_frame_on_detector(self):
         if len(self.items) == 0: return
-        if self.items[3][0] is None: return
+
         data = {"indexed": {}, "unindexed": {}}
 
         for xyz, intensity, iseg, hkl in self.items:

@@ -51,6 +51,7 @@ import glob
 import threading
 import traceback
 import pipes
+import copy
 
 EventShowProcResult, EVT_SHOW_PROC_RESULT = wx.lib.newevent.NewEvent()
 EventLogsUpdated, EVT_LOGS_UPDATED = wx.lib.newevent.NewEvent()
@@ -75,7 +76,7 @@ adxv = None
  .type = path
  .help = adxv command
 
-bl = 32xu 41xu 44xu 26b1 26b2 38b1 12b2 other
+bl = 32xu 41xu 44xu 45xu 26b1 26b2 38b1 12b2 other
  .type = choice(multi=False)
  .help = Choose beamline where you start program
 blconfig = []
@@ -201,6 +202,11 @@ xds {
    .type = floats(size=3)
    .help = "override ROTATION_AXIS= "
  }
+}
+
+dials {
+ scan_varying = False
+  .type = bool
 }
 
 merging {
@@ -360,17 +366,17 @@ class BssJobs:
                             tmp = l[l.index("start_series,"):].split(",")[2]
                             self._joblogs[-1][1] = int(tmp)
                             self._current_prefix = None
-                        elif l[l.index(self._current_prefix)+len(self._current_prefix)+2] in "0123456789":
+                        elif l[l.index(self._current_prefix)+len(self._current_prefix)+2] in "0123456789": # non-shutterless
                             tmp = l[l.index(self._current_prefix)+len(self._current_prefix)+1:].split()[0]
                             self._joblogs[-1][1] = int(os.path.splitext(tmp.replace(self._current_prefix+"_", ""))[0])
                             self._current_prefix = None
                         continue
-                    elif self._current_prefix is not None and "ExtTrigger "+os.path.basename(self._current_prefix) in l:
+                    elif self._current_prefix is not None and "ExtTrigger "+os.path.basename(self._current_prefix) in l: # for pilatus
                         tmp = os.path.basename(self._current_prefix)
                         tmp2 = "ExtTrigger " + tmp
                         if l[l.index(tmp2)+len(tmp2)+2] in "0123456789":
                             tmp3 = filter(lambda x: tmp in x, l[l.index(tmp2):].split())[0]
-                            self._joblogs[-1][1] = int(os.path.splitext(tmp3.replace(tmp+"_", ""))[0])
+                            self._joblogs[-1][1] = int(os.path.splitext(tmp3[tmp3.rindex("_")+1:])[0])
                             self._current_prefix = None
                             continue
 
@@ -449,12 +455,20 @@ class BssJobs:
                     continue
 
                 master_h5 = job.get_master_h5_if_exists()
+                multi_not_eiger = job.advanced_centering.get("mode", "") == "multiple_crystals" and "EIGER" not in job.detector.upper()
                 if master_h5 is not None:
                     job.filename = master_h5.replace("_master.h5", "_??????.h5")
                     for nr2 in job.get_frame_num_ranges_for_h5():
                         self.jobs[(prefix, nr2)] = job
                         self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
-
+                elif multi_not_eiger:
+                    suffix_org = job.filename[job.filename.rindex("_?"):]
+                    for k in xrange(len(job.advanced_centering.get("centers",[]))):
+                        prefix2 = prefix + "_%.3d" % (k+1)
+                        job2 = copy.copy(job)
+                        job2.filename = prefix2 + suffix_org
+                        self.jobs[(prefix2, nr)] = job2
+                        self.jobs_prefix_lookup.setdefault(prefix2, set()).add(nr)
                 else:
                     # FIXME when multiple_crystals mode, what will filenames be?
                     self.jobs[(prefix, nr)] = job
@@ -696,6 +710,7 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
                          nr_range=nr, wdir=".",
                          known_xs=known_xs,
                          overrides=overrides,
+                         scan_varying=config.params.dials.scan_varying,
                          nproc=config.params.batch.nproc_each),
                     open(os.path.join(workdir, "args.pkl"), "w"), -1)
         
