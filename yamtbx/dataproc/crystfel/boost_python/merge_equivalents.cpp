@@ -1,5 +1,5 @@
 #include <cctbx/boost_python/flex_fwd.h>
-#include <yamtbx/dataproc/crystfel/merge_equivalents.h>
+#include "../merge_equivalents.h"
 
 #include <boost/python/class.hpp>
 #include <boost/python/return_value_policy.hpp>
