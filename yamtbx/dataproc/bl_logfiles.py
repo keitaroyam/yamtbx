@@ -149,7 +149,7 @@ class BssDiffscanLog:
                 self.scans[-1].wavelength = float(l.strip().split()[1])
                 continue
 
-            if "Attenuator:" in l:
+            if "Attenuator" in l:
                 r_att = re_att.search(l)
                 r_att2 = re_att2.search(l)
                 if r_att:
