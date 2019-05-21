@@ -14,7 +14,20 @@ import iotbx.shelx.hklf
 from cctbx import miller
 from cctbx.array_family import flex
 from iotbx import crystal_symmetry_from_any
+from mmtbx.scaling.matthews import p_vm_calculator
+from mmtbx.scaling.absolute_scaling import ml_aniso_absolute_scaling
 import os
+
+master_phil = """
+hklin = None
+  .type = path
+pdbin = None
+  .type = path
+anisotropy_correction = False
+  .type = bool
+wdir = anode
+  .type = str
+"""
 
 def check_symm(xs_hkl, xs_pdb):
     pdb_laue = xs_pdb.space_group().build_derived_reflection_intensity_group(False)
@@ -58,7 +71,7 @@ def pha2mtz(phain, xs, mtzout):
     mtz_ds.mtz_object().write(mtzout)
 # pha2mtz()
 
-def run(hklin, pdbin):
+def run(hklin, pdbin, wdir, anisotropy_correction=False):
     arrays = iotbx.file_reader.any_file(hklin).file_server.miller_arrays
     i_arrays = filter(lambda x:x.is_xray_intensity_array() and x.anomalous_flag(),
                       arrays)
@@ -69,7 +82,6 @@ def run(hklin, pdbin):
         print "No anomalous observation data"
         return
 
-    wdir = "anode"
     if os.path.exists(wdir):
         print "%s already exists. quiting." % wdir
         return
@@ -105,6 +117,16 @@ def run(hklin, pdbin):
     if n_sys_abs > 0:
         print "  %d systematic absences removed." % n_sys_abs
 
+    if anisotropy_correction:
+        print "Correcting anisotropy.."
+        n_residues = p_vm_calculator(obs_array, 1, 0).best_guess
+        abss = ml_aniso_absolute_scaling(obs_array, n_residues=n_residues)
+        abss.show()
+        tmp = -2. if i_arrays else -1.
+        b_cart = map(lambda x: x*tmp, abss.b_cart)
+        obs_array = obs_array.apply_debye_waller_factors(b_cart=b_cart)
+        
+        
     sh_out.write("sad %s\n" % in_opt)
     iotbx.shelx.hklf.miller_array_export_as_shelx_hklf(obs_array, open(os.path.join(wdir, infile), "w"),
                                                        normalise_if_format_overflow=True)
@@ -155,12 +177,21 @@ def run(hklin, pdbin):
                 flag = False
             if flag:
                 print l.rstrip()
+
+    if os.path.isfile(("anode_fa.res")):
+        x = iotbx.shelx.cctbx_xray_structure_from(file=open("anode_fa.res"))
+        open("anode_fa.pdb", "w").write(x.as_pdb_file())
+
         
 # run()
 
 if __name__ == "__main__":
     import sys
-
-    hklin = sys.argv[1]
-    pdbin = sys.argv[2]
-    run(hklin, pdbin)
+    import iotbx.phil
+    
+    cmdline = iotbx.phil.process_command_line_with_files(args=sys.argv[1:],
+                                                         master_phil_string=master_phil,
+                                                         reflection_file_def="hklin",
+                                                         pdb_file_def="pdbin")
+    params = cmdline.work.extract()
+    run(params.hklin, params.pdbin, params.wdir, params.anisotropy_correction)
