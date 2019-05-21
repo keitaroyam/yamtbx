@@ -112,7 +112,7 @@ def calc_merging_stats(hklin, cut_resolution=True):
     return dict(d_min=d_min, cutoffs=cutoffs, stats=stats)
 # calc_merging_stats()
 
-def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, overrides, nproc):
+def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, overrides, scan_varying, nproc):
     log_out = open(os.path.join(wdir, "dials_sequence.log"), "w")
     pointless_log = os.path.join(wdir, "pointless.log")
 
@@ -159,7 +159,7 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
             cmd = "dials.index datablock.json strong.pickle verbosity=3 "
             cmd += "indexing.method=%s index_assignment.method=%s " % (index_meth, index_assi)
             if known_xs is not None:# not in (known.space_group, known.unit_cell):
-                cmd += "unit_cell=%s space_group=%d" % (",".join(map(lambda x: "%.3f"%x, known_xs.unit_cell().parameters())),
+                cmd += "unit_cell=%s space_group=%d " % (",".join(map(lambda x: "%.3f"%x, known_xs.unit_cell().parameters())),
                                                         known_xs.space_group().type().number())
             elif index_meth == "real_space_grid_search":
                 continue
@@ -176,7 +176,17 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
     if not index_ok:
         return
 
-    util.call("dials.integrate experiments.json indexed.pickle min_spots.per_degree=10 %s" % nproc_str,
+    files_for_integration = "experiments.json indexed.pickle"
+
+    if scan_varying:
+        util.call("dials.refine experiments.json indexed.pickle scan_varying=true",
+                  wdir=wdir, stdout=log_out)
+        if os.path.isfile(os.path.join(wdir, "refined.pickle")):
+            files_for_integration = "refined_experiments.json refined.pickle"
+        else:
+            log_out.write("dials.refine failed. using intedexed results.\n")
+
+    util.call("dials.integrate %s min_spots.per_degree=10 %s" % (files_for_integration, nproc_str),
               wdir=wdir, stdout=log_out)
     util.call("dials.export integrated.pickle integrated_experiments.json mtz.hklout=integrated.mtz",
               wdir=wdir, stdout=log_out)
