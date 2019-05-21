@@ -535,9 +535,10 @@ class MainFrame(wx.Frame):
         if is_onlyhits:
             for w in widgets: w.Disable()
             self.stFrameRange.SetLabel("")
-            self.onlyhits_keys = sorted(h5["/entry/data"].keys())
             self.lstTrigger.InsertColumn(0, "Frame", width=55)
             self.lstTrigger.InsertColumn(1, "Spots", width=55)
+            self.onlyhits_keys = sorted(h5["/entry/data"].keys())
+            if not self.onlyhits_keys: return
             for i, v in enumerate(self.onlyhits_keys):
                 nspots = h5["/entry/data"][v]["data"].attrs.get("n_spots")
                 nspots = "%3d" % nspots if nspots is not None else ""
