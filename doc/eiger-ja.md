@@ -156,6 +156,8 @@ cd ..
 デフォルトでは/usr/local/hdf5/lib/pluginにインストールされます．変更したい場合は`--h5plugin`の後に`--h5plugin-dir=`を付けてください．
 インストールした場所に，環境変数`HDF5_PLUGIN_PATH`を設定する必要があります(bashなら`export HDF5_PLUGIN_PATH=`をcshなら`setenv HDF5_PLUGIN_PATH `を使って設定してください)
 
+現在では[pip経由](https://pypi.org/project/hdf5plugin/)でもインストールできそうです(開発環境もおそらく不要)．
+
 ### Neggia plugin (XDSでpluginを使った処理を行いたい場合のみ)
 Pluginを使うと，H5ToXdsを使わず（すなわち一時ファイルとしてcbfファイルを出力せずに）直接h5ファイルを処理できるようになります．DECTRISの公式pluginであるNeggiaは以下の方法で入手できます．
 
@@ -308,6 +310,8 @@ dials.import ../sample_master.h5
 
 cbfに変換することで処理できます．
 [eiger2cbf](#eiger2cbf-h5toxds互換)を用いてcbfに変換して下さい．
+
+[HDF5を直接処理できるバージョン](https://www.mrc-lmb.cam.ac.uk/mosflm/mosflm-hdf5/)もできたようです．
 
 ### HKL-2000
 

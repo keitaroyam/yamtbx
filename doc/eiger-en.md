@@ -153,6 +153,8 @@ cd ..
 By default it is installed to /usr/local/hdf5/lib/plugin. To change it, add `--h5plugin-dir=` after `--h5plugin`.
 You will need to set environmental variable `HDF5_PLUGIN_PATH` to where you installed (In bash, use `export HDF5_PLUGIN_PATH=`; in csh use `setenv HDF5_PLUGIN_PATH `).
 
+It seems now you can easily install the plugin [via pip](https://pypi.org/project/hdf5plugin/) without develpment environment.
+
 ### Neggia plugin (only if you want to use plugin function in XDS)
 With plugin, XDS can process h5 files without H5ToXds, which means temporary cbf files are not written. Neggia, the official plugin by DECTRIS, can be obtained from [DECTRIS website](https://www.dectris.com/company/news/newsroom/news-details/process-eiger-data-with-xds-fast) where you will need registration. Alternatively, you can obtain the source code from [dectris/neggia - Github](https://github.com/dectris/neggia) to build it yourself.
 
@@ -294,6 +296,8 @@ and change `fast_axis` from `-1,0,0` to `1,0,0`, and flip the sign of the first 
 ### iMosflm
 
 Use [eiger2cbf](#eiger2cbf-h5toxds-compatible) to convert to cbf format.
+
+It seems now there is a [version that can process HDF5 directly](https://www.mrc-lmb.cam.ac.uk/mosflm/mosflm-hdf5/) available.
 
 ### HKL-2000
 
