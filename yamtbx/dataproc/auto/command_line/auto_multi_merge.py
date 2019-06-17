@@ -32,6 +32,7 @@ import collections
 import time
 import subprocess
 import traceback
+import numpy
 
 gui_phil_str = """\
 csv = None
@@ -65,6 +66,13 @@ merge {
    .type = float
    .help = Starting value for merging
   %s
+}
+
+filtering {
+  choice = cell
+   .type = choice(multi=True)
+  cell_iqr_scale = 2.5
+   .type = float
 }
 
 rescut {
@@ -217,7 +225,32 @@ def decide_resolution(summarydat, params, log_out):
     return est.d_min
 # decide_resolution()
 
-def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, rescut_params, log_out_all=None):
+def filter_datasets(cell_and_files, params, log_out): # Not tested!!
+    cell_and_files = copy.copy(cell_and_files)
+    deleted = {}
+    if "cell" in params.choice and len(cell_and_files) > 2:
+        iqrc = params.cell_iqr_scale
+        log_out.write("\nCell-based filtering (iqr_coeffs=%.3f):\n"%iqrc)   #Filtering: %d files were excluded.\n" % len(deleted))
+        cells = numpy.array(map(lambda x: x[0], cell_and_files.values()))
+        q25, q50, q75 = numpy.percentile(cells, [25, 50, 75], axis=0)
+        iqr = q75-q25
+        lowlim, highlim = q25 - iqrc*iqr, q75 + iqrc*iqr
+        log_out.write("  median: %6.2f %6.2f %6.2f %5.1f %5.1f %5.1f\n"%tuple(q50))
+        log_out.write("     IQR: %6.2f %6.2f %6.2f %5.1f %5.1f %5.1f\n"%tuple(iqr))
+        log_out.write("  lowlim: %6.2f %6.2f %6.2f %5.1f %5.1f %5.1f\n"%tuple(lowlim))
+        log_out.write(" highlim: %6.2f %6.2f %6.2f %5.1f %5.1f %5.1f\n"%tuple(highlim))
+        bad_idxes = numpy.where(numpy.any(cells>highlim, axis=1) | numpy.any(cells<lowlim, axis=1))[0]
+        log_out.write(" %d files were excluded.\n"%len(bad_idxes))
+
+        keys = cell_and_files.keys()
+        for i in bad_idxes:
+            deleted[keys[i]] = cell_and_files[keys[i]]
+            del cell_and_files[keys[i]]
+        
+    return cell_and_files, deleted
+# filter_datasets()
+
+def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, rescut_params, filter_params, log_out_all=None):
     log_out = multi_out()
     log_out.register("log", open(os.path.join(workdir, "multi_merge.log"), "w"))
     if log_out_all: log_out.register("original", log_out_all)
@@ -260,6 +293,13 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
                                      nproc=1, prep_dials_files=False, into_workdir=True)
     log_out.write(msg+"\n")
     cell_and_files = pm.cell_and_files
+
+    if filter_params.choice:
+        cell_and_files, deleted = filter_datasets(cell_and_files, filter_params, log_out)
+        with open(os.path.join(workdir, "excluded.lst"), "w") as ofs:
+            deleted_files = map(lambda x: deleted[x][1], deleted)
+            deleted_files.sort()
+            ofs.write("\n".join(deleted_files)+"\n")
 
     if len(reidx_ops) > 1:
         if ref_array and ref_array.size() > 0:
@@ -430,7 +470,7 @@ def run(params):
             shname = "multimerge.sh"
             pickle.dump(dict(workdir=workdir, topdirs=samples[k][0],
                              cell_method=params2.cell_method, ref_array=ref_array, ref_sym=ref_sym,
-                             merge_params=params2.merge, rescut_params=params2.rescut),
+                             merge_params=params2.merge, rescut_params=params2.rescut, filter_params=params2.filtering),
                         open(os.path.join(workdir, "kwargs.pkl"), "w"), -1)
             job = batchjob.Job(workdir, shname, nproc=params2.batch.nproc_each)
             job.write_script("""\
@@ -448,7 +488,7 @@ auto_merge(**kwargs); \
             try:
                 auto_merge(workdir=workdir, topdirs=samples[k][0],
                            cell_method=params2.cell_method, ref_array=ref_array, ref_sym=ref_sym,
-                           merge_params=params2.merge, rescut_params=params2.rescut,
+                           merge_params=params2.merge, rescut_params=params2.rescut, filter_params=params2.filtering,
                            log_out_all=log_out)
             except:
                 log_out.write("Error occurred in %s\n%s\n"%(workdir, traceback.format_exc()))
