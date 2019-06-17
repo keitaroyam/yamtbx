@@ -349,6 +349,7 @@ For the online use at non-SPring-8 sites, an option `dataset_paths_txt=` has bee
 A file path should be given to this option, and the text file should include dataset template, start/end frame numbers in each line (separated by commas).
 The example follows:
 ```
+# comment line
 /hoge/fuga/180730/01/data1_??????.img, 1, 360
 /hoge/fuga/180730/02/data2_??????.img, 1, 3600
 ```
@@ -410,6 +411,11 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2019-06-17
+   * kamo.multi\_merge: bug fix for rejection by bfactor (reported by Dr. Shimamura)
+   * kamo.auto\_multi\_merge: add cell-based filtering option (filtering.choice=cell)
+   * KAMO: allow comment lines (starting with #) in dataset\_paths\_txt=.
+   * KAMO: For XDS with EIGER or PILATUS, set SEPMIN=4 CLUSTER\_RADIUS=2 by default.
 * 2019-05-20
    * kamo.test\_installation: support new xdsstat
    * KAMO: bug fix in plotting spot numbers, support of scan\_varying (DIALS), support of online use at BL45XU.

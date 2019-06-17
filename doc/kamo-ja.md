@@ -350,6 +350,7 @@ SPring-8以外の環境でのオンライン処理に対応するため，KAMO�
 このオプションにはファイル名を指定し，そのテキストファイルは各行にデータセットのテンプレートと開始・終了番号を含みます（カンマ区切り）．
 例えば以下のような感じです
 ```
+# comment line
 /hoge/fuga/180730/01/data1_??????.img, 1, 360
 /hoge/fuga/180730/02/data2_??????.img, 1, 3600
 ```
@@ -411,6 +412,11 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2019-06-17
+   * kamo.multi\_merge: bfactorによるrejectionのバグを修正 (reported by Dr. Shimamura)
+   * kamo.auto\_multi\_merge: 格子定数ベースのフィルタリングオプションを追加 (filtering.choice=cell)
+   * KAMO: dataset\_paths\_txt=で指定するファイルでコメント行(#はじまり)を許容．
+   * KAMO: EIGER or PILATUSのときXDS.INPでSEPMIN=4 CLUSTER\_RADIUS=2をデフォルトで設定.
 * 2019-05-20
    * kamo.test\_installation: 新しいxdsstatに対応
    * KAMO: スポット数プロットのバグ修正，scan\_varyingオプションのサポート(DIALS)，BL45XUのオンライン使用のサポート
