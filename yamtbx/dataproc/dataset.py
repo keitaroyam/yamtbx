@@ -350,6 +350,7 @@ def find_data_sets_from_dataset_paths_txt(input_file, include_dir=[], logger=Non
     for l in open(input_file):
         if not l.endswith(os.linesep): continue
         if not l.strip(): continue
+        if l.strip().startswith("#"): continue # comment line
         r = re_ds_num.search(l)
         if not r:
             if logger: logger.warning("Invalid line indataset_paths_txt: %s" % l.strip())
