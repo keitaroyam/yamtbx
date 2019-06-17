@@ -475,17 +475,20 @@ OUTPUT_FILE= xscale.hkl
                 iqrc = self.reject_params.lpstats.iqr_coeff
                 print >>self.out, "Rejections based on B-factor outliers (%.2f*IQR)" % iqrc
                 Bs = numpy.array(map(lambda x:x[1], xscalelp.get_k_b(xscale_lp)))
-                q25, q75 = numpy.percentile(Bs, [25, 75])
-                iqr = q75 - q25
-                lowlim, highlim = q25 - iqrc*iqr, q75 + iqrc*iqr
-                count = 0
-                for i, b in enumerate(Bs):
-                    if b < lowlim or b > highlim:
-                        remove_idxes.append(i)
-                        remove_reasons.setdefault(i, []).append("bad_B")
-                        count += 1
+                if len(Bs)>1: # If one data, K & B table is not available.
+                    q25, q75 = numpy.percentile(Bs, [25, 75])
+                    iqr = q75 - q25
+                    lowlim, highlim = q25 - iqrc*iqr, q75 + iqrc*iqr
+                    count = 0
+                    for i, b in enumerate(Bs):
+                        if b < lowlim or b > highlim:
+                            remove_idxes.append(i)
+                            remove_reasons.setdefault(i, []).append("bad_B")
+                            count += 1
 
-                print >>self.out, " %4d B-factor outliers (<%.2f, >%.2f) removed"% (count, lowlim, highlim)
+                    print >>self.out, " %4d B-factor outliers (<%.2f, >%.2f) removed"% (count, lowlim, highlim)
+                else:
+                    print >>self.out, " B-factor outlier rejection is not available."
 
             if "em.b" in self.reject_params.lpstats.stats:
                 iqrc = self.reject_params.lpstats.iqr_coeff
