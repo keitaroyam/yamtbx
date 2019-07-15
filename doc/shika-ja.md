@@ -6,33 +6,26 @@
    * [結果の見方](#結果の見方)
    * [adxvでの表示、KUMAとの連携](#adxvでの表示kumaとの連携)
    * [レポートHTMLについて](#レポートhtmlについて)
+   * [SPring-8外で使いたい場合](#spring-8外で使いたい場合)
    * [バージョン履歴](#バージョン履歴)
 
 ## SHIKAは何をするソフトか
 * BSSのDiffraction scanによって得られたイメージからスポットを拾い、結晶の位置を決めるためのプログラム (Spot wo Hirotte Ichiwo Kimeru Application)
-* DISTL ([Sauter et al. 2013](http://dx.doi.org/10.1107/S0907444913000863))をベースに開発中（XDSも使用可能）
+* <s>DISTL ([Sauter et al. 2013](http://dx.doi.org/10.1107/S0907444913000863))をベースに開発中（XDSも使用可能）</s>
+* 2016AからEIGER対応に伴い，ZMQを用いたCheetah ([Barty et al. 2014](http://www.desy.de/~barty/cheetah/Cheetah/Welcome.html))によるヒットファインドに切り替わり，GUIは表示機能のみになりました．詳細は[こちら](https://www.jstage.jst.go.jp/article/jcrsj/60/2-3/60_104/_pdf)の記事を参照．
 * レポートを.html形式で保存（持ち帰った後で確認する用）
 * KUMAとの連携あり（位置をKUMAに転送）
 
 ## 起動方法
-hogehoge/以下（サブディレクトリを含む）を全部処理したいとき
+結果を見たいディレクトリの上位ディレクトリへ移動し，
 
-* BL32XUで実行する場合: `shika32xu hogehoge/`
-* BL41XUで実行する場合: `shika41xu hogehoge/`
-* あるいはhogehoge/に移動し、`shika32xu`と叩いてもOK
+* BL32XUで実行する場合: `shika32xu`
+* BL41XUで実行する場合: `shika41xu`
 
-ローカルで上記のコマンドを実行してください(自動的に牡蠣クラスタにログインして実行します）
+をビームラインローカルで実行してください．サブディレクトリを含む最新の結果が表示されます（ツリーも表示されます）．
 
-### 最も一般的な使い方
-BL32XUで実験を開始。~/yam/150514/を作成。今日の結果はすべてこの下に入る、という場合なら...
-
-```
-shika32xu ~/yam/150514/
-```
-
- → AutofindとWatchにチェックを入れて、待つ。
-
-![SHIKA main window](shika_figs/main1.png)
+ただしscanと同じディレクトリで起動しないでください（バグ）．
+ホームディレクトリで実行しても大丈夫です．
 
 ## 結果の見方
 Show plotを押すと，スキャンしたエリアにマップしたスコアが表示できます．
@@ -64,6 +57,19 @@ Show plotを押すと，スキャンしたエリアにマップしたスコア�
 
 ![to-KUMA function](shika_figs/html1.png)
 
+## SPring-8外で使いたい場合
+持ち帰ったデータに対してGUIを立ち上げて結果を見たい場合，以下の手順を実行してください．
+### インストール
+[KAMOが導入](kamo-ja.md#dialsを利用した環境構築)されていれば僅かな変更で使用可能です．
+（準備中）
+
+### SHIKAの実行
+結果を見たいスキャンよりも上のディレクトリで，
+```
+yamtbx.shika readonly=true
+```
+を実行してください．
+
 ## バージョン履歴
 * 2013-10-09 名前がSHIKAに決まる
 * 2013-10-10 水平スキャンの場合の方向間違いバグを修正
@@ -87,3 +93,8 @@ Show plotを押すと，スキャンしたエリアにマップしたスコア�
 * 2014-05-13 BL41XUに対応
 * 2014-05-15 HTML reportを軽量化
 * 2014-05-16 イメージをキーボード/ボタンで前後に送れるようにした
+* 2015-04-10 Auto-select機能を搭載
+* 2015-07-01 auto\_modeを追加
+* 2015-07-06 PPU上で実行するモードの追加
+* 2016-04-07 BackendとGUIの切り離し． Cheetah利用(外部)へ切り替え
+* 2019-04-13 Pilatus対応
