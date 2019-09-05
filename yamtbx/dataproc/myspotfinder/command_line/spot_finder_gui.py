@@ -249,7 +249,7 @@ class ReportHTMLMakerThread:
         win = (max(xs)-min(xs)+1000)/1000*400/80*1.7 # ad-hoc scale
         hin = (max(ys)-min(ys)+1000)/1000*400/80
 
-        fig = matplotlib.figure.Figure(figsize=(win,hin)) # figsize in inches
+        fig = matplotlib.figure.Figure(figsize=(win,hin), dpi=80) # figsize in inches
         ax = fig.add_subplot(111)
         p = ax.scatter(xs, ys, s=normalize_max(ds), c=ds, alpha=0.5) # s in points^2
         if max(ds) - min(ds) > 1e-5:
@@ -376,6 +376,8 @@ class ReportHTMLMakerThread:
             
             if gui_params.mode == "zoo":
                 dpi = 80.
+                win_org, hin_org = self.plotFrame.plotPanel.figure.get_size_inches()
+                if win_org < 1: self.plotFrame.plotPanel.figure.set_size_inches(7.5, 6) # needed if plot frame not shown. TODO more appropriate number?
                 self.plotFrame.plotPanel.figure.canvas.print_figure(os.path.join(wdir, "%sselected_map.png"%scan_prefix),
                                                                     dpi=int(dpi), format="png")
                 plots += '  <td><img name="%s" src="%sselected_map.png" usemap="#%smap" /><br />\n' % (scan_prefix, scan_prefix, scan_prefix)
@@ -1415,7 +1417,7 @@ class ScatterPlotFrame(wx.Frame):
             self.sizer = wx.BoxSizer(wx.VERTICAL)
             self.SetSizer(self.sizer)
 
-            self.figure = matplotlib.figure.Figure(None)
+            self.figure = matplotlib.figure.Figure(dpi=80)
             self.subplot = self.figure.add_subplot(111)
             self.points = []
 
@@ -1485,7 +1487,7 @@ class PlotFrame(wx.Frame):
             self.SetSizer(self.sizer)
 
             #matplotlib figure
-            self.figure = matplotlib.figure.Figure(None)
+            self.figure = matplotlib.figure.Figure(dpi=80) # this dpi is also needed.. right?
             self.figure.set_facecolor((0.7,0.7,1.))
             self.subplot = self.figure.add_subplot(111)
             self.colorbar = None
