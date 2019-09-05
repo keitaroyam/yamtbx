@@ -9,6 +9,7 @@ from cctbx import uctbx
 from cctbx import sgtbx
 from cctbx import crystal
 from cctbx.crystal import reindex
+from cctbx.uctbx.determine_unit_cell import NCDist
 from cctbx.sgtbx import pointgroup_tools
 from yamtbx.dataproc.xds.xparm import XPARM
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
@@ -284,6 +285,17 @@ class CellGraph:
                                     assert_is_compatible_unit_cell=False)
 
     # get_symmetry_reference_matched()
+
+    def get_group_symmetry_reference_matched(self, ref_cs):
+        ref_v6 = xtal.v6cell(ref_cs.niggli_cell().unit_cell())
+        ncdists = []
+        for i, keys in enumerate(self.groups):
+            v6 = xtal.v6cell(uctbx.unit_cell(self._average_p1_cell(keys)).niggli_cell())
+            ncdists.append(NCDist(v6, ref_v6))
+            print "Group %d: NCDist to reference: %f" % (i+1, ncdists[-1])
+
+        return ncdists.index(min(ncdists))+1
+    # get_group_symmetry_reference_matched()
 
     def is_all_included(self, keys):
         all_nodes = set(self.G.nodes_iter())

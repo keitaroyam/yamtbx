@@ -280,7 +280,7 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
         return
 
     if ref_array or ref_sym:
-        group = 1 # TODO select group id by comparing to reference cell
+        group = cm.get_group_symmetry_reference_matched(ref_array if ref_array else ref_sym)
         reference_symm = cm.get_symmetry_reference_matched(group-1, ref_array if ref_array else ref_sym)
     else:
         group = 1
