@@ -80,7 +80,7 @@ class XDS_ASCII:
             else:
                 headers.extend(re_xds_kwd.findall(line[line.index("!")+1:]))
 
-        self.nx, self.ny, self.anomalous, self.zmin, self.zmax = (None,)*5
+        self.nx, self.ny, self.anomalous, self.distance, self.wavelength, self.zmin, self.zmax = (None,)*7
 
 
         for key, val in headers:
