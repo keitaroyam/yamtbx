@@ -16,8 +16,12 @@ def run(mrcin, prefix=None):
     for i in xrange(data.shape[0]):
         size2, size1 = data[i].shape # XXX really?
         cbfout = "%s_%.3d.cbf"%(prefix, i+1)
+        d = data[i]
+        if d.dtype.kind == "f":
+            print "Scaling data x1000"
+            d = (data[i]*1000.).astype("int32")
         print "Writing %s" % cbfout
-        cbf.save_numpy_data_as_cbf(data[i].flatten(), size1, size2,
+        cbf.save_numpy_data_as_cbf(d.flatten(), size1, size2,
                                    "%s:%d"%(mrcin, i+1),
                                    cbfout, pilatus_header="""
 # Detector: %(detname)s
