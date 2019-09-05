@@ -19,6 +19,7 @@ import numpy
 from yamtbx.command_line import kamo_test_installation
 from yamtbx.dataproc.xds import get_xdsinp_keyword, modify_xdsinp, optimal_delphi_by_nproc, make_backup, revert_files, remove_backups
 from yamtbx.dataproc.xds import idxreflp
+from yamtbx.dataproc.xds.initlp import InitLp
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.xds.command_line import xds_plot_integrate
 from yamtbx.dataproc.xds import files as xds_files
@@ -285,6 +286,7 @@ def xds_sequence(root, params):
     print
     print os.path.relpath(root, params.topdir)
 
+    init_lp = os.path.join(root, "INIT.LP")
     xparm = os.path.join(root, "XPARM.XDS")
     gxparm = os.path.join(root, "GXPARM.XDS")
     defpix_lp = os.path.join(root, "DEFPIX.LP")
@@ -337,15 +339,29 @@ def xds_sequence(root, params):
                                               ])
 
         if params.mode == "initial":
+            modify_xdsinp(xdsinp, inp_params=[("JOB", "XYCORR INIT")])
+            run_xds(wdir=root, show_progress=params.show_progress)
+            initlp = InitLp(init_lp)
+            first_bad = initlp.check_bad_first_frames()
+            if first_bad:
+                print >>decilog, " first frames look bad (too weak) exposure:", first_bad
+                new_data_range = map(int, dict(get_xdsinp_keyword(xdsinp))["DATA_RANGE"].split())
+                new_data_range[0] = first_bad[-1]+1
+                print >>decilog, " changing DATA_RANGE= to", new_data_range
+                modify_xdsinp(xdsinp, inp_params=[("JOB", "INIT"),
+                                                  ("DATA_RANGE", "%d %d" % tuple(new_data_range))])
+                for f in xds_files.generated_by_INIT: util.rotate_file(os.path.join(root, f), copy=False)
+                run_xds(wdir=root, show_progress=params.show_progress)
+
             # Peak search
-            modify_xdsinp(xdsinp, inp_params=[("JOB", "XYCORR INIT COLSPOT")])
+            modify_xdsinp(xdsinp, inp_params=[("JOB", "COLSPOT")])
             run_xds(wdir=root, show_progress=params.show_progress)
             if params.auto_frame_exclude_spot_based:
                 sx = idxreflp.SpotXds(spot_xds)
                 sx.set_xdsinp(xdsinp)
                 spots = filter(lambda x: 5 < x[-1] < 30, sx.collected_spots()) # low-res (5 A)
                 frame_numbers = numpy.array(map(lambda x: int(x[2])+1, spots))
-                data_range = map(int, xdsinp_dict["DATA_RANGE"].split())
+                data_range = map(int, dict(get_xdsinp_keyword(xdsinp))["DATA_RANGE"].split())
                 # XXX this assumes SPOT_RANGE equals to DATA_RANGE. Is this guaranteed?
                 h = numpy.histogram(frame_numbers,
                                     bins=numpy.arange(data_range[0], data_range[1]+2, step=1))
