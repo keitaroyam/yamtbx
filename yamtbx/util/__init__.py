@@ -7,11 +7,13 @@ This software is released under the new BSD License; see LICENSE.
 import os
 import sys
 import re
+import time
 import shutil
 import subprocess
 import commands
 import glob
 import tempfile
+import traceback
 from libtbx.utils import null_out
 import libtbx.load_env
 
@@ -312,3 +314,28 @@ def yamtbx_module_root():
     tmp = libtbx.env.find_in_repositories("yamtbx")
     if tmp: return tmp
 # yamtbx_module_root()
+
+def retry_until_noexc(f, args=(), kwargs={}, sleep=1, ntry=10, outf=lambda x:x):
+    for i in xrange(ntry):
+        try:
+            return f(*args, **kwargs)
+        except Exception, e:
+            outf("%dth trial failed with an exception"%(i+1))
+            outf(traceback.format_exc())
+            if i == ntry-1: raise e
+        
+        time.sleep(sleep)
+# retry_until_noexc()
+
+def None_in(*args):
+    for a in args:
+        if a is None: return True
+    return False
+# None_in()
+
+def touch_file(path):
+    if not os.path.exists(path):
+        with open(path, "w") as f:
+            pass
+    else:
+        os.utime(path, None)
