@@ -413,6 +413,11 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2019-09-05
+   * KAMO: change DATA\_RANGE= if first frames have zero or too weak counts (for a rare trouble of EIGER)
+   * KAMO: dataset\_paths\_txt mode as default. do not shorten frame numbers automatically. do not wait for all data h5 files if not needed.
+   * kamo.multi\_merge: safe guard for figure size when cc\_clustering
+   * kamo.auto\_multi\_merge: select group based on reference symmetry
 * 2019-06-17
    * kamo.multi\_merge: bug fix for rejection by bfactor (reported by Dr. Shimamura)
    * kamo.auto\_multi\_merge: add cell-based filtering option (filtering.choice=cell)

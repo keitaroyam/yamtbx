@@ -414,6 +414,11 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2019-09-05
+   * KAMO: 1枚目がほぼゼロカウントのときDATA\_RANGE=を変更 (EIGERトラブル対処)
+   * KAMO: dataset\_paths\_txtモードをデフォルトに．
+   * kamo.multi\_merge: cc\_clustering選択時の樹形図サイズを制限
+   * kamo.auto\_multi\_merge: 指定されたreference symmetryに合うグループを自動選択
 * 2019-06-17
    * kamo.multi\_merge: bfactorによるrejectionのバグを修正 (reported by Dr. Shimamura)
    * kamo.auto\_multi\_merge: 格子定数ベースのフィルタリングオプションを追加 (filtering.choice=cell)
