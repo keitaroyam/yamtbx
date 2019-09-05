@@ -72,10 +72,9 @@ def save_numpy_data_as_cbf(data, size1, size2, title, cbfout, pilatus_header=Non
 
     h.require_category('array_data')
     h.require_column('data')
-    
-    elsigned = 1
-    if data.dtype in (numpy.uint8, numpy.uint16, numpy.uint32, numpy.uint64):
-        elsigned = 0
+
+    assert data.dtype.kind in "iu"
+    elsigned = 1 if data.dtype.kind == "i" else 0
 
     h.set_integerarray_wdims_fs(pycbf.CBF_BYTE_OFFSET, 1, data.tostring(), data.dtype.itemsize,
                                 elsigned, len(data), "little_endian",
