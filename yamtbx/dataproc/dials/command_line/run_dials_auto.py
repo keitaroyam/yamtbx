@@ -1,4 +1,5 @@
 from yamtbx import util
+from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.auto import resolution_cutoff
 from yamtbx.dataproc.dataset import find_existing_files_in_template
 from yamtbx.dataproc import pointless
@@ -23,6 +24,13 @@ def get_most_possible_symmetry(workdir):
         if xs is not None: return xs
     except:
         pass
+
+    try:
+        xac = XDS_ASCII(os.path.join(workdir, "DIALS.HKL"),read_data=False)
+        return xac.symm
+    except:
+        pass
+
 # get_most_possible_symmetry()
 
 def get_crystal_symmetry_from_json(jsonin):
