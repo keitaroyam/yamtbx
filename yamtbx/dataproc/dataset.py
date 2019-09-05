@@ -319,7 +319,7 @@ def find_data_sets(wdir, skip_symlinks=True, skip_0=False, split_hdf_miniset=Tru
     return ret
 # find_data_sets()
 
-def find_data_sets_from_dataset_paths_txt(input_file, include_dir=[], logger=None):
+def find_data_sets_from_dataset_paths_txt(input_file, include_dir=[], shorten_frame_range=False, logger=None):
 
     def shorten_frame_range_if_missing(img_template, nr1, nr2):
         if "_??????.h5" in img_template:
@@ -371,7 +371,10 @@ def find_data_sets_from_dataset_paths_txt(input_file, include_dir=[], logger=Non
             continue
             
         nr1o, nr2o = int(r.group(2)), int(r.group(3))
-        nr1, nr2 = shorten_frame_range_if_missing(tmpl, nr1o, nr2o)
+        if shorten_frame_range:
+            nr1, nr2 = shorten_frame_range_if_missing(tmpl, nr1o, nr2o)
+        else:
+            nr1, nr2 = nr1o, nr2o
 
         if nr1 == nr2 == 0:
             if logger: logger.error("template does not match any file: %s" % tmpl)

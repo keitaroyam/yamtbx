@@ -105,6 +105,12 @@ logwatch_once = None
  .type = bool
  .help = find datasets only once (when program started). Default: true if bl=other, otherwise false.
 
+logwatch_target = local blconfig *dataset_paths_txt
+ .type = choice
+ .help = "How to find datasets. local: just traverse subdirectories to find data;"
+         "blconfig: BSS log files in BLCONFIG/log/ are checked;"
+         "dataset_paths_txt: on SPring-8 beamlines ~/.dataset_paths_for_kamo_BLNAME.txt is checked, otherwise users should give a path."
+
 dataset_paths_txt = None
  .type = path
  .help = "A text file that contains dataset_template, start, end frame numbers separeted by comma in each line."
@@ -922,15 +928,17 @@ class WatchLogThread:
                     for prefix, nr in bssjobs.jobs:
                         bssjobs.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
                 else:
-                    if config.params.blconfig:
+                    if config.params.logwatch_target == "blconfig":
                         #joblogs, prev_job_finished, job_is_running = bssjobs.check_bss_log(date, -config.params.checklog_daybefore)
                         bssjobs.update_jobs(date, -config.params.checklog_daybefore) #joblogs, prev_job_finished, job_is_running)
-                    elif config.params.dataset_paths_txt:
+                    elif config.params.logwatch_target == "dataset_paths_txt":
                         bssjobs.update_jobs_from_dataset_paths_txt(config.params.topdir,
                                                                    config.params.include_dir, config.params.exclude_dir)
-                    else:
+                    elif config.params.logwatch_target == "local":
                         bssjobs.update_jobs_from_files(config.params.topdir,
                                                        config.params.include_dir, config.params.exclude_dir)
+                    else:
+                        raise "Never reaches here"
             # start jobs
             if config.params.auto_mode:
                 for key in bssjobs.keys():
@@ -938,7 +946,7 @@ class WatchLogThread:
                     status = job_statuses[key][0]
                     job = bssjobs.get_job(key)
                     if job.status == "finished" and status is None:
-                        if not config.params.check_all_files_exist or job.all_image_files_exist():
+                        if not config.params.check_all_files_exist or job.all_image_files_exist(nr=key[1]): # TODO we need timeout?
                             mylog.info("Automatically starting processing %s" % str(key))
                             bssjobs.process_data(key)
                         else:
@@ -1978,6 +1986,15 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         config.params.blconfig.append("/isilon/blconfig/bl%s" % config.params.bl)
     if "zoo" in config.params.mode:
         config.params.blconfig.append("/isilon/BL32XU/BLsoft/PPPP/10.Zoo/ZooConfig")
+
+    if config.params.logwatch_target == "dataset_paths_txt" and not config.params.dataset_paths_txt:
+        if config.params.bl == "other":
+            mylog.info("bl=other and dataset_paths_txt not specified. changing a parameter logwatch_target= to local.")
+            config.params.logwatch_target = "local"
+        else:
+            blname = "BL" + config.params.bl.upper()
+            config.params.dataset_paths_txt = os.path.join(os.path.expanduser("~"), ".dataset_paths_for_kamo_%s.txt"%blname)
+            mylog.info("Changing a parameter dataset_paths_txt= to %s" % config.params.dataset_paths_txt)
 
     if config.params.logwatch_once is None:
         config.params.logwatch_once = (config.params.bl == "other" and not config.params.dataset_paths_txt)

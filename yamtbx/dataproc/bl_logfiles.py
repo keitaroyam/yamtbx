@@ -536,35 +536,43 @@ class JobInfo:
         return None
     # get_master_h5_if_exists()
 
-    def all_image_files_exist(self, debug=True):
+    def all_image_files_exist(self, nr=None, debug=True):
         from yamtbx.dataproc import eiger
         import h5py
         master_h5 = self.get_master_h5_if_exists()
-        if master_h5:
-            if debug: print "Checking if related files exist for %s" % master_h5
-            try:
-                files = eiger.get_masterh5_related_filenames(master_h5)
-            except:
-                if debug:
-                    print "Error when reading master h5 (%s)" % master_h5
-                    print traceback.format_exc()
-                return False
+        if master_h5: # XXX check only for nr?
+            if nr:
+                frames_requested = set(range(nr[0], nr[1]+1))
+                frames_available = set(eiger.get_available_frame_numbers(master_h5))
+                return frames_requested.issubset(frames_available)
+            else:
+                if debug: print "Checking if related files exist for %s" % master_h5
+                try:
+                    files = eiger.get_masterh5_related_filenames(master_h5)
+                except:
+                    if debug:
+                        print "Error when reading master h5 (%s)" % master_h5
+                        print traceback.format_exc()
+                    return False
 
-            flag_ng = False
-            for f in files:
-                if os.path.isfile(f):
-                    try: h5py.File(f, "r")
-                    except:
-                        if debug: print " file incomplete or broken: %s" % f
+                flag_ng = False
+                for f in files:
+                    if os.path.isfile(f):
+                        try: h5py.File(f, "r")
+                        except:
+                            if debug: print " file incomplete or broken: %s" % f
+                            flag_ng = True
+                    else:
+                        if debug: print " not exists: %s" % f
                         flag_ng = True
-                else:
-                    if debug: print " not exists: %s" % f
-                    flag_ng = True
 
-            return not flag_ng
-
+                return not flag_ng
         else:
-            return True # FIXME check non-h5 files as well
+            if nr:
+                filenames = template_to_filenames(self.filename, nr[0], nr[1])
+                return all(map(lambda x: os.path.exists(x), filenames))
+            else:
+                return True # XXX 
 
 # class JobInfo
 

@@ -120,6 +120,17 @@ def extract_data(h5master, frameno, apply_pixel_mask=True, return_raw=False):
     return data_as_int32_masked(data, apply_pixel_mask, h5)
 # extract_data()
 
+def get_available_frame_numbers(h5master):
+    h5 = h5py.File(h5master, "r")
+    ret = []
+    for k in sorted(h5["/entry/data"].keys()):
+        if not h5["/entry/data"].get(k): continue
+        image_nr_low = h5["/entry/data"][k].attrs["image_nr_low"]
+        image_nr_high = h5["/entry/data"][k].attrs["image_nr_high"]
+        ret.extend(range(image_nr_low, image_nr_high+1))
+    return ret
+# get_available_frame_numbers()
+
 def extract_data_path(h5master, path, apply_pixel_mask=True, return_raw=False):
     h5 = h5py.File(h5master, "r")
     data = h5.get(path)
