@@ -12,6 +12,7 @@ NOTE on unit cell constraints determination:
 """
 import math
 import numpy
+import scipy.constants
 from cctbx import uctbx
 
 class CellConstraints:
@@ -107,3 +108,20 @@ def format_unit_cell(uc, lfmt="%6.2f", afmt="%5.1f", sep=" "):
     astr = sep.join(map(lambda x: afmt%x, uc[3:6]))
     return lstr + sep + astr
 # format_unit_cell()
+
+def electron_voltage_to_wavelength(voltage):
+    h, m0, e, c = scipy.constants.h, scipy.constants.m_e, scipy.constants.e, scipy.constants.c
+    wavelen = h/numpy.sqrt(2*m0*e*voltage*(1.+e*voltage/2./m0/c**2)) * 1.e10
+    return wavelen
+# electron_voltage_to_wavelength()
+
+def shelx_latt(space_group):
+    # http://xray.chem.ualberta.ca/xray/shelxl/LATT.htm
+    
+    latt_type = str(space_group.info())[0]
+    latt = dict(P=1, I=2, R=3, F=4, A=5, B=6, C=7).get(latt_type, "") # XXX check :R or :H for R.
+
+    if not space_group.is_centric():
+        latt *= -1
+    
+    return str(latt)
