@@ -7,7 +7,7 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 
-from yamtbx.dataproc.command_line import spot_finder_gui
+from yamtbx.dataproc.myspotfinder.command_line import spot_finder_gui
 
 if __name__ == "__main__":
     import sys
