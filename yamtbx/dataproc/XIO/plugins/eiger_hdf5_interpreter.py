@@ -61,7 +61,12 @@ class Interpreter:
         self.raw_head_dict["Wavelength"] = beam["incident_wavelength"].value # in A
         self.raw_head_dict["Width"] = detectorsp["x_pixels_in_detector"].value #NX
         self.raw_head_dict["Height"] = detectorsp["y_pixels_in_detector"].value
-        self.raw_head_dict["Overload"] = detectorsp["countrate_correction_count_cutoff"].value
+
+        if "countrate_correction_count_cutoff" in detectorsp: # Actually nonsense to specify this because "overloaded" pixels are flagged as bad pixels
+            self.raw_head_dict["Overload"] = detectorsp["countrate_correction_count_cutoff"].value
+        else:
+            self.raw_head_dict["Overload"] = 2**detector["bit_depth_readout"].value - 1 # assuming unsigned..
+            
         self.raw_head_dict["DateStr"] = detectorsp["data_collection_date"].value
         self.raw_head_dict["PhiStart"] = gonio["omega"].value if gonio["omega"].shape==() else gonio["omega"][0]
         self.raw_head_dict["PhiEnd"] = gonio["omega_end"].value if gonio["omega_end"].shape==() else gonio["omega_end"][-1]
@@ -71,7 +76,7 @@ class Interpreter:
         if omega_key in h5 and "vector" in h5[omega_key].attrs:
             self.raw_head_dict["Oscillation_axis"] = tuple(h5[omega_key].attrs["vector"])
 
-        self.raw_head_dict["Nimages_each"] = detectorsp["nimages"].value
+        self.raw_head_dict["Nimages_each"] = int(detectorsp["nimages"].value)
         self.raw_head_dict["Ntrigger"] = detectorsp["ntrigger"].value
         self.raw_head_dict["Nimages"] = 0
         for k in sorted(h5["entry/data"].keys()):

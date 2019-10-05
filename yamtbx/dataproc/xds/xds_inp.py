@@ -53,9 +53,7 @@ def import_geometry(xds_inp=None, dials_json=None):
         sweep.set_beam(BeamFactory.from_dict(j["beam"][0]))
         sweep.set_goniometer(GoniometerFactory.from_dict(j["goniometer"][0]))
         sweep.set_scan(ScanFactory.make_scan(image_range=[1,1], exposure_times=[1], oscillation=[1,2], epochs=[0])) # dummy
-        sio = cStringIO.StringIO()
-        to_xds(sweep).XDS_INP(sio)
-        inp = get_xdsinp_keyword(inp_str=sio.getvalue())
+        inp = get_xdsinp_keyword(inp_str=to_xds(sweep).XDS_INP())
         inp = filter(lambda x: x[0] in geom_kwds, inp)
         return map(lambda x: "%s= %s"%x, inp)
 
@@ -77,10 +75,7 @@ def read_geometry_using_dxtbx(img_file):
 
     datablocks = dxtbx.datablock.DataBlockFactory.from_filenames([img_file])
     to_xds = dxtbx.serialize.xds.to_xds(datablocks[0].extract_sweeps()[0])
-    sio = cStringIO.StringIO()
-    to_xds.XDS_INP(sio)
-    
-    inp = get_xdsinp_keyword(inp_str=sio.getvalue())
+    inp = get_xdsinp_keyword(inp_str=to_xds.XDS_INP())
     inp = filter(lambda x: x[0] in geom_kwds, inp)
     return to_xds, map(lambda x: " %s= %s"%x, inp)
 

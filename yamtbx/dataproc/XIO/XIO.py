@@ -234,6 +234,9 @@ class Image:
             if "entry/instrument/detector/description" in h5 and "Eiger" in h5["entry/instrument/detector/description"].value:
                 self.type = "eiger_hdf5"
                 return self.type
+            elif "/entry/instrument/detector/detectorSpecific/eiger_fw_version" in h5:
+                self.type = "eiger_hdf5" # probably eiger2..
+                return self.type
             return
 
         #
