@@ -375,6 +375,7 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 また，XDS, DIALS, POINTLESS, BLENDなど一緒に使ったプログラムの文献も引用して頂くようお願いします．
 
 ### KAMOを利用した研究
+1. Shihoya *et al.* (2019) "Crystal structure of heliorhodopsin" *Nature* doi:[10.1038/s41586-019-1604-6](https://doi.org/10.1038/s41586-019-1604-6) PDB: [6IS6](https://www.rcsb.org/structure/6IS6) Raw data: [Zenodo#3333323](https://zenodo.org/record/3333323)
 1. Liu *et al.* (2019) "Mechanism of β<sub>2</sub>AR regulation by an intracellular positive allosteric modulator" *Science* doi: [10.1126/science.aaw8981](https://doi.org/10.1126/science.aaw8981) PDB: [6N48](http://www.rcsb.org/pdb/explore/explore.do?structureId=6N48)
 1. Nagiri *et al.* (2019) "Crystal structure of human endothelin ET<sub>B</sub> receptor in complex with peptide inverse agonist IRL2500" *Communications Biology* doi: [10.1038/s42003-019-0482-7](https://doi.org/10.1038/s42003-019-0482-7) PDB: [6K1Q](http://www.rcsb.org/pdb/explore/explore.do?structureId=6K1Q) Raw data: [Zenodo#2803553](https://zenodo.org/record/2803553)
 1. Liu *et al.* (2019) "Structural Insights into the Process of GPCR-G Protein Complex Formation" *Cell* doi: [10.1016/j.cell.2019.04.021](https://doi.org/10.1016/j.cell.2019.04.021) PDB: [6E67](http://www.rcsb.org/pdb/explore/explore.do?structureId=6E67) [6EG8](http://www.rcsb.org/pdb/explore/explore.do?structureId=6EG8)
@@ -414,6 +415,9 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2019-10-05
+   * kamo.auto\_multi\_merge: filtering.choice=cell 指定時に実際は除外されてなかった(indexing ambiguityがある場合を除く)バグを修正
+   * KAMO: SLS Eiger2 の試験的サポート(use\_dxtbx=true の指定およびdials 1.14.12以降が必要)
 * 2019-09-05
    * KAMO: 1枚目がほぼゼロカウントのときDATA\_RANGE=を変更 (EIGERトラブル対処)
    * KAMO: dataset\_paths\_txtモードをデフォルトに．
