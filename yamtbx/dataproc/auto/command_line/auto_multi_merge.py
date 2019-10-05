@@ -198,7 +198,8 @@ def choose_best_result(summarydat, log_out):
     results = filter(lambda x: x[2]==max(cls_runs[x[1]]), results)
 
     results.sort(key=lambda x:x[5], reverse=True)
-    results = results[:len(results)//2] # First half of top redundancy
+    if len(results) > 2:
+        results = results[:len(results)//2] # First half of top redundancy
 
     results.sort(key=lambda x:(x[3], x[4]), reverse=True)
     best_result = results[0][0]
@@ -288,6 +289,7 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
         if reference_symm is None:
             raise "Failed to get reference symmetry"
 
+    # TODO This writes formerge.lst but `lstname` should be passed to this function.
     msg, reidx_ops = pm.prep_merging(workdir=workdir, group=group, reference_symm=reference_symm,
                                      topdir=topdir, cell_method=cell_method,
                                      nproc=1, prep_dials_files=False, into_workdir=True)
@@ -300,6 +302,12 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
             deleted_files = map(lambda x: deleted[x][1], deleted)
             deleted_files.sort()
             ofs.write("\n".join(deleted_files)+"\n")
+
+        with open(lstname, "w") as ofs: # Overwrite lstname
+            for wd in sorted(cell_and_files):
+                _, xas = cell_and_files[wd]
+                ofs.write(xas+"\n")
+
 
     if len(reidx_ops) > 1:
         if ref_array and ref_array.size() > 0:
