@@ -21,7 +21,7 @@ def run(elements, smin=0, smax=1, sstep=0.01):
         print "# electron for %s:"%el, fetch_equation(elec)
     
         for s in numpy.arange(smin, smax, sstep):
-            print "%2s %.4f %.4f %.4f" % (el, s, xray.at_x(s), elec.at_x(s))
+            print "%2s %.4f %.4f %.4f" % (el, s, xray.at_d_star(s), elec.at_d_star(s))
 
 if __name__ == "__main__":
     import sys
