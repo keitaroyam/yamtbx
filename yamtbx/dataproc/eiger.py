@@ -206,7 +206,10 @@ def extract_to_minicbf(h5master, frameno_or_path, cbfout, binning=1):
         beamxy = h["BeamX"], h["BeamY"]
         data, (h["BeamX"], h["BeamY"]) = software_binning(data, binning, beamxy)
 
-    h["Detector"] = h5["/entry/instrument/detector/description"].value
+    h["Detector"] = "Unknown"
+    if "/entry/instrument/detector/description" in h: # EIGER2 does not have this field?
+        h["Detector"] = h5["/entry/instrument/detector/description"].value
+
     h["ExposurePeriod"] = h5["/entry/instrument/detector/frame_time"].value
     h["PhiWidth"] *= nframes
     cbf.save_numpy_data_as_cbf(data.flatten(), size1=data.shape[1], size2=data.shape[0], title="",
