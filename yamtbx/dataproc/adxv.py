@@ -9,6 +9,7 @@ import subprocess
 import time
 import os
 import getpass
+import tempfile
 
 class Adxv:
     def __init__(self, adxv_bin=None, no_adxv_beam_center=True):
@@ -66,8 +67,11 @@ class Adxv:
         #sock.close()
     # open_image()
 
-    def open_hdf5(self, h5file, frameno_or_path, tmpdir="/dev/shm", raise_window=True, binning=1):
+    def open_hdf5(self, h5file, frameno_or_path, tmpdir=None, raise_window=True, binning=1):
         from yamtbx.dataproc import eiger
+
+        if tmpdir is None:
+            tmpdir = "/dev/shm" if os.path.isdir("/dev/shm") else tempfile.gettempdir()
 
         imgfile = os.path.join(tmpdir, "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
         eiger.extract_to_minicbf(h5file, frameno_or_path, imgfile, binning=binning)
