@@ -21,15 +21,18 @@ def run(hklin):
     for_plot = {}
 
     cut_ios = (2, 1, 0.5, 0)
-    print "iset file",
+    print "iset file cmpl redun",
     for cut in cut_ios: print "cut_ios_%.2f" % cut,
     print
 
     for iset in isets:
         sel = (xscaled.iset == iset)
-        data_i = xscaled.i_obs().select(sel).merge_equivalents(use_internal_variance=False).array()
+        merge_i = xscaled.i_obs().select(sel).merge_equivalents(use_internal_variance=False)
+        redun_i = flex.mean(merge_i.redundancies().data().as_double())
+        data_i = merge_i.array()
+        cmpl_i = data_i.completeness()
         cutoffs = eval_resolution(data_i, 100, cut_ios)
-        print "%3d %s %s" % (iset, xscaled.input_files[iset][0], " ".join(map(lambda x: "%.2f"%x, cutoffs)))
+        print "%3d %s %5.1f%% %.1f %s" % (iset, xscaled.input_files[iset][0], cmpl_i*100, redun_i, " ".join(map(lambda x: "%.2f"%x, cutoffs)))
 
         for i_bin in binner.range_used():
             dmax, dmin = binner.bin_d_range(i_bin)
