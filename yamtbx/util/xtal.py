@@ -100,7 +100,7 @@ def abc_convert_real_reciprocal(a, b, c):
     return a_, b_, c_
 # abc_convert_real_reciprocal()
 
-def format_unit_cell(uc, lfmt="%6.2f", afmt="%5.1f", sep=" "):
+def format_unit_cell(uc, lfmt="%6.3f", afmt="%5.2f", sep=" "):
     if hasattr(uc, "parameters"):
         uc = uc.parameters()
 
