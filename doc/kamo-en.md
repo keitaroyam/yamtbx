@@ -375,6 +375,8 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 
 ### Researches which used KAMO 
 
+1. Sugishima *et al.* (2019) "Crystal structure of phytochromobilin synthase in complex with biliverdin IXα, a key enzyme in the biosynthesis of phytochrome" *Journal of Biological Chemistry* doi:[10.1074/jbc.RA119.011431](https://doi.org/10.1074/jbc.RA119.011431) PDB: [6KME](https://www.rcsb.org/structure/6KME) [6KMD](https://www.rcsb.org/structure/6KMD)
+1. Vuckovic *et al.* (2019) "Crystal structure of the M5 muscarinic acetylcholine receptor" *PNAS* doi:[10.1073/pnas.1914446116](https://doi.org/10.1073/pnas.1914446116) PDB: [6OL9](https://www.rcsb.org/structure/6OL9)
 1. Shihoya *et al.* (2019) "Crystal structure of heliorhodopsin" *Nature* doi:[10.1038/s41586-019-1604-6](https://doi.org/10.1038/s41586-019-1604-6) PDB: [6IS6](https://www.rcsb.org/structure/6IS6) Raw data: [Zenodo#3333323](https://zenodo.org/record/3333323)
 1. Liu *et al.* (2019) "Mechanism of β<sub>2</sub>AR regulation by an intracellular positive allosteric modulator" *Science* doi: [10.1126/science.aaw8981](https://doi.org/10.1126/science.aaw8981) PDB: [6N48](http://www.rcsb.org/pdb/explore/explore.do?structureId=6N48)
 1. Nagiri *et al.* (2019) "Crystal structure of human endothelin ET<sub>B</sub> receptor in complex with peptide inverse agonist IRL2500" *Communications Biology* doi: [10.1038/s42003-019-0482-7](https://doi.org/10.1038/s42003-019-0482-7) PDB: [6K1Q](http://www.rcsb.org/pdb/explore/explore.do?structureId=6K1Q) Raw data: [Zenodo#2803553](https://zenodo.org/record/2803553)
@@ -414,6 +416,10 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2020-01-06
+   * Fix for XDS BUILT=20191015 where SNRC= parameter was introduced and MINIMUM\_I/SIGMA= was obsoleted in XSCALE.
+   * kamo.multi\_prep\_merging: dispatched as a command (the same function as Multi-merge button in KAMO GUI)
+   * KAMO: bug fix for split\_data\_by\_deg option when multi-trigger data
 * 2019-10-05
    * kamo.auto\_multi\_merge: fix for filtering.choice=cell (not actually excluded unless there is indexing ambiguity)
    * KAMO: tentative support for Eiger2 at SLS (need use\_dxtbx=true and dials 1.14.12 or later)
