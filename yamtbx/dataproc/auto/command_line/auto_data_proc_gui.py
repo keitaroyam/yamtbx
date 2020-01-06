@@ -542,8 +542,8 @@ class BssJobs:
         else:
             n_per_sp = int(config.params.split_data_by_deg/job.osc_step+.5)
             for i in xrange(nr[1]//n_per_sp+1):
-                if (i+1)*n_per_sp < nr[0]: return
-                if nr[1] < i*n_per_sp+1: return
+                if (i+1)*n_per_sp < nr[0]: continue
+                if nr[1] < i*n_per_sp+1: continue
                 nr2 = (max(i*n_per_sp+1, nr[0]), min((i+1)*n_per_sp, nr[1]))
                 self.jobs[(prefix, nr2)] = job # This will share the same job object.. any problem??
                 self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
