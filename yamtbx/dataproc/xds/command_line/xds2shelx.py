@@ -32,7 +32,9 @@ def xds2shelx(xds_file, dir_name, prefix=None, dmin=None, dmax=None, force_anoma
         sginfo = sgtbx.space_group_info(space_group)
     else:
         sginfo = sginfo_org
-        
+
+    sg = sginfo.group()
+       
     # make output directory
     if not os.path.isdir(dir_name):
         os.makedirs(dir_name)
@@ -43,12 +45,16 @@ def xds2shelx(xds_file, dir_name, prefix=None, dmin=None, dmax=None, force_anoma
     print >>logout, "original file: %s" % xds_file
     print >>logout, "flag_source: %s" % flag_source
     print >>logout, "space group: %s (original=%s, requested space_group=%s)" % (sginfo, sginfo_org, space_group)
-    if sginfo_org.group().build_derived_reflection_intensity_group(False) != sginfo.group().build_derived_reflection_intensity_group(False):
+    if sginfo_org.group().build_derived_reflection_intensity_group(False) != sg.build_derived_reflection_intensity_group(False):
         print >>logout, "  WARNING!! specified space group is incompatible with original file (%s)." % sginfo_org
     print >>logout, "anomalous: %s (original=%s force_anomalous=%s)" % (anom_flag, xac.anomalous, force_anomalous)
     print >>logout, ""
     logout.flush()
 
+    if sg.is_centric() and not sg.is_origin_centric():
+        print >>logout, "Error: in shelx, the origin must lie on a center of symmetry."
+        logout.flush()
+        return
     ##
     if not os.path.exists(os.path.join(dir_name, "original")):
         os.symlink(xds_file, os.path.join(dir_name, "original"))
@@ -74,16 +80,13 @@ def xds2shelx(xds_file, dir_name, prefix=None, dmin=None, dmax=None, force_anoma
          stdout=logout
          )
 
-    acgrp = sginfo.group().build_derived_acentric_group()
-    
     cell_str = xtal.format_unit_cell(xac.symm.unit_cell(), lfmt="%8.4f", afmt="%7.3f")
     with open(os.path.join(dir_name, "%s.ins"%prefix), "w") as ofs:
         ofs.write("CELL %.4f %s\n" % (wavelength, cell_str))
         ofs.write("ZERR 1 0 0 0 0 0 0\n")
-        ofs.write("LATT %s\n" % xtal.shelx_latt(sginfo.group()))
-        for op in acgrp.all_ops():
-            if op.is_unit_mx(): continue
-            ofs.write("SYMM %s\n" % op.as_xyz(decimal=True, t_first=True, symbol_letters="XYZ"))
+        ofs.write("LATT %s\n" % xtal.shelx_latt(sg))
+        for iop in range(1, sg.n_smx()):
+            ofs.write("SYMM %s\n" % sg(iop).as_xyz(decimal=True, t_first=True, symbol_letters="XYZ"))
         ofs.write("SFAC C N O S\n")
         ofs.write("UNIT 6 6 6 6\n")
         ofs.write("FIND 10\n") # TODO more intelligent
