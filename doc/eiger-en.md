@@ -165,7 +165,7 @@ You can always use any software including adxv by converting images to cbf forma
 To directly read hdf5, these programs are avialble:
 
 * [ALBULA](https://www.dectris.com/products/albula-software)
-* [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (need [bitshuffle plugin](#bitshuffle-plugin-advanced); but resolution may be incorrect because experimental parameters are ignored)
+* [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (need [bitshuffle plugin](#bitshuffle-plugin-advanced); open master.h5 and then data h5 to read wavelength and cameralength etc)
 * dials.image\_viewer (bundled with DIALS)
 * yamtbx.adxv\_eiger (the default program at BL32XU. launcher for adxv)
 

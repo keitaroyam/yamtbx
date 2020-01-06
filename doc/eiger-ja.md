@@ -174,7 +174,7 @@ eiger2cbfを用いてcbfに変換すれば，adxvやその他cbfをサポート�
 hdf5形式のまま表示するには，以下の方法があります．
 
 * [ALBULA](https://www.dectris.com/products/albula-software)
-* [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (要[bitshuffle plugin](#bitshuffle-plugin-少し上級編). 但し実験情報が読まれないため分解能が正しく表示されない)
+* [Adxv](http://www.scripps.edu/tainer/arvai/adxv.html) (要[bitshuffle plugin](#bitshuffle-plugin-少し上級編). まずmaster.h5を開いてからdata h5を開くと波長・カメラ長等の情報が反映されます)
 * dials.image\_viewer (DIALSプログラムに同梱)
 * yamtbx.adxv\_eiger (32XUで標準使用の拙作スクリプト．adxvを使用)
 
