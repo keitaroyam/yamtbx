@@ -5,6 +5,7 @@ Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
 import re, os, glob, shutil, random, string
+from yamtbx import util
 
 re_xds_kwd = re.compile("([^ =]+)= *((?:(?! [^ =]+=).)*)")
 
@@ -118,3 +119,22 @@ def optimal_delphi_by_nproc(xdsinp=None, osc_width=None, nframes=None, nproc=Non
 
     return delphi
 # optimal_delphi_by_nproc()
+
+def check_xds_version():
+    tmpdir = util.get_temp_local_dir("xdstest")
+    rcode, out, err = util.call("xds", wdir=tmpdir)
+    if tmpdir: shutil.rmtree(tmpdir) # just in case; xds shouldn't make any files
+    
+    # Expected outout:
+    # ***** XDS ***** (VERSION Mar 15, 2019  BUILT=20191211)   6-Jan-2020
+    # Author: Wolfgang Kabsch
+    # Copy licensed until 30-Sep-2020 to
+
+
+    r = re.search("VERSION (.*[0-9]) *BUILT=(.*)\)", out)
+    if r:
+        ver, built = r.groups()
+        return ver, built
+    
+    return None, None
+    

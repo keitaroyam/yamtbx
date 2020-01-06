@@ -8,7 +8,7 @@ from yamtbx.dataproc.xds import xscale
 from yamtbx.dataproc.xds import xscalelp
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.xds.command_line import xds2mtz
-from yamtbx.dataproc.xds import modify_xdsinp
+from yamtbx.dataproc.xds import modify_xdsinp, check_xds_version
 from yamtbx.dataproc.pointless import Pointless
 from yamtbx.dataproc import blend_lcv
 from yamtbx.dataproc.auto.resolution_cutoff import estimate_resolution_based_on_cc_half, initial_estimate_byfit_cchalf
@@ -72,11 +72,14 @@ class XscaleCycles:
         if "delta_cc1/2" in reject_method: self.reject_method.append("delta_cc1/2")
 
         self.workdir = self.request_next_workdir()
+        self.xscale_inp_head = ""
+        if xscale_params.min_i_over_sigma is not None:
+            xds_built = check_xds_version()[1]
+            snrc_kwd = "MINIMUM_I/SIGMA" if xds_built is not None and xds_built < "20191015" else "SNRC"
+            self.xscale_inp_head += "%s= %.2f\n" % (snrc_kwd, xscale_params.min_i_over_sigma)
 
-        self.xscale_inp_head = """\
-MINIMUM_I/SIGMA= %.2f
-OUTPUT_FILE= xscale.hkl
-""" % xscale_params.min_i_over_sigma
+        self.xscale_inp_head += "OUTPUT_FILE= xscale.hkl\n"
+
         if self.anomalous_flag is not None:
             self.xscale_inp_head += "FRIEDEL'S_LAW= %s\n" % ("FALSE" if self.anomalous_flag else "TRUE")
 

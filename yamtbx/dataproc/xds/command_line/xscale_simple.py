@@ -134,7 +134,7 @@ def run(params, xac_files):
             f, dmin = sp
             dmin_dict[f] = dmin
 
-    xscale_inp_head = "!MINIMUM_I/SIGMA= 3\n\n" 
+    xscale_inp_head = "!SNRC= 3 ! was MINIMUM_I/SIGMA= before BUILT=20191015\n\n" 
     if params.wfac1 is not None:
         xscale_inp_head += "WFAC1= %.3f\n" % params.wfac1
 
