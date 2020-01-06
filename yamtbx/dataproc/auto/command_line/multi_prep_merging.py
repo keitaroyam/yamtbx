@@ -630,12 +630,26 @@ def run(params):
     pm.write_merging_scripts(params.workdir, "par", params.prep_dials_files)
 # run()
 
-if __name__ == "__main__":
-    import sys
+def run_from_args(argv):
+    if "-h" in argv or "--help" in argv:
+        print """
+kamo.multi_prep_merging is a helper program to prepare for merging multiple (small wedge) datasets.
+Typical usage:
+  kamo.multi_prep_merging workdir=merge_reidx xdsdir=../\*/
 
-    cmdline = iotbx.phil.process_command_line(args=sys.argv[1:],
+All parameters:
+"""
+        iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
+        return
+
+    cmdline = iotbx.phil.process_command_line(args=argv,
                                               master_string=master_params_str)
     params = cmdline.work.extract()
     args = cmdline.remaining_args
     
     run(params)
+# run_from_args()
+
+if __name__ == "__main__":
+    import sys
+    run_from_args(sys.argv[1:])
