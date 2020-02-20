@@ -91,8 +91,8 @@ def dump_and_analyse_time_angle(metadata, prefix, detector):
     print "time_diff= %.6f +/- %.9f seconds" % (numpy.mean(d_times), numpy.std(d_times))
     print "d_alphas= %.6f +/- %.9f degrees" % (numpy.mean(d_alphas2), numpy.std(d_alphas2))
 
-    mean_alpha_step = (alphas[valid_range[1]] - alphas[valid_range[0]])/(valid_range[1]-valid_range[0]+1)
-    mean_time_step = (times[valid_range[1]] - times[valid_range[0]]).total_seconds()/(valid_range[1]-valid_range[0]+1)
+    mean_alpha_step = (alphas[valid_range[1]] - alphas[valid_range[0]])/(valid_range[1]-valid_range[0])
+    mean_time_step = (times[valid_range[1]] - times[valid_range[0]]).total_seconds()/(valid_range[1]-valid_range[0])
 
     return valid_range, mean_alpha_step, mean_time_step
 # dump_time_angle()
