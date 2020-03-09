@@ -286,11 +286,11 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
    * If you will process EIGER data (h5 files), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) is needed
    * rjson can be installed as follows; after installation of R, start R program from user who installed R (root or an account for software installation), and then type `install.packages("rjson")`.
-2. Install [DIALS](https://dials.github.io/installation.html)-1.5 or newer
+2. Install [DIALS](https://dials.github.io/installation.html)-1.5 or newer (**choose Python2**)
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx==1.11`
-4. Install scipy to dials.python (Skip this if using DIALS 1.10 or newer)
+4. Install scipy to dials.python (**Skip this if using DIALS 1.10 or newer**)
    1. If Mac, install Xcode.
    2. `cd $DIALS/build`
    3. If Linux: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>If Mac: `./bin/libtbx.python -m pip install scipy==0.18.1`

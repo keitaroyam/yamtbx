@@ -285,11 +285,11 @@ DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，
    * XDS/XDSSTATのインストールは[XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)を参照
    * EIGERデータを処理する場合は[H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換)も必要です
    * rjsonは，Rを導入後，Rをインストールしたユーザ(rootまたはソフトウェア管理用のユーザアカウント)で起動し，`install.packages("rjson")`とタイプすることでインストールできます．サーバを尋ねられた場合は適当に選択します．
-2. [DIALS](https://dials.github.io/installation.html)-1.5以上をインストールする
+2. [DIALS](https://dials.github.io/installation.html)-1.5以上をインストールする (**Python2の方を選択**)
 3. networkxをdials.pythonから使えるようにする
    1. `cd $DIALS/build`
    2. `./bin/libtbx.python -m easy_install networkx==1.11`
-4. scipyをdials.pythonから使えるようにする (DIALS 1.10以降の環境を使う場合は不要)
+4. scipyをdials.pythonから使えるようにする (**DIALS 1.10以降の環境を使う場合は不要**)
    1. Macの場合，App StoreからXcodeを導入後，
    2. `cd $DIALS/build`
    3. Linuxの場合: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>Macの場合: `./bin/libtbx.python -m pip install scipy==0.18.1`
