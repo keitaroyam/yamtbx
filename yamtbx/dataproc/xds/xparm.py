@@ -11,8 +11,17 @@ import copy
 from yamtbx.dataproc.xds import get_xdsinp_keyword
 from yamtbx.util import safe_float
 
+class Segment:
+    def __init__(self):
+        self.x1, self.x2, self.y1, self.y2 = 1, 1, 1, 1
+        self.orgxs, self.orgys, self.fs = 0, 0, 0
+        self.eds_x = numpy.array([1.,0,0])
+        self.eds_y = numpy.array([0,1.,0])
+
 class XPARM:
     def __init__(self, xparm_file=None):
+        self.segments = []
+        self.xds_ver = "March 30, 2013"
         if xparm_file is not None:
             self.parse_xparm_file(xparm_file)
         else:
@@ -41,6 +50,9 @@ class XPARM:
         g = sgtbx.space_group_info(self.spacegroup).group()
         return g.info()
 
+    def n_segments(self):
+        return len(self.segments) if self.segments else 1
+
     def parse_xparm_file(self, xparm_file):
         lines = open(xparm_file).readlines()
 
@@ -59,6 +71,7 @@ class XPARM:
             bx, by, bz = lines[9].split()
             cx, cy, cz = lines[10].split()
         else:
+            self.xds_ver = lines[0][22:].strip()
             starting_frame, starting_angle, osc_range, rotx, roty, rotz = lines[1].split()
             wavelength, ibeamx, ibeamy, ibeamz = lines[2].split()
             spacegroup, a, b, c, alpha, beta, gamma = lines[3].split()
@@ -91,18 +104,40 @@ class XPARM:
         self.a_axis = numpy.array(map(safe_float, (ax, ay, az)))
         self.b_axis = numpy.array(map(safe_float, (bx, by, bz)))
         self.c_axis = numpy.array(map(safe_float, (cx, cy, cz)))
+
+        # Segments
+        if is_new_format and len(lines) > 14:
+            for li in range(12, len(lines), 2):
+                self.segments.append(Segment())
+
+                s = lines[li]
+                iseg, x1, x2, y1, y2 = map(int, (s[:10], s[10:20], s[20:30], s[30:40], s[40:50]))
+                self.segments[-1].x1 = x1
+                self.segments[-1].x2 = x2
+                self.segments[-1].y1 = y1
+                self.segments[-1].y2 = y2
+                
+                s = lines[li+1]
+                orgxs, orgys, fs, x0, x1, x2, y0, y1, y2 = map(float, (s[:8], s[8:16], s[16:24],
+                                                                       s[24:33], s[33:42], s[42:51],
+                                                                       s[51:60], s[60:69], s[69:78]))
+                self.segments[-1].orgxs = orgxs
+                self.segments[-1].orgys = orgys
+                self.segments[-1].fs = fs
+                self.segments[-1].eds_x = numpy.array([x0,x1,x2])
+                self.segments[-1].eds_y = numpy.array([y0,y1,y2])
     # parse_xparm_file()
 
     def set_info_from_xdsinp_or_inpstr(self, xdsinp=None, inpstr=None):
         assert (xdsinp,inpstr).count(None) == 1
-        # XXX x, y, z axes
-
         t1 = lambda x: x.split()[0] # may have units that should be removed (if read from INTEGRATE.LP header)
         
         table = [("STARTING_FRAME", "starting_frame", lambda x: int(t1(x))),
                  ("STARTING_ANGLE", "starting_angle", lambda x: float(t1(x))),
                  ("OSCILLATION_RANGE", "osc_range", lambda x: float(t1(x))),
                  ("ROTATION_AXIS", "rotation_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("DIRECTION_OF_DETECTOR_X-AXIS", "X_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("DIRECTION_OF_DETECTOR_Y-AXIS", "Y_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
                  ("X-RAY_WAVELENGTH", "wavelength", lambda x: float(t1(x))),
                  ("INCIDENT_BEAM_DIRECTION", "incident_beam", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
                  ("NX", "nx", lambda x: int(t1(x))),
@@ -116,7 +151,8 @@ class XPARM:
                  ("UNIT_CELL_B-AXIS", "b_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
                  ("UNIT_CELL_C-AXIS", "c_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3])))
                  ]
-        inp = dict(get_xdsinp_keyword(xdsinp=xdsinp, inp_str=inpstr)) # I believe dict() removes duplicated parameters and keeps last.
+        inp_raw = get_xdsinp_keyword(xdsinp=xdsinp, inp_str=inpstr)
+        inp = dict(inp_raw)# I believe dict() removes duplicated parameters and keeps last.
 
         for k, at, f in table:
             if k in inp and inp[k].strip() != "":
@@ -125,6 +161,30 @@ class XPARM:
             self.origin[0] = float(inp["ORGX"])
         if "ORGY" in inp:
             self.origin[1] = float(inp["ORGY"])
+
+        if "DIRECTION_OF_DETECTOR_X-AXIS" in inp:
+            self.Z_axis = numpy.cross(self.X_axis, self.Y_axis)
+            self.Z_axis /= numpy.linalg.norm(self.Z_axis)
+
+        # Segment
+        for k, v in inp_raw:
+            if k == "SEGMENT":
+                sp = map(int, v.split())
+                self.segments.append(Segment())
+                self.segments[-1].x1 = sp[0]
+                self.segments[-1].x2 = sp[1]
+                self.segments[-1].y1 = sp[2]
+                self.segments[-1].y2 = sp[3]
+            elif k == "SEGMENT_ORGX":
+                self.segments[-1].orgxs = float(v)
+            elif k == "SEGMENT_ORGY":
+                self.segments[-1].orgys = float(v)
+            elif k == "SEGMENT_DISTANCE":
+                self.segments[-1].fs = float(v)
+            elif k == "DIRECTION_OF_SEGMENT_X-AXIS":
+                self.segments[-1].eds_x = numpy.array(map(float, v.split()))               
+            elif k == "DIRECTION_OF_SEGMENT_Y-AXIS":
+                self.segments[-1].eds_y = numpy.array(map(float, v.split()))               
     # set_info_from_xdsinp()
 
 
@@ -144,10 +204,10 @@ class XPARM:
 
     def xparm_str(self, old_format=False):
         assert not old_format # Currently, only new format is supported!
-        xparm_str = """ XPARM.XDS    VERSION March 30, 2013
+        xparm_str = """ XPARM.XDS    VERSION %s
 %6d%14.4f%10.4f%10.6f%10.6f%10.6f
 %15.6f%15.6f%15.6f%15.6f
-%6d%12.6f%12.6f%12.6f%8.3f%8.3f%8.3f
+%6d%12.4f%12.4f%12.4f%8.3f%8.3f%8.3f
 %15.6f%15.6f%15.6f
 %15.6f%15.6f%15.6f
 %15.6f%15.6f%15.6f
@@ -156,22 +216,36 @@ class XPARM:
 %15.6f%15.6f%15.6f
 %15.6f%15.6f%15.6f
 %15.6f%15.6f%15.6f
-%10d%10d%10d%10d%10d
-%8.2f%8.2f%8.2f%9.5f%9.5f%9.5f%9.5f%9.5f%9.5f
-""" % (self.starting_frame, self.starting_angle, self.osc_range, self.rotation_axis[0], self.rotation_axis[1], self.rotation_axis[2], 
+""" % (self.xds_ver,
+       self.starting_frame, self.starting_angle, self.osc_range, self.rotation_axis[0], self.rotation_axis[1], self.rotation_axis[2], 
        self.wavelength, self.incident_beam[0], self.incident_beam[1], self.incident_beam[2], 
        self.spacegroup, self.unit_cell[0], self.unit_cell[1], self.unit_cell[2], self.unit_cell[3], self.unit_cell[4], self.unit_cell[5],
        self.a_axis[0], self.a_axis[1], self.a_axis[2], 
        self.b_axis[0], self.b_axis[1], self.b_axis[2], 
        self.c_axis[0], self.c_axis[1], self.c_axis[2],
-       1, self.nx, self.ny, self.qx, self.qy,
+       self.n_segments(), self.nx, self.ny, self.qx, self.qy,
        self.origin[0], self.origin[1], self.distance, 
        self.X_axis[0], self.X_axis[1], self.X_axis[2], 
        self.Y_axis[0], self.Y_axis[1], self.Y_axis[2], 
        self.Z_axis[0], self.Z_axis[1], self.Z_axis[2], 
-       1, 1, self.nx, 1, self.ny,
-       0., 0., 0., 1., 0., 0., 0., 1., 0.,
        )
+
+        if not self.segments:
+            xparm_str += """\
+%10d%10d%10d%10d%10d
+%8.2f%8.2f%8.2f%9.5f%9.5f%9.5f%9.5f%9.5f%9.5f
+""" % (1, 1, self.nx, 1, self.ny,
+       0., 0., 0., 1., 0., 0., 0., 1., 0.)
+        else:
+            for iseg, seg in enumerate(self.segments):
+                xparm_str += """\
+%10d%10d%10d%10d%10d
+%8.2f%8.2f%8.2f%9.5f%9.5f%9.5f%9.5f%9.5f%9.5f
+""" % (iseg+1, seg.x1, seg.x2, seg.y1, seg.y2,
+       seg.orgxs, seg.orgys, seg.fs,
+       seg.eds_x[0], seg.eds_x[1], seg.eds_x[2],
+       seg.eds_y[0], seg.eds_y[1], seg.eds_y[2])
+        
         return xparm_str
     # xparm_str()
 
