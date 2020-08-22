@@ -110,6 +110,10 @@ class FormatEMD(FormatMultiImage, Format):
         ret["mean_alpha_step"] = mean_alpha_step
         ret["width"], ret["height"] = data.shape[:2]
         ret["binning"] = int(metadata[0]["BinaryResult"]["ImageSize"]["width"])//ret["width"]
+
+        h, m0, e, c = 6.62607004e-34, 9.10938356e-31, 1.6021766208e-19, 299792458.0
+        voltage = float(metadata[0]["Optics"]["AccelerationVoltage"])
+        ret["wavelength"] = h/numpy.sqrt(2*m0*e*voltage*(1.+e*voltage/2./m0/c**2)) * 1.e10
         
         return ret
 
@@ -156,12 +160,10 @@ class FormatEMD(FormatMultiImage, Format):
         return d
 
     def _beam(self):
-        """Dummy unpolarized beam, energy 200 keV"""
 
-        wavelength = 0.02508 # XXX
         return self._beam_factory.make_polarized_beam(
             sample_to_source=(0.0, 0.0, 1.0),
-            wavelength=wavelength,
+            wavelength=self._header_dictionary["wavelength"],
             polarization=(0, 1, 0),
             polarization_fraction=0.5,
         )
