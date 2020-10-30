@@ -14,7 +14,7 @@ from dxtbx.format.FormatMultiImage import FormatMultiImage
 
 def get_metadata(metadata):
     mds = []
-    for i in xrange(metadata.shape[1]):
+    for i in range(metadata.shape[1]):
         metadata_array = metadata[:, i].T
         mdata_string = metadata_array.tostring().decode("utf-8")
         mds.append(json.loads(mdata_string.rstrip('\x00')))
@@ -41,11 +41,11 @@ def analyse_angle(metadata):
     d_alpha_z = abs(d_alphas-numpy.mean(d_alphas2))/numpy.std(d_alphas2)
 
     valid_range = [0, len(metadata)-1]
-    for i in xrange(len(metadata)-1):
+    for i in range(len(metadata)-1):
         if d_alpha_z[i] < 3: break
         valid_range[0] = i+1
 
-    for i in reversed(xrange(len(metadata)-1)):
+    for i in reversed(range(len(metadata)-1)):
         if d_alpha_z[i] < 3: break
         valid_range[1] = i
 
@@ -79,7 +79,7 @@ class FormatEMD(FormatMultiImage, Format):
         if not "/Data/Image" in h:
             return False
 
-        keys = h["/Data/Image"].keys()
+        keys = list(h["/Data/Image"].keys())
         if len(keys) > 1: return False
         d = h["/Data/Image"][keys[0]]
         if "Data" in d and "Metadata" in d and len(d["Data"].shape) == 3:
@@ -94,7 +94,7 @@ class FormatEMD(FormatMultiImage, Format):
 
         image_path = h["/Data/Image"]
         assert len(image_path.keys()) == 1
-        k = image_path.keys()[0]
+        k = list(image_path.keys())[0]
 
         ret["image_file"] = image_file
         ret["file_handle"] = h
