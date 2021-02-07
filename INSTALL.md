@@ -28,7 +28,7 @@ git clone https://github.com/keitaroyam/yamtbx.git yamtbx-github
 cd modules/
 ln -s ../yamtbx-github/yamtbx .
 cd ..
-./build/bin/libtbx.configure --enable-openmp-if-possible=True yamtbx
+./build/bin/libtbx.configure --enable_openmp_if_possible=True yamtbx
 #source setpaths.sh
 make # To build C++ codes in yamtbx, you may need to fix SConscript etc.. instruction will be given later (sorry).
 ```
