@@ -102,10 +102,10 @@ _reflns.pdbx_R_split                     %(rsplit)s
     s += """\
 #
 loop_
-_reflns_shell.d_res_high
 _reflns_shell.d_res_low
+_reflns_shell.d_res_high
 _reflns_shell.meanI_over_sigI_obs
-_reflns_shell.number_unique_all
+_reflns_shell.number_unique_obs
 _reflns_shell.percent_possible_all
 _reflns_shell.pdbx_redundancy
 _reflns_shell.pdbx_diffrn_id
