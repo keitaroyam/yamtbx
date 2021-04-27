@@ -55,7 +55,7 @@ This manual is for 2018-02-22.
 KAMO uses following programs and libraries.
 
 * [CCTBX](https://github.com/cctbx/cctbx_project/) with [CBFlib](http://www.bernstein-plus-sons.com/software/CBF/) (essential)
-* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx 1.x](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (essential)
+* [wxPython 2.8](http://www.wxpython.org/), [Matplotlib 1.3](http://matplotlib.org/), [Networkx](https://networkx.github.io/), [Numpy](http://www.numpy.org/), [SciPy](https://www.scipy.org/) (essential)
 * [XDS](http://xds.mpimf-heidelberg.mpg.de), [xdsstat](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Xdsstat), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) (H5ToXds is only required for EIGER data)
 * [CCP4](http://www.ccp4.ac.uk/) (BLEND, Pointless, Aimless, Ctruncate)
 * [R](https://www.r-project.org/) with rjson (required for BLEND)
@@ -286,15 +286,13 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
    * If you will process EIGER data (h5 files), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) is needed
    * rjson can be installed as follows; after installation of R, start R program from user who installed R (root or an account for software installation), and then type `install.packages("rjson")`.
-2. Install [DIALS](https://dials.github.io/installation.html)-1.5 or newer (**choose Python2**)
+2. Install [DIALS 2.2](https://github.com/dials/dials/releases/tag/v2.2.0)
+   * As KAMO is written in python 2, newer DIALS environment cannot be used now
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -m easy_install networkx==1.11`
-4. Install scipy to dials.python (**Skip this if using DIALS 1.10 or newer**)
-   1. If Mac, install Xcode.
-   2. `cd $DIALS/build`
-   3. If Linux: `./bin/libtbx.python -m easy_install scipy==0.18.1`<br>If Mac: `./bin/libtbx.python -m pip install scipy==0.18.1`
-5. Run the following commands
+   2. `./bin/libtbx.python -mpip install decorator==4.3.0`
+   3. `./bin/libtbx.python -mpip install networkx==2.2`
+4. Run the following commands
 ```
 cd $DIALS/modules
 git clone https://github.com/keitaroyam/yamtbx.git
@@ -375,6 +373,28 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 
 ### Researches which used KAMO 
 
+1. Lu *et al.* (2020) "B/N-Doped p-Arylenevinylene Chromophores: Synthesis, Properties, and Microcrystal Electron Crystallographic Study." *Journal of the American Chemical Society* doi: [10.1021/jacs.0c10337](https://doi.org/10.1021/jacs.0c10337) CCDC: [2033443](https://doi.org/10.5517/ccdc.csd.cc267yyc) Raw data: [Zenodo#3909305](https://zenodo.org/record/3909305)
+1. Xu *et al.* (2020) "Binding pathway determines norepinephrine selectivity for the human β<sub>1</sub>AR over β<sub>2</sub>AR" *Cell Research* doi: [10.1038/s41422-020-00424-2](https://doi.org/10.1038/s41422-020-00424-2) PDB: 7BVQ 7BU7 7BU6 7BTS
+1. Hasegawa *et al.* (2020) "A unique clade of light-driven proton-pumping rhodopsins evolved in the cyanobacterial lineage" *Scientific Reports* doi: [10.1038/s41598-020-73606-y](https://doi.org/10.1038/s41598-020-73606-y) PDB: 6LM0 6LM1
+1. Tanaka *et al.* (2020) "Structural basis for unique color tuning mechanism in heliorhodopsin" *Biochemical and Biophysical Research Communications* doi: [10.1016/j.bbrc.2020.06.124](https://doi.org/10.1016/j.bbrc.2020.06.124) PDB: 7CLJ Raw data: [Zenodo#3871080](https://zenodo.org/record/3871080)
+1. Endo *et al.* (2020) "Development of Novel AKR1C3 Inhibitors as New Potential Treatment for Castration-Resistant Prostate Cancer" *Journal of Medicinal Chemistry* doi: [10.1021/acs.jmedchem.0c00939](https://doi.org/10.1021/acs.jmedchem.0c00939) PDB:  7C7F 7C7G 7C7H
+1. Maeki *et al.* (2020) "Room-temperature crystallography using a microfluidic protein crystal array device and its application to protein–ligand complex structure analysis" *Chemical Science* doi: [10.1039/d0sc02117b](https://doi.org/10.1039/d0sc02117b) PDB: 
+1. Katoh *et al.* (2020) "Ribosomal synthesis and de novo discovery of bioactive foldamer peptides containing cyclic β-amino acids" *Nature Chemistry* doi: [10.1038/s41557-020-0525-1](https://doi.org/10.1038/s41557-020-0525-1) PDB: 6L63
+1. Shiimura *et al.* (2020) "Structure of an antagonist-bound ghrelin receptor reveals possible ghrelin recognition mode" *Nature Communications* doi: [10.1038/s41467-020-17554-1](https://doi.org/10.1038/s41467-020-17554-1) PDB: 6KO5 6KS2
+1. Yoshiwara *et a.* (2020) "Crystal structure of bacterial L-arabinose 1-dehydrogenase in complex with L-arabinose and NADP<sup>+</sup>" *Biochemical and Biophysical Research Communications* doi: [10.1016/j.bbrc.2020.07.071](https://doi.org/10.1016/j.bbrc.2020.07.071) PDB: 7CGR 7CGQ
+1. Tanaka *et al.* (2020) "Crystal structure of a YeeE/YedE family protein engaged in thiosulfate uptake" *Science advances* doi: [10.1126/sciadv.aba7637](https://doi.org/10.1126/sciadv.aba7637) PDB: 6LEO 6LEP
+1. Watanabe *et al.* (2020) "Biochemical and Structural Characterization of l-2-Keto-3-deoxyarabinonate Dehydratase: A Unique Catalytic Mechanism in the Class I Aldolase Protein Superfamily" *Biochemistry* doi: [10.1021/acs.biochem.0c00515](https://doi.org/10.1021/acs.biochem.0c00515) PDB: 7C0C 7C0D 7C0E
+1. Miyagi *et al.* (2020) "The discovery of a new antibody for BRIL-fused GPCR structure determinatio" *Scientific reports* doi: https://doi.org/10.1038/s41598-020-68355-x PDB: 7C61 7C6A
+1. Yonemura *et al.* (2020) "Systematic Evolution of Decoy Molecules for the Highly Efficient Hydroxylation of Benzene and Small Alkanes Catalyzed by Wild-Type Cytochrome P450BM3" *ACS Catalysis* doi: [10.1021/acscatal.0c01951](https://doi.org/10.1021/acscatal.0c01951) PDB: 
+1. Sugiyama *et al.* (2020) "Structural comparison of the C-terminal domain of functionally divergent lyssavirus P proteins" *Biochemical and Biophysical Research Communications* doi: [10.1016/j.bbrc.2020.05.195](https://doi.org/10.1016/j.bbrc.2020.05.195) PDB: 7C20 7C21
+1. Watanabe *et al.* (2020) "Functional and structural characterization of a novel L-fucose mutarotase involved in non-phosphorylative pathway of L-fucose metabolism" *Biochemical and Biophysical Research Communications* doi: [10.1016/j.bbrc.2020.05.094](https://doi.org/10.1016/j.bbrc.2020.05.094) PDB: 7BYU 7BYW
+1. Imaizumi *et al.* (2020) "Crystal structure of chalcone synthase, a key enzyme for isoflavonoid biosynthesis in soybean" *Proteins: Structure, Function, and Bioinformatics* doi: [10.1002/prot.25988](https://doi.org/10.1002/prot.25988) PDB: 7BUS 7BUR
+1. Jiang *et al.* (2020) "Structural basis for blocking sugar uptake into the malaria parasite Plasmodium falciparum" *Cell* doi: [10.1016/j.cell.2020.08.015](https://doi.org/10.1016/j.cell.2020.08.015) PDB: 6M20 6M2L
+1. Hamada *et al.* "Spiro-Conjugated Carbon/Heteroatom-Bridged p-Phenylenevinylenes: Synthesis, Properties, and Microcrystal Electron Crystallographic Analysis of Racemic Solid Solutions." *Bulletin of the Chemical Society of Japan* doi: [10.1246/bcsj.20200065](https://doi.org/10.1246/bcsj.20200065) CCDC: [1986103](https://dx.doi.org/10.5517/ccdc.csd.cc24npvc) Raw data: [Zenodo#3686381](https://zenodo.org/record/3686381)
+1. Umeda *et al.* (2020) "Structural insights into tetraspanin CD9 function" *Nature Communications* doi: [10.1038/s41467-020-15459-7](https://doi.org/10.1038/s41467-020-15459-7) PDB: 6K4J Raw data: [Zenodo#3716303](https://doi.org/10.5281/zenodo.3716303)
+1. Kitadokoro *et al.* (2020) "Crystal structure of pathogenic Staphylococcus aureus lipase complex with the anti-obesity drug orlistat" *Scientific Reports* doi: [10.1038/s41598-020-62427-8](https://doi.org/10.1038/s41598-020-62427-8) PDB: 6KSI, 6KSL, and 6KSM
+1. Minato *et al.* (2020) "Biochemical and structural characterization of a thermostable Dps protein with His‐type ferroxidase centers and outer metal‐binding sites" *FEBS Open Bio* doi: [10.1002/2211-5463.12837](https://doi.org/10.1002/2211-5463.12837)
+1. Wu *et al.* (2020) "Full-length human GLP-1 receptor structure without orthosteric ligands" *Nature communications* doi: [10.1038/s41467-020-14934-5](https://doi.org/10.1038/s41467-020-14934-5) PDB: 6LN2
 1. Yamaguchi *et al.* (2020) "Crystal structure of Drosophila Piwi" *Nature Communications* doi:[10.1038/s41467-020-14687-1](https://doi.org/10.1038/s41467-020-14687-1) PDB: [6KR6](https://www.rcsb.org/structure/6KR6) Raw data: [Zenodo#3603539](https://doi.org/10.5281/zenodo.3603539)
 1. Yoshizawa *et al.* (2020) "Crystal structures of the cell-division protein FtsZ from Klebsiella pneumoniae and Escherichia coli" *Acta Cryst. F* doi:[10.1107/S2053230X2000076X](https://doi.org/10.1107/S2053230X2000076X) PDB: [6LL5](https://www.rcsb.org/structure/6LL5) [6LL6](https://www.rcsb.org/structure/6LL6)
 1. Izume *et al.* (2020) "Crystal structure of human endothelin ET<sub>B</sub> receptor in complex with sarafotoxin S6b" *Biochemical and Biophysical Research Communications* doi:[10.1016/j.bbrc.2019.12.091](https://doi.org/10.1016/j.bbrc.2019.12.091) PDB: [6LRY](https://www.rcsb.org/structure/6LRY) Raw data: [Zenodo#3603541](https://doi.org/10.5281/zenodo.3603541)
@@ -420,6 +440,10 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2021-04-27
+   * Update installation notes (networkx and python 2 related)
+   * Support networkx 2.2 (the last version to support python 2)
+   * KAMO: allow non-existing directories (when program started) for include\_dir 
 * 2020-01-06
    * Fix for XDS BUILT=20191015 where SNRC= parameter was introduced and MINIMUM\_I/SIGMA= was obsoleted in XSCALE.
    * kamo.multi\_prep\_merging: dispatched as a command (the same function as Multi-merge button in KAMO GUI)
