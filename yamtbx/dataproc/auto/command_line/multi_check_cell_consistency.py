@@ -109,7 +109,7 @@ class CellGraph:
 
         connected_nodes = []
 
-        for node in self.G.nodes_iter():
+        for node in self.G.nodes():
             other_cell = self.p1cells[node]
             if other_cell.is_similar_to(p1cell, self.tol_length, self.tol_angle):
                 connected_nodes.append(node)
@@ -298,7 +298,7 @@ class CellGraph:
     # get_group_symmetry_reference_matched()
 
     def is_all_included(self, keys):
-        all_nodes = set(self.G.nodes_iter())
+        all_nodes = set(self.G.nodes())
         return all_nodes.issuperset(keys)
     # is_all_included()
 
