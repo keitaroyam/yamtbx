@@ -199,12 +199,12 @@ def directory_included(path, topdir=None, include_dir=[], exclude_dir=[]):
         return True
 
     if include_dir != []:
-        for d in include_dir:
+        for d in expand_wildcard_in_list(include_dir):
             if directory_included(path, d): return True
         return False
 
     if exclude_dir != []:
-        for d in exclude_dir:
+        for d in expand_wildcard_in_list(exclude_dir):
             if directory_included(path, d): return False
         return True
 # directory_included()

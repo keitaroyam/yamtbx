@@ -550,7 +550,11 @@ class BssJobs:
     # _register_job_from_file()
     
     def update_jobs_from_files(self, root_dir, include_dir=[], exclude_dir=[]):
-        if include_dir == []: include_dir = [root_dir]
+        if include_dir:
+            include_dir = expand_wildcard_in_list(include_dir)
+            # Do nothing if include_dir is specified but not found after expansion
+        else:
+            include_dir = [root_dir]
         # XXX what if include_dir has sub directories..
 
         for rd in include_dir:
@@ -1934,10 +1938,6 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         config.params.include_dir = read_path_list(config.params.include_dir[0])
     if len(config.params.exclude_dir) == 1 and os.path.isfile(config.params.exclude_dir[0]):
         config.params.exclude_dir = read_path_list(config.params.exclude_dir[0])
-
-    # expand wildcard
-    config.params.include_dir = expand_wildcard_in_list(config.params.include_dir, sys.stdout)
-    config.params.exclude_dir = expand_wildcard_in_list(config.params.exclude_dir, sys.stdout)
 
     for i, d in enumerate(config.params.include_dir):
         if not os.path.isabs(d): config.params.include_dir[i] = os.path.join(config.params.topdir, d)
