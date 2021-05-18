@@ -441,6 +441,8 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2021-05-18
+   * KAMO: DIALS >=2をサポート
 * 2021-04-27
    * インストール方法を修正 (networkxとpython 2関係)
    * networkx 2.2 (python 2用の最新版)に対応

@@ -142,29 +142,29 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
         override_str += "slow_fast_beam_centre=%.2f,%.2f " % (overrides["orgy"], overrides["orgx"])
 
     if len(img_files) == 1 and img_files[0].endswith(".h5"):
-        util.call('dials.import "%s" %s image_range=%d,%d' % (img_files[0], override_str,
-                                                              nr_range[0], nr_range[1]),
+        util.call('dials.import "%s" %s image_range=%d,%d output.experiments=imported.expt' % (img_files[0], override_str,
+                                                                                               nr_range[0], nr_range[1]),
                   wdir=wdir, stdout=log_out,
-                  expects_out=[os.path.join(wdir, "datablock.json")])
+                  expects_out=[os.path.join(wdir, "imported.expt")])
     else:
-        util.call('dials.import %s template="%s" image_range=%d,%d' % (override_str,
-                                                                         filename_template.replace("?","#"),
-                                                                         nr_range[0], nr_range[1]),
+        util.call('dials.import %s template="%s" image_range=%d,%d output.experiments=imported.expt' % (override_str,
+                                                                                                        filename_template.replace("?","#"),
+                                                                                                        nr_range[0], nr_range[1]),
                   wdir=wdir, stdout=log_out,
-                  expects_out=[os.path.join(wdir, "datablock.json")])
+                  expects_out=[os.path.join(wdir, "imported.expt")])
 
-    util.call("dials.find_spots datablock.json filter.d_max=30 %s" % nproc_str, # global_threshold=200
+    util.call("dials.find_spots imported.expt filter.d_max=30 %s output.reflections=strong.refl" % nproc_str, # global_threshold=200
               wdir=wdir, stdout=log_out,
-              expects_out=[os.path.join(wdir, "strong.pickle")])
+              expects_out=[os.path.join(wdir, "strong.refl")])
 
-    util.call("dials.export strong.pickle format=xds xds.directory=.",
+    util.call("dials.export strong.refl format=xds xds.directory=.",
               wdir=wdir, stdout=log_out)
 
     index_ok = False
     for index_meth in ("fft3d", "fft1d", "real_space_grid_search"):
         for index_assi in ("local", "simple"):
             if index_ok: break
-            cmd = "dials.index datablock.json strong.pickle verbosity=3 "
+            cmd = "dials.index imported.expt strong.refl output.experiments=indexed.expt output.reflections=indexed.refl "
             cmd += "indexing.method=%s index_assignment.method=%s " % (index_meth, index_assi)
             if known_xs is not None:# not in (known.space_group, known.unit_cell):
                 cmd += "unit_cell=%s space_group=%d " % (",".join(map(lambda x: "%.3f"%x, known_xs.unit_cell().parameters())),
@@ -175,7 +175,7 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
             log_out.write("Trying indexing.method=%s index_assignment.method=%s\n" % (index_meth, index_assi))
             log_out.flush()
             util.call(cmd, wdir=wdir, stdout=log_out)
-            if os.path.isfile(os.path.join(wdir, "experiments.json")):
+            if os.path.isfile(os.path.join(wdir, "indexed.expt")):
                 index_ok = True
             else:
                 for f in ("dials.index.log", "dials.index.debug.log"):
@@ -184,23 +184,23 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
     if not index_ok:
         return
 
-    files_for_integration = "experiments.json indexed.pickle"
+    files_for_integration = "indexed.expt indexed.refl"
 
     if scan_varying:
-        util.call("dials.refine experiments.json indexed.pickle scan_varying=true",
+        util.call("dials.refine indexed.expt indexed.refl scan_varying=true output.experiments=refined.expt output.reflections=refined.refl",
                   wdir=wdir, stdout=log_out)
-        if os.path.isfile(os.path.join(wdir, "refined.pickle")):
-            files_for_integration = "refined_experiments.json refined.pickle"
+        if os.path.isfile(os.path.join(wdir, "refined.refl")):
+            files_for_integration = "refined.expt refined.refl"
         else:
             log_out.write("dials.refine failed. using intedexed results.\n")
 
-    util.call("dials.integrate %s min_spots.per_degree=10 %s" % (files_for_integration, nproc_str),
+    util.call("dials.integrate %s min_spots.per_degree=10 output.experiments=integrated.expt output.reflections=integrated.refl %s" % (files_for_integration, nproc_str),
               wdir=wdir, stdout=log_out)
-    util.call("dials.export integrated.pickle integrated_experiments.json mtz.hklout=integrated.mtz",
+    util.call("dials.export integrated.refl integrated.expt mtz.hklout=integrated.mtz",
               wdir=wdir, stdout=log_out)
     util.call("pointless integrated.mtz hklout pointless.mtz",
               wdir=wdir, stdin="SETTING SYMMETRY-BASED\ntolerance 10\n", stdout=open(pointless_log, "w"))
-    util.call("dials.export integrated_experiments.json integrated.pickle format=xds_ascii xds_ascii.hklout=DIALS.HKL",
+    util.call("dials.export integrated.expt integrated.refl format=xds_ascii xds_ascii.hklout=DIALS.HKL",
               wdir=wdir, stdout=log_out)
     util.call("aimless hklin pointless.mtz hklout aimless.mtz",
               wdir=wdir, stdin="output UNMERGED\n", stdout=open(os.path.join(wdir, "aimless.log"), "w"))

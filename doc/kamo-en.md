@@ -440,6 +440,8 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2021-05-18
+   * KAMO: Add DIALS >=2 support
 * 2021-04-27
    * Update installation notes (networkx and python 2 related)
    * Support networkx 2.2 (the last version to support python 2)
