@@ -7,6 +7,7 @@ This software is released under the new BSD License; see LICENSE.
 Reference: tools/python/streamreceiver2.py by Dectris.
 """
 
+from __future__ import absolute_import, division, print_function, generators
 import dxtbx.format # to set HDF5_PLUGIN_PATH in phenix environment
 
 import h5py
@@ -94,7 +95,7 @@ def extract_data(h5master, frameno, apply_pixel_mask=True, return_raw=False):
         i_seen = 0
         for k in sorted(h5["/entry/data"].keys()):
             try:
-                for i in xrange(h5["/entry/data"][k].shape[0]):
+                for i in range(h5["/entry/data"][k].shape[0]):
                     i_seen += 1
                     if i_seen == frameno:
                         data = h5["/entry/data"][k][i,]
@@ -111,7 +112,7 @@ def extract_data(h5master, frameno, apply_pixel_mask=True, return_raw=False):
                 break
 
     if data is None:
-        print "Data not found."
+        print("Data not found.")
         return data
 
     if return_raw:
@@ -134,9 +135,8 @@ def get_available_frame_numbers(h5master):
 def extract_data_path(h5master, path, apply_pixel_mask=True, return_raw=False):
     h5 = h5py.File(h5master, "r")
     data = h5.get(path)
-    print path
     if data is None:
-        print "Data not found."
+        print("Data not found.")
         return data
 
     if return_raw:
@@ -153,7 +153,7 @@ def extract_data_range_sum(h5master, frames):
     data = None
     for k in sorted(h5["/entry/data"].keys()):
         try:
-            for i in xrange(h5["/entry/data"][k].shape[0]):
+            for i in range(h5["/entry/data"][k].shape[0]):
                 i_seen += 1
                 if i_seen in frames:
                     i_found += 1
@@ -167,7 +167,7 @@ def extract_data_range_sum(h5master, frames):
             break
 
     if data is None:
-        print "Data not found."
+        print("Data not found.")
         return data
 
     data[data<0] = -3 # To see pixels not masked by pixel mask.

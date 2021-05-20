@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import absolute_import, division, print_function, generators
 import os
 import pycbf
 import numpy
@@ -12,7 +13,7 @@ from cbflib_adaptbx import cbf_binary_adaptor, CBFWriteAdaptor
 def load_cbf_as_numpy(filein, quiet=True):
     assert os.path.isfile(filein)
     if not quiet:
-        print "reading", filein, "as cbf"
+        print("reading", filein, "as cbf")
     h = pycbf.cbf_handle_struct()
     h.read_file(filein, pycbf.MSG_DIGEST)
     ndimfast, ndimslow = h.get_image_size_fs(0)
@@ -23,7 +24,7 @@ def load_cbf_as_numpy(filein, quiet=True):
 def load_minicbf_as_numpy(filein, quiet=True): # This can also read XDS special cbf
     assert os.path.isfile(filein)
     if not quiet:
-        print "reading", filein, "as minicbf"
+        print("reading", filein, "as minicbf")
     h = pycbf.cbf_handle_struct()
     h.read_file(filein, pycbf.MSG_DIGEST)
     h.require_category("array_data")
