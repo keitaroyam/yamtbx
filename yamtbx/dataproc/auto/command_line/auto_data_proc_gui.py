@@ -4,6 +4,10 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+from functools import reduce
 from yamtbx.dataproc.auto import gui_config as config
 from yamtbx.dataproc.auto import gui_logger as mylog
 from yamtbx.dataproc.auto import html_report
@@ -45,8 +49,8 @@ import sys
 import re
 import datetime
 import time
-import StringIO
-import cPickle as pickle
+import io
+import pickle
 import glob
 import threading
 import traceback
@@ -256,7 +260,7 @@ def read_override_config(imgdir):
         elif l.startswith("osc_range="):
             ret["osc_range"] = float(l[l.index("=")+1:].strip())
         elif l.startswith("rotation_axis="):
-            ret["rotation_axis"] = map(float, l[l.index("=")+1:].strip().split())
+            ret["rotation_axis"] = list(map(float, l[l.index("=")+1:].strip().split()))
             assert len(ret["rotation_axis"]) == 3
         else:
             shikalog.warning("Unrecognized config in %s: %s" % (cfgin, l))
@@ -265,7 +269,7 @@ def read_override_config(imgdir):
     return ret
 # read_override_config()
 
-class BssJobs:
+class BssJobs(object):
     def __init__(self):
         self.jobs = {} # { (path+prefix, number range) as key: }
         self.jobs_prefix_lookup = {} # {prefix: number_range in keys of self.jobs}
@@ -298,7 +302,7 @@ class BssJobs:
             mylog.debug("Loaded geometry: %s" % self.xds_inp_overrides)
             
     def get_job(self, key): return self.jobs.get(key, None)
-    def keys(self): return self.jobs.keys()
+    def keys(self): return list(self.jobs.keys())
     def get_xds_workdir(self, key):
         return os.path.join(config.params.workdir,
                             os.path.relpath(key[0]+"_%d-%d"%key[1], config.params.topdir))
@@ -311,7 +315,7 @@ class BssJobs:
         self._prev_job_finished = False
 
         bsslogs = []
-        for dday in xrange(daystart, 1):
+        for dday in range(daystart, 1):
             for blconfig in config.params.blconfig:
                 bsslog = os.path.join(blconfig, "log",
                                       (date + datetime.timedelta(days=dday)).strftime("bss_%Y%m%d.log"))
@@ -381,12 +385,12 @@ class BssJobs:
                         tmp = os.path.basename(self._current_prefix)
                         tmp2 = "ExtTrigger " + tmp
                         if l[l.index(tmp2)+len(tmp2)+2] in "0123456789":
-                            tmp3 = filter(lambda x: tmp in x, l[l.index(tmp2):].split())[0]
+                            tmp3 = [x for x in l[l.index(tmp2):].split() if tmp in x][0]
                             self._joblogs[-1][1] = int(os.path.splitext(tmp3[tmp3.rindex("_")+1:])[0])
                             self._current_prefix = None
                             continue
 
-                except Exception, e:
+                except Exception as e:
                     mylog.error("Unhandled error occurred when reading %s" % bsslog)
                     mylog.error(" Line %d-> %s <" % (i, l.rstrip()))
                     mylog.error(traceback.format_exc())
@@ -401,7 +405,7 @@ class BssJobs:
         mylog.debug("joblogs= %s" % self._joblogs)
 
         if self._prev_job_finished:
-            for job in self.jobs.values():
+            for job in list(self.jobs.values()):
                 job.status = "finished"
 
         remove_idxes = []
@@ -448,10 +452,10 @@ class BssJobs:
 
                 if prefix in self.jobs_prefix_lookup:
                     mylog.info("Same prefix: %s,%s. What should I do? %s" % (prefix, nr, self.jobs_prefix_lookup[prefix]))
-                    tmp_in = set(reduce(lambda x,y: x+y, map(lambda x:range(x[0],x[1]+1), self.jobs_prefix_lookup[prefix])))
+                    tmp_in = set(reduce(lambda x,y: x+y, [list(range(x[0],x[1]+1)) for x in self.jobs_prefix_lookup[prefix]]))
                     # XXX Resolve overlap!!
                     if set(range(nr[0],nr[1]+1)).intersection(tmp_in):
-                        print "tmp_in=", tmp_in, nr
+                        print("tmp_in=", tmp_in, nr)
                         mylog.warning("Range overlapped! Discarding this data..sorry.")
                         remove_idxes.append(i)
                         continue
@@ -469,7 +473,7 @@ class BssJobs:
                         self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr2)
                 elif multi_not_eiger:
                     suffix_org = job.filename[job.filename.rindex("_?"):]
-                    for k in xrange(len(job.advanced_centering.get("centers",[]))):
+                    for k in range(len(job.advanced_centering.get("centers",[]))):
                         prefix2 = prefix + "_%.3d" % (k+1)
                         job2 = copy.copy(job)
                         job2.filename = prefix2 + suffix_org
@@ -506,7 +510,7 @@ class BssJobs:
         job = JobInfo(None)
         job.filename = tmpl
 
-        images = filter(lambda x: os.path.isfile(x), dataset.template_to_filenames(*ds))
+        images = [x for x in dataset.template_to_filenames(*ds) if os.path.isfile(x)]
 
         if len(images) == 0:
             return
@@ -519,7 +523,7 @@ class BssJobs:
             h_last = XIO.Image(images[-1]).header
             job.osc_end = h_last.get("PhiEnd", 0)
             if h_next.get("PhiStart", 0) == h.get("PhiStart", 0):
-                print "This job may be scan?:",  tmpl
+                print("This job may be scan?:",  tmpl)
                 return
 
         job.wavelength = h.get("Wavelength", 0)
@@ -533,7 +537,7 @@ class BssJobs:
         job.prefix = prefix
 
         if job.osc_step == 0 or job.osc_end - job.osc_start == 0:
-            print "This job don't look like osc data set:",  tmpl
+            print("This job don't look like osc data set:",  tmpl)
             return
 
         if config.params.split_data_by_deg is None or job.osc_step==0:
@@ -541,7 +545,7 @@ class BssJobs:
             self.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
         else:
             n_per_sp = int(config.params.split_data_by_deg/job.osc_step+.5)
-            for i in xrange(nr[1]//n_per_sp+1):
+            for i in range(nr[1]//n_per_sp+1):
                 if (i+1)*n_per_sp < nr[0]: continue
                 if nr[1] < i*n_per_sp+1: continue
                 nr2 = (max(i*n_per_sp+1, nr[0]), min((i+1)*n_per_sp, nr[1]))
@@ -654,7 +658,7 @@ class BssJobs:
                 "auto_frame_exclude_spot_based=%s"%config.params.auto_frame_exclude_spot_based]
         if config.params.small_wedges: opts.append("no_scaling=true")
         if None not in (config.params.known.space_group, config.params.known.unit_cell):
-            opts.append("cell_prior.cell=%s" % ",".join(map(lambda x: "%.3f"%x, config.params.known.unit_cell)))
+            opts.append("cell_prior.cell=%s" % ",".join(["%.3f"%x for x in config.params.known.unit_cell]))
             opts.append("cell_prior.sgnum=%d" % sgtbx.space_group_info(config.params.known.space_group).group().type().number())
             opts.append("cell_prior.method=%s" % config.params.known.method)
             opts.append("cell_prior.force=%s" % config.params.known.force)
@@ -666,10 +670,10 @@ cd "%(wd)s" || exit 1
 "%(exe)s" - <<+
 from yamtbx.dataproc.auto.command_line.run_all_xds_simple import run_from_args
 run_from_args([%(args)s])
-for i in xrange(%(repeat)d-1):
+for i in range(%(repeat)d-1):
  run_from_args([%(args)s, "mode=recycle"])
 +
-""" % dict(exe=sys.executable, args=",".join(map(lambda x: '"%s"'%x, opts)),
+""" % dict(exe=sys.executable, args=",".join(['"%s"'%x for x in opts]),
            repeat=config.params.xds.repeat,
            wd=os.path.abspath(workdir))
         
@@ -702,7 +706,7 @@ cd "%(wd)s" || exit 1
 "%(exe)s" - <<+
 from yamtbx.dataproc.dials.command_line import run_dials_auto
 import pickle
-run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
+run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl", "rb")))
 +
 """ % dict(exe=sys.executable, #nproc=config.params.batch.nproc_each,
            #filename=bssjob.filename, prefix=prefix, nr=nr,
@@ -722,7 +726,7 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
                          overrides=overrides,
                          scan_varying=config.params.dials.scan_varying,
                          nproc=config.params.batch.nproc_each),
-                    open(os.path.join(workdir, "args.pkl"), "w"), -1)
+                    open(os.path.join(workdir, "args.pkl"), "wb"), -1)
         
         batchjobs.submit(job)
         self.procjobs[key] = job
@@ -792,7 +796,7 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
                 if os.path.isfile(summary_pkl):
                     pkl = self._load_if_chached("summary_pkl", summary_pkl)
                     if pkl is None:
-                        pkl = pickle.load(open(summary_pkl))
+                        pkl = pickle.load(open(summary_pkl, "rb"))
                         self._save_chache("summary_pkl", summary_pkl, pkl)
 
                     try: resn = float(pkl.get("d_min"))
@@ -838,21 +842,21 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
                     ret["sg"] = xp.space_group_str()
 
             if os.path.isfile(stats_pkl):
-                sio = StringIO.StringIO()
-                pickle.load(open(stats_pkl))["stats"].show(out=sio, header=False)
+                sio = io.StringIO()
+                pickle.load(open(stats_pkl, "rb"))["stats"].show(out=sio, header=False)
                 lines = sio.getvalue().replace("<","&lt;").replace(">","&gt;").splitlines()
-                i_table_begin = filter(lambda x: "Statistics by resolution bin:" in x[1], enumerate(lines))
+                i_table_begin = [x for x in enumerate(lines) if "Statistics by resolution bin:" in x[1]]
                 if len(i_table_begin) == 1:
                     ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])
 
-            exc_frames = filter(lambda x: x[0]=="EXCLUDE_DATA_RANGE", get_xdsinp_keyword(xds_inp))
-            ret["exclude_data_ranges"] = map(lambda x: map(int, x[1].split()), exc_frames)
+            exc_frames = [x for x in get_xdsinp_keyword(xds_inp) if x[0]=="EXCLUDE_DATA_RANGE"]
+            ret["exclude_data_ranges"] = [list(map(int, x[1].split())) for x in exc_frames]
 
         elif config.params.engine == "dials":
             summary_pkl = os.path.join(workdir, "kamo_dials.pkl")
-            print summary_pkl
+            print(summary_pkl)
             if os.path.isfile(summary_pkl):
-                pkl = pickle.load(open(summary_pkl))
+                pkl = pickle.load(open(summary_pkl, "rb"))
                 try: ret["resn"] = float(pkl.get("d_min"))
                 except: ret["resn"] = float("nan")
                 
@@ -866,16 +870,16 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl")))
                 except: ret["cmpl"] = float("nan")
 
                 if "stats" in pkl:
-                    sio = StringIO.StringIO()
+                    sio = io.StringIO()
                     pkl["stats"].show(out=sio, header=False)
                     lines = sio.getvalue().replace("<","&lt;").replace(">","&gt;").splitlines()
-                    i_table_begin = filter(lambda x: "Statistics by resolution bin:" in x[1], enumerate(lines))
-                    print                     i_table_begin
+                    i_table_begin = [x for x in enumerate(lines) if "Statistics by resolution bin:" in x[1]]
+                    print(i_table_begin)
                     if len(i_table_begin) == 1:
                         ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])
 
 
-        print ret
+        print(ret)
         return ret
     # get_process_result()
         
@@ -886,7 +890,7 @@ bssjobs = None # BssJobs()
 batchjobs = None # initialized in __main__
 mainFrame = None
 
-class WatchLogThread:
+class WatchLogThread(object):
     def __init__(self, parent):
         self.parent = parent
         self.interval = 10
@@ -928,7 +932,7 @@ class WatchLogThread:
             if not (config.params.logwatch_once and counter > 1):
                 # check bsslog
                 if config.params.jobspkl is not None:
-                    bssjobs.jobs = pickle.load(open(config.params.jobspkl))
+                    bssjobs.jobs = pickle.load(open(config.params.jobspkl, "rb"))
                     for prefix, nr in bssjobs.jobs:
                         bssjobs.jobs_prefix_lookup.setdefault(prefix, set()).add(nr)
                 else:
@@ -945,7 +949,7 @@ class WatchLogThread:
                         raise "Never reaches here"
             # start jobs
             if config.params.auto_mode:
-                for key in bssjobs.keys():
+                for key in list(bssjobs.keys()):
                     job_statuses[key] = bssjobs.get_process_status(key)
                     status = job_statuses[key][0]
                     job = bssjobs.get_job(key)
@@ -978,7 +982,7 @@ class WatchLogThread:
             if self.interval < 1:
                 time.sleep(self.interval)
             else:
-                for i in xrange(int(self.interval/.5)):
+                for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
 
@@ -1037,7 +1041,7 @@ class MyCheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
             self.items.append([key, 0]+item)
             self._items_lookup[key] = len(self.items)-1
         else:
-            for i in xrange(len(item)):
+            for i in range(len(item)):
                 self.items[self._items_lookup[key]][i+2] = item[i]
     # update_item()
 
@@ -1048,7 +1052,7 @@ class MyCheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
         else:
             self._sort_acend = not self._sort_acend
         
-        perm = range(len(self.items))
+        perm = list(range(len(self.items)))
         def trans_func(idx):
             # 0:lab, 1:sample, 2:wavelen, 3:phirange, 4:deltaphi, 5,6:status, 7:cmpl, 8:sg, 9:resn
             if idx in (2, 3, 4, 7, 9): return safe_float
@@ -1057,9 +1061,9 @@ class MyCheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
         perm.sort(key=lambda x: trans_func(col)(self.items[x][col+2]),
                   reverse=not self._sort_acend)
 
-        perm_table = dict(map(lambda x:(perm[x], x), xrange(len(perm)))) # old idx -> new idx
+        perm_table = dict([(perm[x], x) for x in range(len(perm))]) # old idx -> new idx
         for k in self._items_lookup: self._items_lookup[k] = perm_table[self._items_lookup[k]]
-        self.items = map(lambda x: self.items[x], perm)
+        self.items = [self.items[x] for x in perm]
 
         self._sort_prevcol = col
         #self.DeleteAllItems()
@@ -1136,7 +1140,7 @@ class MultiPrepDialog(wx.Dialog):
         self.cmbGroup.Clear()
         if self.cm is None: return
 
-        for i in xrange(len(self.cm.groups)): self.cmbGroup.Append("%2d"%(i+1))
+        for i in range(len(self.cm.groups)): self.cmbGroup.Append("%2d"%(i+1))
         self.cmbGroup.Select(0)
         self.cmbGroup_select(None)
         self.txtWorkdir.SetValue(time.strftime("merge_%y%m%d-%H%M%S"))
@@ -1150,7 +1154,7 @@ class MultiPrepDialog(wx.Dialog):
         def_idx = symms.index(max(symms, key=lambda x:x[2]))
 
         if len(symms) > 1 and symms[def_idx][0].group() == sgtbx.space_group_info("P1").group():
-            tmp = symms.index(max(filter(lambda x: x!=symms[def_idx], symms), key=lambda x:x[2]))
+            tmp = symms.index(max([x for x in symms if x!=symms[def_idx]], key=lambda x:x[2]))
             if symms[tmp][2] > 0: def_idx = tmp
 
         for i, (pg, cell, freq) in enumerate(symms):
@@ -1230,7 +1234,7 @@ class ControlPanel(wx.Panel):
         vbox.Add(hbox1)
 
         self.lblDS = wx.StaticText(self, wx.ID_ANY, "?? datasets collected, ?? datasets processed")
-        vbox.Add(self.lblDS, flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
+        vbox.Add(self.lblDS, flag=wx.LEFT, border=5)
 
         hbox2 = wx.BoxSizer(wx.HORIZONTAL)
         hbox2.Add(wx.StaticText(self, wx.ID_ANY, "Filter: "), flag=wx.LEFT|wx.ALIGN_CENTER_VERTICAL, border=5)
@@ -1270,7 +1274,7 @@ class ControlPanel(wx.Panel):
         n_giveup = 0
 
         dumpdata = {}
-        for i in xrange(lc.GetItemCount()):
+        for i in range(lc.GetItemCount()):
             key = self.listctrl.key_at(i)
             if key not in job_statuses: continue
             status, (cmpl, sg, resn) = job_statuses.get(key)
@@ -1349,19 +1353,18 @@ class ControlPanel(wx.Panel):
     # listctrl_item_selected()
 
     def btnCheckAll_click(self, ev):
-        for i in xrange(self.listctrl.GetItemCount()):
+        for i in range(self.listctrl.GetItemCount()):
             if self.listctrl.GetItem(i).GetImage() == 0: self.listctrl.SetItemImage(i, 1)
     # btnCheckAll_click()
 
     def btnUncheckAll_click(self, ev):
-        for i in xrange(self.listctrl.GetItemCount()):
+        for i in range(self.listctrl.GetItemCount()):
             if self.listctrl.GetItem(i).GetImage() == 1: self.listctrl.SetItemImage(i, 0)
     # btnUncheckAll_click()
 
     def btnMultiMerge_click(self, ev):
-        keys = map(lambda i: self.listctrl.key_at(i),
-                   filter(lambda i: self.listctrl.GetItem(i).GetImage() == 1, xrange(self.listctrl.GetItemCount())))
-        keys = filter(lambda k: bssjobs.get_process_status(k)[0]=="finished", keys)
+        keys = [self.listctrl.key_at(i) for i in [i for i in range(self.listctrl.GetItemCount()) if self.listctrl.GetItem(i).GetImage() == 1]]
+        keys = [k for k in keys if bssjobs.get_process_status(k)[0]=="finished"]
         mylog.info("%d finished jobs selected for merging" % len(keys))
 
         if not bssjobs.cell_graph.is_all_included(keys):
@@ -1369,7 +1372,7 @@ class ControlPanel(wx.Panel):
             try: wx.SafeYield()
             except: pass
             while not bssjobs.cell_graph.is_all_included(keys):
-                print "waiting.."
+                print("waiting..")
                 time.sleep(1)
             busyinfo = None
 
@@ -1403,10 +1406,10 @@ class ControlPanel(wx.Panel):
                               nproc=nproc, prep_dials_files=prep_dials_files, into_workdir=into_workdir)
         pm.write_merging_scripts(workdir, config.params.batch.sge_pe_name, prep_dials_files)
 
-        print "\nFrom here, Do It Yourself!!\n"
-        print "cd", workdir
-        print "..then edit and run merge_blend.sh and/or merge_ccc.sh"
-        print
+        print("\nFrom here, Do It Yourself!!\n")
+        print("cd", workdir)
+        print("..then edit and run merge_blend.sh and/or merge_ccc.sh")
+        print()
 
         wx.MessageDialog(None, "Now ready. From here, please use command-line. Look at your terminal..\n" + msg,
                          "Ready for merging", style=wx.OK).ShowModal()
@@ -1565,10 +1568,10 @@ class ResultLeftPanel(wx.Panel):
             log_lines = open(decilog).readlines()[2:-1]
             
         ISa = "%.2f"%result["ISa"] if "ISa" in result else "n/a"
-        cell_str = ", ".join(map(lambda x: "%.2f"%x,result["cell"])) if "cell" in result else "?"
+        cell_str = ", ".join(["%.2f"%x for x in result["cell"]]) if "cell" in result else "?"
         sg = result.get("sg", "?")
         symm_warning = ""
-        if log_lines and any(map(lambda x: "WARNING: symmetry in scaling is different from Pointless" in x, log_lines)):
+        if log_lines and any(["WARNING: symmetry in scaling is different from Pointless" in x for x in log_lines]):
             symm_warning = " (WARNING: see log)"
         
         html_str += """\
@@ -1593,9 +1596,9 @@ class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be Scro
         vbox = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
         self.figure = matplotlib.figure.Figure(tight_layout=True)
-        self.subplots = map(lambda i: self.figure.add_subplot(nplots,1,i+1), xrange(nplots))
-        self.p = map(lambda x:[], xrange(nplots))
-        self.lim = map(lambda i: dict(x=[], y=[]), xrange(nplots))
+        self.subplots = [self.figure.add_subplot(nplots,1,i+1) for i in range(nplots)]
+        self.p = [[] for x in range(nplots)]
+        self.lim = [dict(x=[], y=[]) for i in range(nplots)]
         
         self.canvas = matplotlib.backends.backend_wxagg.FigureCanvasWxAgg(self, wx.ID_ANY, self.figure)
         vbox.Add(self.canvas, 1, flag=wx.ALL|wx.EXPAND)
@@ -1615,7 +1618,7 @@ class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be Scro
     """
 
     def clear_plot(self):
-        for i in xrange(len(self.p)):
+        for i in range(len(self.p)):
             for p in self.p[i]:
                 for pp in p: pp.remove()
             self.p[i] = []
@@ -1636,7 +1639,7 @@ class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be Scro
         self.subplots[n].set_ylim(self.lim[n]["y"][0]-0.2*yrange/2, self.lim[n]["y"][0]+2.2*yrange/2) # 1-factor, 1+factor
 
         if show_legend:
-            self.subplots[n].legend(loc='best').draggable(True)
+            self.subplots[n].legend(loc='best').set_draggable(True)
     # plot()
 
     def refresh(self):
@@ -1704,10 +1707,10 @@ class ResultRightPanel(wx.Panel):
             sx = idxreflp.SpotXds(spot_xds)
             spots = sx.indexed_and_unindexed_by_frame()
             if spots:
-                spots_f = map(lambda x: x[0], spots)
-                spots_n = map(lambda x: x[1][0]+x[1][1], spots)
+                spots_f = [x[0] for x in spots]
+                spots_n = [x[1][0]+x[1][1] for x in spots]
                 self.plots.add_plot(0, spots_f, spots_n, label="Spots", color="blue")
-                spots_n = map(lambda x: x[1][0], spots)
+                spots_n = [x[1][0] for x in spots]
                 if sum(spots_n) > 0:
                     self.plots.add_plot(0, spots_f, spots_n, label="Indexed", color="green")
 
@@ -1719,19 +1722,19 @@ class ResultRightPanel(wx.Panel):
                 lp = integratelp.IntegrateLp(integrate_lp)
 
                 # SgimaR
-                self.plots.add_plot(1, map(int,lp.frames), map(float,lp.sigmars), label=("SigmaR"))
+                self.plots.add_plot(1, list(map(int,lp.frames)), list(map(float,lp.sigmars)), label=("SigmaR"))
 
                 # Rotations
                 xs, ys = [], [[], [], []]
-                for frames, v in lp.blockparams.items():
-                    rots = map(float, v.get("rotation", ["nan"]*3))
+                for frames, v in list(lp.blockparams.items()):
+                    rots = list(map(float, v.get("rotation", ["nan"]*3)))
                     assert len(rots) == 3
                     if len(frames) > 1:
                         xs.extend([frames[0], frames[-1]])
-                        for i in xrange(3): ys[i].extend([rots[i],rots[i]])
+                        for i in range(3): ys[i].extend([rots[i],rots[i]])
                     else:
                         xs.append(frames[0])
-                        for i in xrange(3): ys[i].append(rots[i])
+                        for i in range(3): ys[i].append(rots[i])
 
                 for i, y in enumerate(ys):
                     self.plots.add_plot(2, xs, y, label=("rotx","roty","rotz")[i], color=("red", "green", "blue")[i])
@@ -1740,8 +1743,8 @@ class ResultRightPanel(wx.Panel):
                 lp = xdsstat.XdsstatLp(xdsstat_lp)
                 if lp.by_frame:
                     # R-meas
-                    self.plots.add_plot(3, map(int,lp.by_frame["frame"]),
-                                                map(float,lp.by_frame["rmeas"]), label=("R-meas"))
+                    self.plots.add_plot(3, list(map(int,lp.by_frame["frame"])),
+                                                list(map(float,lp.by_frame["rmeas"])), label=("R-meas"))
 
         elif config.params.engine == "dials":
             pass
@@ -1843,7 +1846,7 @@ def run_from_args(argv):
     global mainFrame
     global bssjobs
 
-    print """
+    print("""
 KAMO (Katappashikara Atsumeta data wo Manual yorimoiikanjide Okaeshisuru) system is an automated data processing system for SPring-8 beamlines.
 This is an alpha-version. If you found something wrong, please let staff know! We would appreciate your feedback.
 
@@ -1866,10 +1869,10 @@ This is an alpha-version. If you found something wrong, please let staff know! W
 ** This program must be started in the top directory of your datasets! **
    (Only processes the data in the subdirectories)
 
-"""
+""")
 
     if "-h" in argv or "--help" in argv:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(gui_phil_str).show(prefix="  ", attributes_level=1)
         return
 
@@ -1879,7 +1882,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     args = cmdline.remaining_args
 
     if config.params.bl is None:
-        print "ERROR: bl= is needed."
+        print("ERROR: bl= is needed.")
         return
 
     app = wx.App()
@@ -1957,7 +1960,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     savephilpath = os.path.join(config.params.workdir, time.strftime("gui_params_%y%m%d-%H%M%S.txt"))
     with open(savephilpath, "w") as ofs:
         ofs.write("# Command-line args:\n")
-        ofs.write("# kamo %s\n\n" % " ".join(map(lambda x: pipes.quote(x), argv)))
+        ofs.write("# kamo %s\n\n" % " ".join([pipes.quote(x) for x in argv]))
         libtbx.phil.parse(gui_phil_str).format(config.params).show(out=ofs,
                                                                    prefix="")
     mylog.info("GUI parameters were saved as %s" % savephilpath)
@@ -1965,7 +1968,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     if config.params.batch.engine == "sge":
         try:
             batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
-        except batchjob.SgeError, e:
+        except batchjob.SgeError as e:
             mylog.error(e.message)
             mylog.error("SGE not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")
             return

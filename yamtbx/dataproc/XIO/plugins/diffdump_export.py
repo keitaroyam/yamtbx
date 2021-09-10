@@ -3,6 +3,7 @@
 """ XIO plugin for the export parameters to mimic diffdump of the
 the DiffractionImage package.
 """
+from __future__ import unicode_literals
 
 __version__ = "0.1.1"
 __author__ = "Pierre Legrand (pierre.legrand@synchrotron-soleil.fr)"

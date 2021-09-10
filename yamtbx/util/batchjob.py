@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os, subprocess, re, threading, time, stat
 import shlex
@@ -39,7 +41,7 @@ echo finished at `date "+%Y-%m-%d %H:%M:%S"`
 class SgeError(Exception):
     pass
 
-class JobManager: # interface
+class JobManager(object): # interface
     def __init__(self): pass
     def submit(self, j): pass
     def update_stat(self, j): pass # update j's state to RUNNING/FINISHED
@@ -48,7 +50,7 @@ class JobManager: # interface
         acc = 0
         while True:
             for job in jobs: self.update_state(job)
-            if all(map(lambda job: job.state==STATE_FINISHED, jobs)):
+            if all([job.state==STATE_FINISHED for job in jobs]):
                 return True
             
             time.sleep(interval)
@@ -66,6 +68,7 @@ class LocalThread(threading.Thread):
         self.p_list = [] # running process list [(Job, subprocess.Popen), ..]
 
         threading.Thread.__init__(self)
+        self.setDaemon(True)
     # __init__()
 
     def start_job(self, j):
@@ -84,7 +87,7 @@ class LocalThread(threading.Thread):
                     j.state = STATE_FINISHED
 
             # Keep unfinished jobs
-            self.p_list = filter(lambda p: p[1].poll() is None, self.p_list)
+            self.p_list = [p for p in self.p_list if p[1].poll() is None]
 
             # Register new jobs
             for i in range(self.num_jobs - len(self.p_list)):
@@ -181,7 +184,7 @@ class SGE(JobManager):
             raise SgeError("cannot read job-id from qsub result. please contact author. stdout is:\n" % stdout)
         
         self.job_id[j] = job_id
-        print "Job %s on %s is started. id=%s"%(j.script_name, j.wdir, job_id)
+        print("Job %s on %s is started. id=%s"%(j.script_name, j.wdir, job_id))
 
     # submit()
 
@@ -208,14 +211,14 @@ class SGE(JobManager):
         stdout = p.stdout.readlines()
 
         if p.returncode != 0:
-            print "job %s finished (qstat returned %s)." % (job_id, p.returncode)
+            print("job %s finished (qstat returned %s)." % (job_id, p.returncode))
             return None
         #raise SgeError("qstat failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
         #                                                                     stdout))
 
         status = {}
 
-        for l in filter(lambda s:":" in s, stdout):
+        for l in [s for s in stdout if ":" in s]:
             splitted = l.split(":")
             key = splitted[0].strip()
             val = "".join(splitted[1:]).strip()
@@ -225,7 +228,7 @@ class SGE(JobManager):
     # qstat()
 
     def stop_all(self):
-        for i in self.job_id.values():
+        for i in list(self.job_id.values()):
             self.qdel(i)
     # stop_all()
     
@@ -237,7 +240,7 @@ class SGE(JobManager):
         stdout = p.stdout.readlines()
 
         if p.returncode != 0:
-            print "qdel %s failed."%job_id 
+            print("qdel %s failed."%job_id) 
             return None
         #raise SgeError("qstat failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
         #                                                                     stdout))
@@ -247,7 +250,7 @@ class SGE(JobManager):
 # class SGE
 
 
-class Job:
+class Job(object):
     ##
     # This class will be overridden
     #
@@ -272,7 +275,7 @@ class Job:
                     sh.whitespace=":"
                     sh.whitespace_split = True
                     env += 'export %s='%k
-                    env += ":".join(map(lambda x: '"%s"'%x, filter(lambda x: os.path.isdir(x), sh)))
+                    env += ":".join(['"%s"'%x for x in [x for x in sh if os.path.isdir(x)]])
                     env += "\n"
                 else:
                     if re_allowed_env.match(k):
@@ -284,7 +287,7 @@ class Job:
         
         open(os.path.join(self.wdir, self.script_name), "w").write(script)
         os.chmod(os.path.join(self.wdir, self.script_name) , stat.S_IXUSR + stat.S_IWUSR + stat.S_IRUSR + stat.S_IRGRP + stat.S_IROTH)
-        print "job_file=", os.path.join(self.wdir, self.script_name)
+        print("job_file=", os.path.join(self.wdir, self.script_name))
     # write_script()
 
 # class Job

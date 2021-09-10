@@ -4,13 +4,15 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx import util
 from yamtbx.util import batchjob
 import os
 import re
 import shutil
 from libtbx import easy_mp
-import cPickle as pickle
+import pickle as pickle
 
 aimless_comm = "aimless"
 def run_aimless(mtzin, wdir, anomalous=False, d_min=None, prefix=None, add_stdin=None):
@@ -69,27 +71,27 @@ def read_summary(login):
     ret = {}
     for l in snip_summary(login).splitlines():
         if l.startswith("Low resolution limit"):
-            ret["lowres"] = map(float, read_3_2(l))
+            ret["lowres"] = list(map(float, read_3_2(l)))
         elif l.startswith("High resolution limit"):
-            ret["highres"] = map(float, read_3_2(l))
+            ret["highres"] = list(map(float, read_3_2(l)))
         elif l.startswith("Rmerge  (all I+ and I-)"):
-            ret["r_merge"] = map(float, read_3_3(l))
+            ret["r_merge"] = list(map(float, read_3_3(l)))
         elif l.startswith("Rmeas (all I+ & I-)"):
-            ret["r_meas"] = map(float, read_3_3(l))
+            ret["r_meas"] = list(map(float, read_3_3(l)))
         elif l.startswith("Rpim (all I+ & I-)"):
-            ret["r_pim"] = map(float, read_3_3(l))
+            ret["r_pim"] = list(map(float, read_3_3(l)))
         elif l.startswith("Total number unique"):
-            ret["nuniq"] = map(float, read_3(l))
+            ret["nuniq"] = list(map(float, read_3(l)))
         elif l.startswith("Mean((I)/sd(I))"):
-            ret["i_over_sigma"] = map(float, read_3_1(l))
+            ret["i_over_sigma"] = list(map(float, read_3_1(l)))
         elif l.startswith("Mn(I) half-set correlation CC(1/2)"):
-            ret["cc_half"] = map(float, read_3_3(l))
+            ret["cc_half"] = list(map(float, read_3_3(l)))
         elif l.startswith("Completeness"):
-            ret["cmpl"] = map(float, read_3_1(l))
+            ret["cmpl"] = list(map(float, read_3_1(l)))
         elif l.startswith("Multiplicity"):
-            ret["redundancy"] = map(float, read_3_1(l))
+            ret["redundancy"] = list(map(float, read_3_1(l)))
         elif l.startswith("DelAnom correlation between half-sets"):
-            ret["cc_ano"] = map(float, read_3_3(l))
+            ret["cc_ano"] = list(map(float, read_3_3(l)))
 
     return ret
 # read_summary()
@@ -97,7 +99,7 @@ def read_summary(login):
 
 
 def _calc_cchalf_by_removing_worker_1(tmpdir, mtzin, batch_info, inpfiles, anomalous_flag, d_min, iex, nproc=None):
-    print "Doing", iex
+    print("Doing", iex)
     if not os.path.exists(tmpdir): os.mkdir(tmpdir)
 
     inp_str = ""
@@ -117,7 +119,7 @@ def _calc_cchalf_by_removing_worker_1(tmpdir, mtzin, batch_info, inpfiles, anoma
 
 def _calc_cchalf_by_removing_worker_2(wdir, tmpdir, stat_bin, iex):
     assert stat_bin in ("total", "outer")
-    print "Doing", iex
+    print("Doing", iex)
 
     aimless_log = os.path.join(tmpdir, "aimless.log")
 
@@ -147,7 +149,7 @@ def calc_cchalf_by_removing(wdir, mtzin, batch_info, inpfiles, anomalous_flag, d
 
     cchalf_list = [] # (i_ex, CC1/2, Nuniq)
 
-    tmpdirs = map(lambda iex: os.path.join(wdir, "work.%.3d"%iex), xrange(len(inpfiles)))
+    tmpdirs = [os.path.join(wdir, "work.%.3d"%iex) for iex in range(len(inpfiles))]
 
     # Run Aimless 
     if batchjobs is not None:
@@ -183,18 +185,17 @@ _calc_cchalf_by_removing_worker_1(**params)
                          processes=nproc)
 
     # Finish runs
-    cchalf_list = map(lambda x: _calc_cchalf_by_removing_worker_2(wdir, x[1], stat_bin, x[0]),
-                      enumerate(tmpdirs))
+    cchalf_list = [_calc_cchalf_by_removing_worker_2(wdir, x[1], stat_bin, x[0]) for x in enumerate(tmpdirs)]
 
     for iex, cchalf_exi, nuniq in cchalf_list:
         datout.write("%3d %s %.4f %d\n" % (iex, inpfiles[iex], cchalf_exi, nuniq))
 
 
     cchalf_list.sort(key=lambda x: -x[1])
-    print
-    print "# Sorted table"
+    print()
+    print("# Sorted table")
     for idx, cch, nuniq in cchalf_list:
-        print "%3d %-.4f %4d %s" % (idx, cch, nuniq, inpfiles[idx])
+        print("%3d %-.4f %4d %s" % (idx, cch, nuniq, inpfiles[idx]))
 
     return cchalf_list
 # calc_delta_cchalf()

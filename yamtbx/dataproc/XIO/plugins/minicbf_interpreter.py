@@ -2,6 +2,8 @@
 
 """ XIO plugin for the minicbf format of images (DECTRIS-PILATUS).
 """
+from __future__ import division
+from __future__ import unicode_literals
 
 __version__ = "0.2.1"
 __author__ = "Pierre Legrand (pierre.legrand@synchrotron-soleil.fr)"
@@ -54,7 +56,7 @@ BEAMX = lambda x, y: float(x[x.find("(")+1:x.find(")")].split(",")[0])\
 BEAMY = lambda x, y: float(x[x.find("(")+1:x.find(")")].split(",")[1])\
                                                                *FLOAT2(y)
 
-class Interpreter:
+class Interpreter(object):
     "Dummy class, container for standard Dict and Function."
     HTD = {
     # The adsc Header Translator Dictionary.

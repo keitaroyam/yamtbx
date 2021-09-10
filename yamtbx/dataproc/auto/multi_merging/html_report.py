@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import unicode_literals
 from yamtbx.dataproc.auto.html_report import amcharts_root
 from yamtbx import util
 from yamtbx.util.xtal import CellConstraints
@@ -18,7 +19,7 @@ import time
 import os
 import shutil
 
-class HtmlReportMulti:
+class HtmlReportMulti(object):
     def __init__(self, root):
         self.root = root
 
@@ -231,7 +232,7 @@ created on %(cdate)s
             cell = cells[xac]
             table_str += "<tr>\n"
             table_str += " <td>%.4d</td><td>%s</td>" % (idx+1, xac) # idx, file
-            table_str += "".join(map(lambda x: "<td>%.2f</td>"%x, cell))
+            table_str += "".join(["<td>%.2f</td>"%x for x in cell])
             table_str += "\n</tr>\n"
 
         # Hist
@@ -258,11 +259,11 @@ created on %(cdate)s
         for idx, (name, show) in enumerate(zip(names, show_flags)):
             if idx==3: hist_str += "</tr>" + label1 + "<tr>"
             if not show: continue
-            vals = flex.double(map(lambda x: x[idx], cells.values()))
+            vals = flex.double([x[idx] for x in list(cells.values())])
             if len(vals) == 0: continue
             nslots = max(30, int((max(vals) - min(vals)) / 0.5))
             hist = flex.histogram(vals, n_slots=nslots)
-            x_vals = map(lambda i: hist.data_min() + hist.slot_width() * (i+.5), xrange(len(hist.slots())))
+            x_vals = [hist.data_min() + hist.slot_width() * (i+.5) for i in range(len(hist.slots()))]
             y_vals = hist.slots()
             hist_str += """
 <td>
@@ -301,7 +302,7 @@ created on %(cdate)s
 </script>
 </td>
 """ % dict(idx=idx, name=name,
-           data=",".join(map(lambda x: '{"xval":%.2f,"yval":%d}'%x, zip(x_vals,y_vals)))
+           data=",".join(['{"xval":%.2f,"yval":%d}'%x for x in zip(x_vals,y_vals)])
            )
 
         hist_str += "</tr>"
@@ -341,9 +342,9 @@ created on %(cdate)s
         data = ""
         for l in open(clsdat):
             if header is None and not l.startswith("#"):
-                header = "".join(map(lambda x: "<th>%s</th>" % x, l.split()))
+                header = "".join(["<th>%s</th>" % x for x in l.split()])
             elif header is not None:
-                data += "<tr>%s</tr>" % "".join(map(lambda x: "<td>%s</td>" % x, l.split()))
+                data += "<tr>%s</tr>" % "".join(["<td>%s</td>" % x for x in l.split()])
 
         treejson = os.path.join(self.root, method, "dendro.json")
         treedata = open(treejson).read() if os.path.isfile(treejson) else ""
@@ -360,7 +361,7 @@ created on %(cdate)s
 
             IDs_set.update(IDs)
 
-        xac_files = self.cells.keys()
+        xac_files = list(self.cells.keys())
         for idx in IDs_set:
             file_descr.append('%s:"%s"' % (idx, xac_files[idx-1]))
 
@@ -467,7 +468,7 @@ function mouseouted(d) {
 %(data)s
 </table>
 </div>
-""" % dict(treedata=treedata, merged_clusters=",".join(map(lambda x:'"%s"'%x[0], clusters)),
+""" % dict(treedata=treedata, merged_clusters=",".join(['"%s"'%x[0] for x in clusters]),
            file_descr=",".join(file_descr), cluster_descr=",".join(cluster_descr),
            header=header, data=data, method=method)
         self.write_html()
@@ -478,11 +479,10 @@ function mouseouted(d) {
         cc_data = [(i,j,cc,nref),...]
         """
 
-        ccvalues = ",".join(map(lambda x: "%.4f"%x[2], filter(lambda y: y[2]==y[2], cc_data)))
-        ccdata = ",".join(map(lambda x: "{i:%d,j:%d,cc:%.4f,n:%d}"%(x[0]+1,x[1]+1,x[2],x[3]),
-                              cc_data))
+        ccvalues = ",".join(["%.4f"%x[2] for x in [y for y in cc_data if y[2]==y[2]]])
+        ccdata = ",".join(["{i:%d,j:%d,cc:%.4f,n:%d}"%(x[0]+1,x[1]+1,x[2],x[3]) for x in cc_data])
         ccdata = ccdata.replace("nan", "NaN")
-        ncols = max(map(lambda x: max(x[0],x[1]), cc_data)) + 1
+        ncols = max([max(x[0],x[1]) for x in cc_data]) + 1
 
         # Histogram
         self._html_clustering_details = """
@@ -769,9 +769,9 @@ svg.append("g")
 
         tmptmp = tmps.replace("nan",'"nan"').split()
         tmptmp[0] = '"%s"' % tmptmp[0]
-        self.html_merge_plot_data.append("{%s}"%",".join(map(lambda x: '"%s":%s'%tuple(x), zip(axis_opts, tmptmp))))
+        self.html_merge_plot_data.append("{%s}"%",".join(['"%s":%s'%tuple(x) for x in zip(axis_opts, tmptmp)]))
 
-        tmps = "".join(map(lambda x: "<td>%s</td>"%x, tmps.split()))
+        tmps = "".join(["<td>%s</td>"%x for x in tmps.split()])
         idno = len(self.html_merge_results)
         if self.params.program == "xscale":
             table_snip = xscalelp.snip_symm_and_cell(stats["lp"]) + "\n"
@@ -780,7 +780,7 @@ svg.append("g")
                 table_snip += "\nAnisotropy:\n"
                 if stats["aniso"]["has_anisotropy"]:
                     if stats["aniso"]["aniso_cutoffs"]:
-                        lab_maxlen = max(len("direction"), max(map(lambda x: len(x[1]), stats["aniso"]["aniso_cutoffs"])))
+                        lab_maxlen = max(len("direction"), max([len(x[1]) for x in stats["aniso"]["aniso_cutoffs"]]))
                         table_snip += ("%"+str(lab_maxlen)+"s B_eigen Resol(CC1/2=0.5)\n")%"direction" # XXX if not 0.5?
                         for _, lab, reso, eig in stats["aniso"]["aniso_cutoffs"]:
                             table_snip += ("%"+str(lab_maxlen)+"s %7.2f %.2f\n") % (lab, eig, reso)
@@ -807,9 +807,9 @@ svg.append("g")
 
         # merging table
         ofs.write(self._make_merge_table_framework()%"".join(self.html_merge_results))
-        tmps = ";".join(map(lambda x:"show_or_hide('merge-td-mark-%d', 'merge-td-%d', 0)"%(x,x), xrange(len(self.html_merge_results))))
+        tmps = ";".join(["show_or_hide('merge-td-mark-%d', 'merge-td-%d', 0)"%(x,x) for x in range(len(self.html_merge_results))])
         ofs.write("""<a href="#" onClick="%s;return false;">Expand all</a> / """ % tmps)
-        tmps = ";".join(map(lambda x:"show_or_hide('merge-td-mark-%d', 'merge-td-%d', 1)"%(x,x), xrange(len(self.html_merge_results))))
+        tmps = ";".join(["show_or_hide('merge-td-mark-%d', 'merge-td-%d', 1)"%(x,x) for x in range(len(self.html_merge_results))])
         ofs.write("""<a href="#" onClick="%s;return false;">Collapse all</a>\n""" % tmps)
 
         # merging plot

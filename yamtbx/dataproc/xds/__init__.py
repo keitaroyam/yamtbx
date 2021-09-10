@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import re, os, glob, shutil, random, string
 from yamtbx import util
 
@@ -60,7 +62,7 @@ def make_backup(backup_needed, bk_prefix=None, wdir=None, quiet=False):
 
     if bk_prefix is None:
         while True:
-            bk_prefix = "".join(random.choice(string.digits + string.lowercase) for i in xrange(10)) + "_"
+            bk_prefix = "".join(random.choice(string.digits + string.ascii_lowercase) for i in range(10)) + "_"
             if len(glob.glob(os.path.join(wdir, bk_prefix + "*"))) == 0:
                 break
 
@@ -68,7 +70,7 @@ def make_backup(backup_needed, bk_prefix=None, wdir=None, quiet=False):
         if os.path.isfile(os.path.join(wdir, f)):
             shutil.copy2(os.path.join(wdir, f), 
                          os.path.join(wdir, bk_prefix+f))
-            if not quiet: print "Backup: %s => %s" % (f, bk_prefix+f)
+            if not quiet: print("Backup: %s => %s" % (f, bk_prefix+f))
 
     return bk_prefix
 # make_backup()
@@ -77,8 +79,7 @@ def remove_backups(backup_needed, bk_prefix, wdir=None):
     if wdir is None:
         wdir = os.getcwd()
 
-    map(lambda x: os.remove(x),
-        glob.glob(os.path.join(wdir, bk_prefix+"*")))
+    list([os.remove(x) for x in glob.glob(os.path.join(wdir, bk_prefix+"*"))])
 # remove_backups()
 
 def revert_files(backup_needed, bk_prefix, wdir=None, quiet=False):
@@ -89,17 +90,17 @@ def revert_files(backup_needed, bk_prefix, wdir=None, quiet=False):
         if os.path.isfile(os.path.join(wdir, bk_prefix+f)):
             os.rename(os.path.join(wdir, bk_prefix+f),
                       os.path.join(wdir, f))
-            if not quiet: print "Reverted: %s => %s" % (bk_prefix+f, f)
+            if not quiet: print("Reverted: %s => %s" % (bk_prefix+f, f))
 # revert_files()
 
 def optimal_delphi_by_nproc(xdsinp=None, osc_width=None, nframes=None, nproc=None, min_delphi=5):
     if xdsinp is not None:
         kwds = dict(get_xdsinp_keyword(xdsinp))
         osc_width = float(kwds["OSCILLATION_RANGE"])
-        data_range = map(int, kwds["DATA_RANGE"].split())
+        data_range = list(map(int, kwds["DATA_RANGE"].split()))
         nframes = data_range[1] - data_range[0] + 1
     if None in (osc_width, nframes):
-        print "osc_width and nframes not specified."
+        print("osc_width and nframes not specified.")
         return None
 
     if nproc is None:

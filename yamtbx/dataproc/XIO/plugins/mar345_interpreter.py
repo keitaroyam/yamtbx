@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __version__ = "0.3.3"
 __author__ = "Pierre Legrand (pierre.legrand@synchrotron-soleil.fr)"
@@ -32,9 +35,9 @@ def date_seconds(time_str):
     "from tupple return seconds"
     try:
         return time.mktime(time.strptime(time_str))
-    except ValueError, err:
-        print "Warning:", err
-        print "... Using time.time() instead."
+    except ValueError as err:
+        print("Warning:", err)
+        print("... Using time.time() instead.")
         return time.time()
 
 # Contains (parameterName,binaryEncodedType [,defaultsValue])
@@ -150,7 +153,7 @@ asciiHeaderStructure = {
 'histend':('HISTOGRAM', lambda x: int(x[x.index('END')+1])),
 }
 
-class Interpreter:
+class Interpreter(object):
 
     HTD = {
     # The mar345 Header Translator Dictionary.
@@ -216,7 +219,7 @@ class Interpreter:
         
         _dic = {}
         _lis = rawHead[192:].split("END OF HEADER")[0].split("\n")[:-1]
-        for a in [a for a in map(lambda x: x.split(), _lis) if a]:
+        for a in [a for a in [x.split() for x in _lis] if a]:
             if a[0] not in _dic: _dic.update({a[0]:a[1:]})
             else: _dic[a[0]].extend(a[1:])
         
@@ -227,7 +230,7 @@ class Interpreter:
                     RawHeadDict[k] = func(_dic[keyw])
                 except ValueError:
                     if VERBOSE:
-                        print "WARNING: Can't interpret header key: %s" % k
+                        print("WARNING: Can't interpret header key: %s" % k)
         
         # Add other needed information to RawHeadDict
         RawHeadDict.update({'MESSAGE':'','HEADER_BYTES':4096,

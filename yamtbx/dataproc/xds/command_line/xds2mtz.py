@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 """
 xds2mtz.py : convert XDS_ASCII.HKL or xscale output to mtz file. MTZ file will include all possible columns user would need.
@@ -37,7 +39,7 @@ def run_xtriage_in_module_if_possible(args,  wdir):
             os.chdir(wdir)
             xtriage.run(args, command_name="mmtbx.xtriage")
         except:
-            print traceback.format_exc()
+            print(traceback.format_exc())
         finally:
             os.chdir(cwd_org)
     except ImportError:
@@ -51,7 +53,7 @@ def unique(mtzin, mtzout, sg, wdir, logout):
     #
     m = mtzutil.MtzFile(os.path.join(wdir,mtzin))
     cell = m.get_cell_str()
-    sg_org = m.get_spacegroup()[1]
+    sg_org = m.get_spacegroup()[1].decode()
     resol = min(m.get_resolution())
 
     call(cmd="unique",
@@ -258,7 +260,7 @@ end
 
     ##
     # Generate all unique reflections
-    print "Genrating all unique reflections"
+    print("Genrating all unique reflections")
     unique(mtzin="CCP4_FI.mtz", mtzout=os.path.basename(mtzout), sg=sg, wdir=wdir, logout=logout)
 
     # remove files
@@ -282,7 +284,7 @@ end
 def add_multi(xds_file, workmtz, dmin=None, dmax=None, force_anomalous=False):
     from yamtbx.dataproc.xds import xds_ascii
 
-    print "Adding multiplicity for each reflection"
+    print("Adding multiplicity for each reflection")
 
     xac = xds_ascii.XDS_ASCII(xds_file)
     iobs = xac.i_obs(anomalous_flag=True if force_anomalous else None)
@@ -310,14 +312,14 @@ def copy_test_flag(workmtz, flag_source, flag_name=None, flag_value=None, log_ou
 
     f = iotbx.file_reader.any_file(flag_source, force_type="hkl", raise_sorry_if_errors=True)
     flag_array, flag_name = copy_free_R_flag.get_flag_array(f.file_server.miller_arrays, flag_name, log_out=log_out)
-    print >>log_out, "Copying test flag from"
+    print("Copying test flag from", file=log_out)
     flag_array.show_summary(log_out, " ")
 
     if flag_value is None:
         flag_scores = copy_free_R_flag.get_r_free_flags_scores(miller_arrays=[flag_array],
                                                                test_flag_value=flag_value)
         flag_value = flag_scores.test_flag_values[0]
-        print >>log_out, " Guessing flag number:", flag_value
+        print(" Guessing flag number:", flag_value, file=log_out)
 
     copy_free_R_flag.copy_flag_to_mtz(flag_array, flag_name, flag_value,
                                       workmtz, workmtz, log_out)
@@ -325,22 +327,22 @@ def copy_test_flag(workmtz, flag_source, flag_name=None, flag_value=None, log_ou
 
 def add_test_flag(workmtz, preferred_fraction=0.05, max_fraction=0.1, max_free=2000,
                   ccp4_style=True, use_lattice_symmetry=True, log_out=sys.stdout):
-    print >>log_out, "Adding test flag to %s" % workmtz
+    print("Adding test flag to %s" % workmtz, file=log_out)
     mtz_object = iotbx.mtz.object(workmtz)
 
     nref = mtz_object.n_reflections()
     fraction = preferred_fraction
-    print >>log_out, " preferred fraction= %.4f" % preferred_fraction
-    print >>log_out, " total number of reflections= %d" % nref
+    print(" preferred fraction= %.4f" % preferred_fraction, file=log_out)
+    print(" total number of reflections= %d" % nref, file=log_out)
 
     if preferred_fraction*nref < 500:
         fraction = min(500./nref, max_fraction)
-        print >>log_out, "As test reflections are too few (%d < 500), fraction changed to %.4f" % (preferred_fraction*nref, fraction)
+        print("As test reflections are too few (%d < 500), fraction changed to %.4f" % (preferred_fraction*nref, fraction), file=log_out)
     elif preferred_fraction*nref > max_free:
         fraction = max_free/float(nref)
-        print >>log_out, "As test reflections are too many (%d > 2000), fraction changed to %.4f" % (preferred_fraction*nref, fraction)
+        print("As test reflections are too many (%d > 2000), fraction changed to %.4f" % (preferred_fraction*nref, fraction), file=log_out)
 
-    print >>log_out
+    print(file=log_out)
     create_free_R_flag.run(workmtz, workmtz, fraction, "FreeR_flag",
                            ccp4=ccp4_style, use_lattice_symmetry=use_lattice_symmetry, log_out=log_out)
 # add_test_flag()
@@ -383,21 +385,21 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
     if not os.path.isdir(dir_name):
         os.makedirs(dir_name)
 
-    print "Header information read from", xds_file
+    print("Header information read from", xds_file)
     for k in header:
-        print k, "=", header[k]
-    print
+        print(k, "=", header[k])
+    print()
     
     logout = open(os.path.join(dir_name, "xds2mtz.log"), "w")
-    print >>logout, "xds2mtz.py running in %s" % os.getcwd()
-    print >>logout, "output directory: %s" % dir_name
-    print >>logout, "original file: %s" % xds_file
-    print >>logout, "flag_source: %s" % flag_source
-    print >>logout, "space group: %s (SPACE_GROUP_NUMBER=%s; requested space_group=%s)" % (sginfo, header.get("SPACE_GROUP_NUMBER",""), space_group)
+    print("xds2mtz.py running in %s" % os.getcwd(), file=logout)
+    print("output directory: %s" % dir_name, file=logout)
+    print("original file: %s" % xds_file, file=logout)
+    print("flag_source: %s" % flag_source, file=logout)
+    print("space group: %s (SPACE_GROUP_NUMBER=%s; requested space_group=%s)" % (sginfo, header.get("SPACE_GROUP_NUMBER",""), space_group), file=logout)
     if sginfo_org.group().build_derived_reflection_intensity_group(False) != sginfo.group().build_derived_reflection_intensity_group(False):
-        print >>logout, "  WARNING!! specified space group is incompatible with original file (%s)." % sginfo_org
-    print >>logout, "anomalous: %s (FRIEDEL'S_LAW=%s force_anomalous=%s)" % (anom_flag, header["FRIEDEL'S_LAW"], force_anomalous)
-    print >>logout, ""
+        print("  WARNING!! specified space group is incompatible with original file (%s)." % sginfo_org, file=logout)
+    print("anomalous: %s (FRIEDEL'S_LAW=%s force_anomalous=%s)" % (anom_flag, header["FRIEDEL'S_LAW"], force_anomalous), file=logout)
+    print("", file=logout)
     logout.flush()
 
     ##
@@ -412,7 +414,7 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
                  dmin=dmin, dmax=dmax)
 
     if run_xtriage:
-        print "Running xtriage.."
+        print("Running xtriage..")
         args = [hklout]
         if anom_flag: args.append('input.xray_data.obs_labels="I(+),SIGI(+),I(-),SIGI(-)"')
         run_xtriage_in_module_if_possible(args=args, wdir=dir_name)
@@ -455,7 +457,7 @@ if __name__ == "__main__":
         xds_file = os.path.abspath(args[1])
 
     if not os.path.isfile(xds_file):
-        print "Cannot open", xds_file
+        print("Cannot open", xds_file)
         sys.exit(1)
 
     xds2mtz(xds_file, dir_name=opts.dir,

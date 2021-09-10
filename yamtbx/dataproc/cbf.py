@@ -26,9 +26,9 @@ def load_minicbf_as_numpy(filein, quiet=True): # This can also read XDS special 
     if not quiet:
         print("reading", filein, "as minicbf")
     h = pycbf.cbf_handle_struct()
-    h.read_file(filein, pycbf.MSG_DIGEST)
-    h.require_category("array_data")
-    h.find_column("data")
+    h.read_file(filein.encode("utf-8"), pycbf.MSG_DIGEST)
+    h.require_category(b"array_data")
+    h.find_column(b"data")
     compression, binary_id, elsize, elsigned, elunsigned, elements, minelement, maxelement, bo, ndimfast, ndimmid, ndimslow, padding = h.get_integerarrayparameters_wdims()
     assert elsize == 4 or elsize == 8
     assert elsigned == 1

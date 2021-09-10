@@ -1,4 +1,5 @@
 #!/usr/bin/env yamtbx.python
+from __future__ import print_function
 """
 (c) RIKEN 2015. All rights reserved. 
 Author: Keitaro Yamashita
@@ -69,7 +70,7 @@ def make_plot(lp, log_out):
     ofs.write("#image a b c alpha beta gamma rotx roty rotz dist spot spindle orgx orgy phix phiy phiz$$\n$$\n")
     for images, param in sorted(lp.blockparams.items()):
         for i in images:
-            print >>ofs, "%4d " % i, "  ".join(param.get("cell", ["D"]*6)), " ".join(param.get("rotation", ["D"]*3)), param.get("dist","D"), param.get("spot","D"), param.get("spindle","D"), " ".join(param.get("orig",["D"]*2)), " ".join(param.get("misset",["D"]*3))
+            print("%4d " % i, "  ".join(param.get("cell", ["D"]*6)), " ".join(param.get("rotation", ["D"]*3)), param.get("dist","D"), param.get("spot","D"), param.get("spindle","D"), " ".join(param.get("orig",["D"]*2)), " ".join(param.get("misset",["D"]*3)), file=ofs)
 
     ofs.write("$$\n")
     ofs.write("\n\n\n")
@@ -85,7 +86,7 @@ def make_plot(lp, log_out):
     ofs.write("#image %s %s$$\n$$\n" % (" ".join(["sigmab%d"%x for x in range(1,10)]), " ".join(["sigmar%d"%x for x in range(1,10)])))
     for images, param in sorted(lp.blockparams.items()):
         for i in images:
-            print >>ofs, "%4d " % i, " ".join(param["sigmab9"]), " ".join(param["sigmar9"])
+            print("%4d " % i, " ".join(param["sigmab9"]), " ".join(param["sigmar9"]), file=ofs)
 
     ofs.write("$$\n")
     ofs.write("\n\n\n")
@@ -108,6 +109,6 @@ if __name__ == "__main__":
 
     run(int_lp, log_out)
 
-    print
-    print "Run:"
-    print "loggraph", log_out
+    print()
+    print("Run:")
+    print("loggraph", log_out)

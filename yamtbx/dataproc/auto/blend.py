@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 """
 CLUSTERS.txt
@@ -37,7 +39,7 @@ blend_comm = "blend"
 
 def run_blend(wdir, xds_ascii_files, logout="blend_a.log"):
     ofs_lst = open(os.path.join(wdir, "files.lst"), "w")
-    map(lambda x: ofs_lst.write(os.path.relpath(x, wdir)+"\n"), xds_ascii_files)
+    list(map(lambda x: ofs_lst.write(os.path.relpath(x, wdir)+"\n"), xds_ascii_files))
     ofs_lst.close()
     util.call(blend_comm, "-aDO files.lst", stdin="tolerance 10\n",
               wdir=wdir,
@@ -50,7 +52,7 @@ def run_blend0R(wdir, xds_ascii_files, logout="blend0.log"):
     ofs_files = open(os.path.join(wdir, "NEW_list_of_files.dat"), "w") # Just to avoid error
     for i, xac in enumerate(xds_ascii_files):
         symm = xds_ascii.XDS_ASCII(xac, read_data=False).symm
-        cell = " ".join(map(lambda x: "%7.3f"%x, symm.unit_cell().parameters()))
+        cell = " ".join(["%7.3f"%x for x in symm.unit_cell().parameters()])
         ofs_lst.write("dataset_%.3d %s\n" % (i, xac))
         ofs_cell.write("%4d %s 0 0 0\n" % (i+1, cell))
         ofs_files.write("%s\n"%xac)
@@ -96,17 +98,17 @@ def load_xds_data_only_indices(xac_files, d_min=None):
     miller_sets = {}
     for f in xac_files:
         if xds_ascii.is_xds_ascii(f):
-            print "Loading", f
+            print("Loading", f)
             ms = xds_ascii.XDS_ASCII(f, i_only=True).as_miller_set()
             miller_sets[f] = ms.resolution_filter(d_min=d_min)
         elif integrate_hkl_as_flex.is_integrate_hkl(f):
-            print "Sorry, skipping", f
+            print("Sorry, skipping", f)
         else:
-            print "Skipping unrecognized:", f
+            print("Skipping unrecognized:", f)
     return miller_sets
 # load_xds_data_only_indices()
 
-class BlendClusters:
+class BlendClusters(object):
     def __init__(self, workdir=None, d_min=None, load_results=True):
         self.workdir = workdir
         self.d_min = d_min
@@ -123,7 +125,7 @@ class BlendClusters:
         self.clusters = {}
 
         lookup_table_txt = os.path.join(self.workdir, "xds_lookup_table.txt")
-        self.files = map(lambda l: l.split()[1], open(lookup_table_txt))
+        self.files = [l.split()[1] for l in open(lookup_table_txt)]
         
         clusters_txt = os.path.join(self.workdir, "CLUSTERS.txt")
         ifs = open(clusters_txt)
@@ -135,15 +137,15 @@ class BlendClusters:
             with_furhest = True
         else:
             raise Exception("Unexpected header of CLUSTERS.txt")
-        for i in xrange(2): ifs.readline()
+        for i in range(2): ifs.readline()
         for l in ifs:
             sp = l.split()
             if with_furhest:
                 clno, num, clh, lcv, alcv, f1, f2 = sp[:7]
-                ids = map(int, sp[7:])
+                ids = list(map(int, sp[7:]))
             else:
                 clno, num, clh, lcv, alcv = sp[:5]
-                ids = map(int, sp[5:])
+                ids = list(map(int, sp[5:]))
             assert int(num) == len(ids)
             assert max(ids) <= len(self.files)
             self.clusters[int(clno)] = (float(clh), float(lcv), float(alcv), ids)
@@ -151,19 +153,19 @@ class BlendClusters:
 
     def cluster_completeness(self, clno, anomalous_flag, calc_redundancy=True):
         if clno not in self.clusters:
-            print "Cluster No. %d not found" % clno
+            print("Cluster No. %d not found" % clno)
             return
 
         cls = self.clusters[clno][3]
-        msets = map(lambda x: self.miller_sets[self.files[x-1]], cls)
-        num_idx = sum(map(lambda x: x.size(), msets))
+        msets = [self.miller_sets[self.files[x-1]] for x in cls]
+        num_idx = sum([x.size() for x in msets])
         all_idx = flex.miller_index()
         all_idx.reserve(num_idx)
         for mset in msets: all_idx.extend(mset.indices())
 
         # Calc median cell
-        cells = numpy.array(map(lambda x: x.unit_cell().parameters(), msets))
-        median_cell = map(lambda i: numpy.median(cells[:,i]), xrange(6))
+        cells = numpy.array([x.unit_cell().parameters() for x in msets])
+        median_cell = [numpy.median(cells[:,i]) for i in range(6)]
         symm = msets[0].customized_copy(unit_cell=median_cell)
 
         assert anomalous_flag is not None

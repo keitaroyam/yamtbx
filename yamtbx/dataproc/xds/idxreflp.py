@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import unicode_literals
 import re
 import math
 import numpy
@@ -14,7 +16,7 @@ from cctbx import uctbx
 
 re_outof = re.compile("^ *([0-9]+) OUT OF *([0-9]+) SPOTS INDEXED.")
 
-class IdxrefLp:
+class IdxrefLp(object):
 
     def __init__(self, lpin):
         self.subtree_population = []
@@ -35,7 +37,7 @@ class IdxrefLp:
         for i, l in enumerate(lines):
             if "OUT OF" in l:
                 r = re_outof.search(l)
-                if r: outof = map(int, r.groups())
+                if r: outof = list(map(int, r.groups()))
 
             elif "#  COORDINATES OF VECTOR CLUSTER   FREQUENCY       CLUSTER INDICES" in l:
                 reading = "clusters"
@@ -43,13 +45,13 @@ class IdxrefLp:
                 if l.strip()=="":
                     reading = ""
                     continue
-                x, y, z, freq, h, k, l = map(float, (l[6:16], l[16:26], l[26:36],
-                                                     l[37:46], l[47:56] , l[56:66], l[66:76]))
+                x, y, z, freq, h, k, l = list(map(float, (l[6:16], l[16:26], l[26:36],
+                                                     l[37:46], l[47:56] , l[56:66], l[66:76])))
                 self.clusters.append(((x,y,z), freq, (h,k,l)))
             elif "PARAMETERS OF THE REDUCED CELL (ANGSTROEM & DEGREES)" in l:
                 reading = "reduced_cell"
             elif reading == "reduced_cell":
-                cell = map(float, (l[:10], l[10:20], l[20:30], l[30:40], l[40:50], l[50:60]))
+                cell = list(map(float, (l[:10], l[10:20], l[20:30], l[30:40], l[40:50], l[50:60])))
                 self.reduced_cell = cell # uctbx.unit_cell complains if zero is included!
                 reading = ""
             elif "SUBTREE    POPULATION" in l:
@@ -57,7 +59,7 @@ class IdxrefLp:
             elif "NUMBER OF ACCEPTED SPOTS FROM LARGEST SUBTREE" in l:
                 reading = ""
             elif reading == "subtree_population" and l.strip() != "":
-                sp = map(int, l.split())
+                sp = list(map(int, l.split()))
                 self.subtree_population.append(sp[1])
     # parse()
 
@@ -70,12 +72,12 @@ class IdxrefLp:
 
     def cluster_integerness(self):
         # hist = [[100,0,0,0,0, 0,0,0,0,0], (for k), (for l)]
-        hist = map(lambda x: numpy.zeros(6, dtype=numpy.int), xrange(3))
+        hist = [numpy.zeros(6, dtype=numpy.int) for x in range(3)]
         
         for xyz, freq, hkl in self.clusters:
-            fracs = map(lambda x: abs(math.modf(x)[0]), hkl) # fractional part
-            fracs = map(lambda x: 1-x if x > 0.5 else x, fracs)
-            fracs = map(lambda x: int(x*10+0.5), fracs) # take the first decimal place (after rounding)
+            fracs = [abs(math.modf(x)[0]) for x in hkl] # fractional part
+            fracs = [1-x if x > 0.5 else x for x in fracs]
+            fracs = [int(x*10+0.5) for x in fracs] # take the first decimal place (after rounding)
             for i, h in enumerate(fracs):
                 hist[i][h] += int(freq)
         return hist
@@ -87,9 +89,9 @@ class IdxrefLp:
 
         intness = self.cluster_integerness()
 
-        if any(map(lambda h: h[0]/sum(h) > 0.4 and h[5]/sum(h) > 0.4, intness)):
+        if any([h[0]/sum(h) > 0.4 and h[5]/sum(h) > 0.4 for h in intness]):
             sum_popu = sum(self.subtree_population)
-            if all(map(lambda x:x/sum_popu > 0.4, self.subtree_population[:2])):
+            if all([x/sum_popu > 0.4 for x in self.subtree_population[:2]]):
                 return True
 
         return False
@@ -110,7 +112,7 @@ class IdxrefLp:
 
 # class IdxrefLp
 
-class SpotXds:
+class SpotXds(object):
     def __init__(self, sptxdsin):
         self.items = []
         self.calc_d = None
@@ -134,9 +136,9 @@ class SpotXds:
             elif len(sp) == 8:
                 x, y, z, intensity, iseg, h, k, l = sp
                 
-            x, y, z, intensity = map(float, (x, y, z, intensity))
+            x, y, z, intensity = list(map(float, (x, y, z, intensity)))
             if iseg is not None: iseg = int(iseg)
-            if h is not None: h, k, l = map(int, (h, k, l))
+            if h is not None: h, k, l = list(map(int, (h, k, l)))
                 
             self.items.append(((x, y, z), intensity, iseg, (h, k, l)))
     # parse()
@@ -174,12 +176,12 @@ class SpotXds:
             frame = int(xyz[2])+1
             if frame not in data:
                 data[frame] = [0, 0]
-            if hkl[0] is None or all(map(lambda h: h==0, hkl)):
+            if hkl[0] is None or all([h==0 for h in hkl]):
                 data[frame][1] += 1 # unindexed
             else:
                 data[frame][0] += 1 # indexed
 
-        ret = data.items()
+        ret = list(data.items())
         ret.sort(key=lambda x: x[0])
         return ret
     # indexed_and_unindexed_by_frame()
@@ -210,7 +212,7 @@ class SpotXds:
             else:
                 tmp += -1,
 
-            if hkl[0] is None or all(map(lambda h: h==0, hkl)):
+            if hkl[0] is None or all([h==0 for h in hkl]):
                 data["unindexed"].append(tmp)
             else:
                 data["indexed"].append(tmp)
@@ -227,7 +229,7 @@ class SpotXds:
             frame = int(xyz[2])+1
             tmp = xyz[:2]
 
-            key = "unindexed" if hkl[0] is None or all(map(lambda h: h==0, hkl)) else "indexed"
+            key = "unindexed" if hkl[0] is None or all([h==0 for h in hkl]) else "indexed"
             data[key].setdefault(frame, []).append(tmp)
 
         return data
@@ -241,7 +243,7 @@ class SpotXds:
     def set_xdsinp(self, xdsinp):
         inp = dict(get_xdsinp_keyword(xdsinp))
         wavelength = float(inp["X-RAY_WAVELENGTH"])
-        orgx, orgy = map(float, (inp["ORGX"], inp["ORGY"]))
+        orgx, orgy = list(map(float, (inp["ORGX"], inp["ORGY"])))
         qx = float(inp["QX"])
         distance = abs(float(inp["DETECTOR_DISTANCE"]))
 

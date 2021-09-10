@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import sys
 import struct
 
 #sys.path.append("/Users/plegrand/work/xdsme/XIO")
-import  XIO
+from . import  XIO
 
 header_fmt = """{
 HEADER_BYTES= 1024;
@@ -45,7 +48,7 @@ def _export(filename, format):
         datacoll.interpretImage()
         #datacoll.lookup_imageRanges()
     except XIO.XIOError:
-        print "\nError while trying to acceess %s.\nSorry." % filename
+        print("\nError while trying to acceess %s.\nSorry." % filename)
         sys.exit()
     return datacoll.export(format)
     #print datacoll.export_template(format)
@@ -62,7 +65,7 @@ for oxf in sys.argv[1:]:
     num = datacoll.getNumber(oxf)
     new_name = datacoll.pythonTemplate % num
 
-    print "%s --> %s" % (oxf, new_name)    
+    print("%s --> %s" % (oxf, new_name))    
     new = open(new_name,"w")
     data = datacoll.image.getData()
     new.write("%-1024s" % header)

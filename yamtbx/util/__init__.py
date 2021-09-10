@@ -4,13 +4,15 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import division
+from __future__ import unicode_literals
 import os
 import sys
 import re
 import time
 import shutil
 import subprocess
-import commands
 import glob
 import tempfile
 import traceback
@@ -55,8 +57,8 @@ def call(cmd, arg="",
                          shell=True,
                          stdin=subprocess.PIPE,
                          stdout=stdout,
-                         stderr=stdout
-                         )
+                         stderr=stdout,
+                         universal_newlines=True)
 
     if stdin is not None:
         p.stdin.write(stdin)    
@@ -69,7 +71,7 @@ def call(cmd, arg="",
         p.wait()
 
     if p.returncode < 0:
-        print >>sys.stderr, cmd, ": returncode is", p.returncode
+        print(cmd, ": returncode is", p.returncode, file=sys.stderr)
 
     # check after run
     check_exist(expects_out)
@@ -100,10 +102,10 @@ def rotate_file(filename, copy=False):
             i = int(suffix)
             if str(i) == suffix: # ignore if suffix was such as 003...
                 old_list.append([f, i])
-        except ValueError, e:
+        except ValueError as e:
             continue
 
-    old_list.sort(lambda x,y: x[1]-y[1])
+    old_list.sort(key=lambda x: x[1])
 
     # rotate files
     for f, i in reversed(old_list):
@@ -157,10 +159,10 @@ def get_number_of_processors(default=4):
     nproc = default
 
     if os.path.isfile("/proc/cpuinfo"):
-        nproc = len(filter(lambda x:x.startswith("processor"), open("/proc/cpuinfo")))
+        nproc = len([x for x in open("/proc/cpuinfo") if x.startswith("processor")])
     else:
         try:
-            nproc = int(commands.getoutput("sysctl -n hw.ncpu"))
+            nproc = int(subprocess.check_output(["sysctl", "-n", "hw.ncpu"]))
         except:
             pass
 
@@ -188,8 +190,8 @@ def directory_included(path, topdir=None, include_dir=[], exclude_dir=[]):
             if directory_included(path, d): return True
         return False
             
-    l1 = filter(lambda x: x, path.split(os.sep))
-    l2 = filter(lambda x: x, topdir.split(os.sep))
+    l1 = [x for x in path.split(os.sep) if x]
+    l2 = [x for x in topdir.split(os.sep) if x]
 
     lc = os.path.commonprefix([l1,l2])
 
@@ -238,7 +240,7 @@ def expand_wildcard_in_list(fdlst, err_out=null_out()):
         gd = glob.glob(d)
         
         if len(gd) == 0:
-            print >>err_out, "Error: No match!!: %s" % d
+            print("Error: No match!!: %s" % d, file=err_out)
             continue
         ret.extend(gd)
     return ret
@@ -316,10 +318,10 @@ def yamtbx_module_root():
 # yamtbx_module_root()
 
 def retry_until_noexc(f, args=(), kwargs={}, sleep=1, ntry=10, outf=lambda x:x):
-    for i in xrange(ntry):
+    for i in range(ntry):
         try:
             return f(*args, **kwargs)
-        except Exception, e:
+        except Exception as e:
             outf("%dth trial failed with an exception"%(i+1))
             outf(traceback.format_exc())
             if i == ntry-1: raise e

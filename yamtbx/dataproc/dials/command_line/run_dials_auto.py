@@ -1,9 +1,10 @@
+from __future__ import print_function
 from yamtbx import util
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.dataproc.auto import resolution_cutoff
 from yamtbx.dataproc.dataset import find_existing_files_in_template
 from yamtbx.dataproc import pointless
-import cPickle as pickle
+import pickle 
 import json
 import os
 from cctbx import sgtbx
@@ -52,13 +53,13 @@ def calc_merging_stats(hklin, cut_resolution=True):
     #pklout = os.path.join(wdir, "merging_stats.pkl")
     logout = open(os.path.join(wdir, "merging_stats.log"), "w")
 
-    print >>logout, hklin
-    print >>logout, ""
-    print >>logout, "Estimate cutoff"
-    print >>logout, "================"
+    print(hklin, file=logout)
+    print("", file=logout)
+    print("Estimate cutoff", file=logout)
+    print("================", file=logout)
 
     if not os.path.isfile(hklin):
-        print >>logout, "Error: does not exist: %s" % hklin
+        print("Error: does not exist: %s" % hklin, file=logout)
         return {}
 
     i_obs = iotbx.merging_statistics.select_data(hklin, data_labels=None)
@@ -96,12 +97,12 @@ def calc_merging_stats(hklin, cut_resolution=True):
         #    d_min = cutoffs.cc_one_half_cut
         if cut_resolution and cutoffs.i_over_sigma_cut is not None:
             d_min = cutoffs.i_over_sigma_cut
-    except Sorry, e:
-        print >>logout, e.message
+    except Sorry as e:
+        print(e.message, file=logout)
 
-    print >>logout, ""
-    print >>logout, "Merging statistics"
-    print >>logout, "==================="
+    print("", file=logout)
+    print("Merging statistics", file=logout)
+    print("===================", file=logout)
 
     try:
         stats = iotbx.merging_statistics.dataset_statistics(i_obs=i_obs,
@@ -112,7 +113,7 @@ def calc_merging_stats(hklin, cut_resolution=True):
                                                             log=logout)
         stats.show(out=logout)
     except (Sorry, RuntimeError) as e:
-        print >>logout, e.message
+        print(e.message, file=logout)
         return {}
 
     #ret = dict(cutoff=d_min, cutoffs=cutoffs, stats=stats)
@@ -167,7 +168,7 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
             cmd = "dials.index imported.expt strong.refl output.experiments=indexed.expt output.reflections=indexed.refl "
             cmd += "indexing.method=%s index_assignment.method=%s " % (index_meth, index_assi)
             if known_xs is not None:# not in (known.space_group, known.unit_cell):
-                cmd += "unit_cell=%s space_group=%d " % (",".join(map(lambda x: "%.3f"%x, known_xs.unit_cell().parameters())),
+                cmd += "unit_cell=%s space_group=%d " % (",".join(["%.3f"%x for x in known_xs.unit_cell().parameters()]),
                                                         known_xs.space_group().type().number())
             elif index_meth == "real_space_grid_search":
                 continue

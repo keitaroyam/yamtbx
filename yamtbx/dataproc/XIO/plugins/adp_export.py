@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 
 _to_adp_beamlines = {
 "mar":       "MAR345",

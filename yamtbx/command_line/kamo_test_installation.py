@@ -6,6 +6,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
 
 from yamtbx import util
 import os
@@ -14,64 +15,64 @@ import traceback
 import tempfile
 
 def tst_jsdir():
-    print "Testing location.."
+    print("Testing location..")
 
     yamtbx_root = util.yamtbx_module_root()
     if not yamtbx_root:
-        print "  Can't locate yamtbx module directory. NG"
+        print("  Can't locate yamtbx module directory. NG")
         return False
 
     d3path = os.path.join(yamtbx_root, "dataproc/auto/js/d3-3.5.10")
     if not os.path.isdir(d3path):
-        print "  Can't find d3-3.5.10 directory. Please check location of yamtbx. NG"
+        print("  Can't find d3-3.5.10 directory. Please check location of yamtbx. NG")
         return False
     
-    print "  %s. OK" % yamtbx_root
+    print("  %s. OK" % yamtbx_root)
     return True
 # tst_jsdir()
 
 def tst_R():
-    print "Testing R.."
+    print("Testing R..")
 
     rcode, out, err = util.call("Rscript", '-e "print(cos(pi))"')
     if rcode != 0 or out.strip() != '[1] -1':
-        print "  Rscript is not avaiable. NG"
+        print("  Rscript is not avaiable. NG")
         return False
     
     rcode, out, err = util.call("Rscript", '-e "library(rjson)"')
     if rcode != 0:
-        print "  rjson is not installed. NG"
+        print("  rjson is not installed. NG")
         return False
     
-    print "  OK"
+    print("  OK")
     return True
 # tst_R()
 
 def tst_xds():
-    print "Testing XDS.."
+    print("Testing XDS..")
     tmpdir = util.get_temp_local_dir("xdstest")
     rcode, out, err = util.call("xds_par", wdir=tmpdir)
     if tmpdir: shutil.rmtree(tmpdir) # just in case; xds shouldn't make any files
 
     if rcode != 0:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
     if "license expired" in out:
-        print "  license expired. Get latest version. NG"
+        print("  license expired. Get latest version. NG")
         return False
 
-    print "  OK"
+    print("  OK")
     return True
 # tst_xds()
 
 def tst_h5toxds():
-    print "Testing H5ToXds.."
+    print("Testing H5ToXds..")
     rcode, out, err = util.call("H5ToXds")
     ignore_msg = "(You can ignore this if you don't process hdf5 files which usually mean Eiger data)"
 
     if rcode == 127: # 127 is "command not found".
-        print "  Not installed. NG %s" % ignore_msg
+        print("  Not installed. NG %s" % ignore_msg)
         return False
 
     import numpy
@@ -84,13 +85,13 @@ def tst_h5toxds():
     rcode, out, err = util.call("H5ToXds", "%s 1 1.cbf"%os.path.basename(master_h5), wdir=tmpdir)
     cbfout = os.path.join(tmpdir, "1.cbf")
     if not os.path.isfile(cbfout):
-        print "  H5ToXds exists, but not works. Probably Dectris original H5ToXds? Test it with real h5 file. %s" % ignore_msg
+        print("  H5ToXds exists, but not works. Probably Dectris original H5ToXds? Test it with real h5 file. %s" % ignore_msg)
         if out.strip():
-            print "  -- stdout:"
-            print out
+            print("  -- stdout:")
+            print(out)
         if err.strip():
-            print "  -- stderr:"
-            print err
+            print("  -- stderr:")
+            print(err)
 
         shutil.rmtree(tmpdir) 
         return False
@@ -99,82 +100,82 @@ def tst_h5toxds():
     shutil.rmtree(tmpdir)
     
     if numpy.all(data_read.flatten() == data.flatten()):
-        print "  OK"
+        print("  OK")
         return True
     else:
-        print "  H5ToXds exists, but not correctly works. Probably Dectris original H5ToXds? Test it with real h5 file. %s" % ignore_msg
+        print("  H5ToXds exists, but not correctly works. Probably Dectris original H5ToXds? Test it with real h5 file. %s" % ignore_msg)
         if out.strip():
-            print "  -- stdout:"
-            print out
+            print("  -- stdout:")
+            print(out)
         if err.strip():
-            print "  -- stderr:"
-            print err
+            print("  -- stderr:")
+            print(err)
 
         return False
 # tst_xds()
 
 def tst_xdsstat():
-    print "Testing XDSSTAT.."
+    print("Testing XDSSTAT..")
     rcode, out, err = util.call("xdsstat", stdin="\n")
     if rcode != 0:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
     if "XDSSTAT version" not in err:
-        print "  Seems not working. NG"
+        print("  Seems not working. NG")
         return False
 
-    print "  OK"
+    print("  OK")
     return True
 # tst_xdsstat()
 
 def tst_ccp4():
-    print "Testing ccp4.."
+    print("Testing ccp4..")
     if "CCP4" not in os.environ or not os.path.isdir(os.environ["CCP4"]):
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
     
     if not os.path.isfile(os.path.join(os.environ["CCP4"], "share/blend/R/blend0.R")):
-        print "  BLEND is not available. NG"
+        print("  BLEND is not available. NG")
         return False
 
-    print "  OK"
+    print("  OK")
     return True
 # tst_ccp4()
 
 def tst_dials():
-    print "Testing dials (package).."
+    print("Testing dials (package)..")
     rcode, out, err = util.call("dials.version")
 
     if rcode != 0:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
-    print "\n".join(map(lambda x: "  "+x, out.splitlines()))
-    print "  OK"
+    print("\n".join(["  "+x for x in out.splitlines()]))
+    print("  OK")
     return True
 # tst_dials()
 
 def tst_dials_module():
-    print "Testing dials (module).."
+    print("Testing dials (module)..")
 
     try:
         from dials.util.version import dials_version
-        print "  %s installed. OK" % dials_version()
+        print("  %s installed. OK" % dials_version())
         return True
     except ImportError:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 # tst_dials_module()
 
 def tst_dxtbx_eiger():
-    print "Testing eiger hdf5 geometry recognition.."
+    print("Testing eiger hdf5 geometry recognition..")
 
     try:
         # due to https://github.com/cctbx/cctbx_project/issues/282
         import dxtbx.format.FormatHDFEigerNearlyNexus
     except ImportError:
-        print "  FormatHDFEigerNearlyNexus does not exist. This implies h5-recorded geometry can be no longer extracted using dxtbx. I hope it works. OK"
+        print("  FormatHDFEigerNearlyNexus does not exist. This implies h5-recorded geometry can be no longer extracted using dxtbx. I hope it works. OK")
         return True
 
     try:
@@ -238,17 +239,17 @@ def tst_dxtbx_eiger():
         os.remove(tmpf)
         
         if _test == (1.0, 0.0, 0.0,  0.0, 1.0, 0.0,  0.0, 0.0, -1.0,  1.0, 0.0, 0.0):
-            print "  OK"
+            print("  OK")
             return True
         elif _test == (1.0, 0.0, 0.0,  0.0, -1.0, 0.0,  0.0, 0.0, 1.0,  1.0, 0.0, 0.0):
-            print "  OK"
+            print("  OK")
             return True
         else:
-            print "  vectors=", _test
+            print("  vectors=", _test)
     except:
-        print traceback.format_exc()
+        print(traceback.format_exc())
 
-    print "  NG! You are using old cctbx. Use latest cctbx or environment of DIALS v1.6 or PHENIX 1.12 or newer."
+    print("  NG! You are using old cctbx. Use latest cctbx or environment of DIALS v1.6 or PHENIX 1.12 or newer.")
     return False
 # tst_dxtbx_eiger()
 
@@ -256,107 +257,107 @@ def tst_dxtbx_eiger():
 #    print "Testing hdf5..",   
 
 def tst_adxv():
-    print "Testing Adxv.."
+    print("Testing Adxv..")
 
     rcode, out, err = util.call("adxv", '-help')
     if rcode != 0:
-        print "  Adxv is not avaiable. NG"
+        print("  Adxv is not avaiable. NG")
         return False
     
-    print "  OK"
+    print("  OK")
     return True
 # tst_R()
 
 def tst_scipy():
-    print "Testing SciPy.."
+    print("Testing SciPy..")
 
     try: import scipy
     except ImportError:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
     v = scipy.version.full_version
-    vv = map(int, v.split("."))
+    vv = list(map(int, v.split(".")))
     if vv < [0, 18, 1]:
-        print "  SciPy version installed (%s) is too old. Use 0.18.1 or newer." % v
+        print("  SciPy version installed (%s) is too old. Use 0.18.1 or newer." % v)
         return False
 
     try: import scipy.optimize
     except ImportError:
-        print "  Scipy %s installed, but does not work properly (import scipy.optimize failed). NG" % v
+        print("  Scipy %s installed, but does not work properly (import scipy.optimize failed). NG" % v)
         return False
 
     try: scipy.optimize.least_squares
     except AttributeError:
-        print "  scipy.optimize.least_squares is not available. Update the version. NG"
+        print("  scipy.optimize.least_squares is not available. Update the version. NG")
         return False
 
-    print "  %s installed. OK" % v
+    print("  %s installed. OK" % v)
     return True
 # tst_scipy()
 
 def tst_networkx():
-    print "Testing networkx.."
+    print("Testing networkx..")
 
     try: import networkx
     except ImportError:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
-    print "  %s installed. OK" % networkx.__version__
+    print("  %s installed. OK" % networkx.__version__)
     return True
 # tst_networkx()
 
 def tst_numpy():
-    print "Testing NumPy.."
+    print("Testing NumPy..")
 
     try: import numpy
     except ImportError:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
-    print "  %s installed. OK" % numpy.version.full_version
+    print("  %s installed. OK" % numpy.version.full_version)
     return True
 # tst_numpy()
 
 def tst_matplotlib():
-    print "Testing Matplotlib.."
+    print("Testing Matplotlib..")
 
     try: import matplotlib
     except ImportError:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
-    print "  %s installed. OK" % matplotlib.__version__
+    print("  %s installed. OK" % matplotlib.__version__)
     return True
 # tst_matplotlib()
 
 def tst_wx():
-    print "Testing wxPython.."
+    print("Testing wxPython..")
 
     try: import wx
     except ImportError:
-        print "  Not installed. NG"
+        print("  Not installed. NG")
         return False
 
-    print "  %s installed. OK" % wx.version()
+    print("  %s installed. OK" % wx.version())
     return True
 # tst_wx()
 
 def show_env():
     import platform
     import sys
-    print "Info:"
-    print "   Python: %s" % platform.python_version()
-    print "     Exec: %s" % sys.executable
-    print " Platform: %s" % platform.platform()
+    print("Info:")
+    print("   Python: %s" % platform.python_version())
+    print("     Exec: %s" % sys.executable)
+    print(" Platform: %s" % platform.platform())
 # show_env()
 
 def run():
-    print "Testing installation of KAMO."
-    print "If you have trouble, please report the issue including all outputs:"
+    print("Testing installation of KAMO.")
+    print("If you have trouble, please report the issue including all outputs:")
     show_env()
-    print
+    print()
 
     failed = []
 
@@ -365,17 +366,17 @@ def run():
         try:
             ret = f()
         except:
-            print traceback.format_exc()
+            print(traceback.format_exc())
             ret = False
             
-        if not ret: failed.append(f.func_name)
+        if not ret: failed.append(f.__name__)
 
-    print
+    print()
     if not failed:
-        print "All OK!"
+        print("All OK!")
         return True
     else:
-        print "%d Failures (%s)" % (len(failed), ", ".join(failed))
+        print("%d Failures (%s)" % (len(failed), ", ".join(failed)))
         return False
 # run()
 

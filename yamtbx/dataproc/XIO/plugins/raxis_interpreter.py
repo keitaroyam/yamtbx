@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # FIXME: serial number...
 # reading the data: unpack the data using the ratio.
@@ -128,7 +130,7 @@ headerStructure = [
 ('res5', '768s'),               # Reserved space for future use
 ]
 
-class Interpreter:
+class Interpreter(object):
 
     HTD = {
     # The marccd Header Translator Dictionary.
@@ -175,7 +177,7 @@ class Interpreter:
         read_size = struct.calcsize(headerStructureFmt)
         read_unp = struct.unpack(headerStructureFmt, rawHead[:read_size])
 
-        RawHeadDict = dict(zip(headerStructureKeys, read_unp))
+        RawHeadDict = dict(list(zip(headerStructureKeys, read_unp)))
         import pprint
         #pprint.pprint(RawHeadDict)
         RawHeadDict.update({'MESSAGE':'',
@@ -204,7 +206,7 @@ class Interpreter:
             
             return _data
         else:
-            raise XIOError, "Sorry, this image is internaly compressed."
+            raise XIOError("Sorry, this image is internaly compressed.")
 
 if __name__ == "__main__":
     from pprint import pprint
@@ -217,4 +219,4 @@ if __name__ == "__main__":
     l = ["beam_x","beam_y","two_theta","lambda","distance","phi_start",
             "phi_width","phi_end","pixel_size_x","pixel_size_y","pixel_count_x","pixel_count_y"]
     for k in headKeys: #l:
-        print "%s:\t%s" % (k,h[k])
+        print("%s:\t%s" % (k,h[k]))

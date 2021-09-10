@@ -1,3 +1,7 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 ######################################################################
 # quat - Quaternion
 #
@@ -8,12 +12,12 @@
 ####################################################################
 
 import types, math
-from vec3 import vec3 as _vec3
-from mat3 import mat3 as _mat3
-from mat4 import mat4 as _mat4
+from .vec3 import vec3 as _vec3
+from .mat3 import mat3 as _mat3
+from .mat4 import mat4 as _mat4
 
 # quat
-class quat:
+class quat(object):
     """Quaternion class.
 
     Quaternions are an extension to complex numbers and can be used
@@ -41,7 +45,7 @@ class quat:
         elif len(args)==1:
             T = type(args[0])
             # Scalar
-            if T==types.FloatType or T==types.IntType or T==types.LongType:
+            if T==float or T==int or T==int:
                 self.w = args[0]
                 self.x, self.y, self.z = (0.0, 0.0, 0.0)
             # quat
@@ -55,19 +59,19 @@ class quat:
             elif isinstance(args[0], _mat3) or isinstance(args[0], _mat4):
                 self.fromMat(args[0])
             # List or Tuple
-            elif T==types.ListType or T==types.TupleType:
+            elif T==list or T==tuple:
                 self.w, self.x, self.y, self.z = args[0]
             # String
-            elif T==types.StringType:
+            elif T==bytes:
                 s=args[0].replace(","," ").replace("  "," ").strip().split(" ")
-                f=map(lambda x: float(x), s)
+                f=[float(x) for x in s]
                 dummy = quat(f)
                 self.w = dummy.w
                 self.x = dummy.x
                 self.y = dummy.y
                 self.z = dummy.z
             else:
-                raise TypeError, "quat() arg can't be converted to quat"
+                raise TypeError("quat() arg can't be converted to quat")
 
         # 2 arguments (angle & axis)
         elif len(args)==2:
@@ -79,11 +83,11 @@ class quat:
             self.w, self.x, self.y, self.z = args
 
         else:
-            raise TypeError, "quat() arg can't be converted to quat"
+            raise TypeError("quat() arg can't be converted to quat")
         
 
     def __repr__(self):
-        return 'quat('+`self.w`+', '+`self.x`+', '+`self.y`+', '+`self.z`+')'
+        return 'quat('+repr(self.w)+', '+repr(self.x)+', '+repr(self.y)+', '+repr(self.z)+')'
 
     def __str__(self):
         fmt="%1.4f"
@@ -137,7 +141,7 @@ class quat:
             return quat(self.w+other.w, self.x+other.x,
                         self.y+other.y, self.z+other.z)
         else:
-            raise TypeError, "unsupported operand type for +"
+            raise TypeError("unsupported operand type for +")
 
     def __sub__(self, other):
         """Subtraction.
@@ -150,7 +154,7 @@ class quat:
             return quat(self.w-other.w, self.x-other.x,
                         self.y-other.y, self.z-other.z)
         else:
-            raise TypeError, "unsupported operand type for +"
+            raise TypeError("unsupported operand type for +")
 
     def __mul__(self, other):
         """Multiplication.
@@ -165,7 +169,7 @@ class quat:
         """
         T = type(other)
         # quat*scalar
-        if T==types.FloatType or T==types.IntType or T==types.LongType:
+        if T==float or T==int or T==int:
             return quat(self.w*other, self.x*other, self.y*other, self.z*other)
         # quat*quat
         if isinstance(other, quat):
@@ -181,7 +185,7 @@ class quat:
             if getattr(other,"__rmul__",None)!=None:
                 return other.__rmul__(self)
             else:
-                raise TypeError, "unsupported operand type for *"
+                raise TypeError("unsupported operand type for *")
 
     __rmul__ = __mul__
 
@@ -194,11 +198,11 @@ class quat:
         """
         T = type(other)
         # quat/scalar
-        if T==types.FloatType or T==types.IntType or T==types.LongType:
+        if T==float or T==int or T==int:
             return quat(self.w/other, self.x/other, self.y/other, self.z/other)
         # unsupported
         else:
-            raise TypeError, "unsupported operand type for /"
+            raise TypeError("unsupported operand type for /")
         
 
     def __neg__(self):
@@ -371,7 +375,7 @@ class quat:
 def _test():
     import doctest, quat
     failed, total = doctest.testmod(quat)
-    print "%d/%d failed" % (failed, total)
+    print("%d/%d failed" % (failed, total))
 
 if __name__=="__main__":
 

@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import collections
 import copy
@@ -13,7 +15,7 @@ from cctbx.array_family import flex
 from libtbx import easy_mp
 
 def eval_cc_with_original_file(f, merged_iobs):
-    print "reading",f
+    print("reading",f)
 
     xac = xds_ascii.XDS_ASCII(f)
     iobs = xac.i_obs(anomalous_flag=merged_iobs.anomalous_flag()).merge_equivalents(use_internal_variance=False).array()
@@ -29,7 +31,7 @@ def eval_cc_with_original_file(f, merged_iobs):
     ret1 = (n_all, n_common, cc)
     ret2 = []
 
-    for frame in xrange(min(xac.iframe), max(xac.iframe)+1):
+    for frame in range(min(xac.iframe), max(xac.iframe)+1):
         sel = xac.iframe == frame
         iobs = xac.i_obs(anomalous_flag=merged_iobs.anomalous_flag()).select(sel)
         iobs = iobs.merge_equivalents(use_internal_variance=False).array()
@@ -68,7 +70,7 @@ def eval_cc_internal(merged_iobs, merged, setno):
     ret1 = (n_all, n_common, cc)
     ret2 = []
 
-    for frame in xrange(min(merged_sel.iframe), max(merged_sel.iframe)+1):
+    for frame in range(min(merged_sel.iframe), max(merged_sel.iframe)+1):
         iobs = iobs_set.select(merged_sel.iframe == frame)
         iobs = iobs.merge_equivalents(use_internal_variance=False).array()
         n_all = iobs.size()
@@ -90,36 +92,34 @@ def run(hklin, output_dir=None, eval_internal=True):
     merged = xds_ascii.XDS_ASCII(hklin)
     merged_iobs = merged.i_obs().merge_equivalents(use_internal_variance=False).array()
 
-    fwidth = max(map(lambda x: len(x[0]), merged.input_files.values()))
+    fwidth = max([len(x[0]) for x in list(merged.input_files.values())])
     formatf = "%"+str(fwidth)+"s"
 
     out_files = open(os.path.join(output_dir, "cc_files.dat"), "w")
     out_frames = open(os.path.join(output_dir, "cc_frames.dat"), "w")
 
-    print >>out_files, "file name n.all n.common cc"
-    print >>out_frames, "file name frame n.all n.common cc"
+    print("file name n.all n.common cc", file=out_files)
+    print("file name frame n.all n.common cc", file=out_frames)
 
-    cutforname1 = len(os.path.commonprefix(map(lambda x: x[0], merged.input_files.values())))
-    cutforname2 = len(os.path.commonprefix(map(lambda x: x[0][::-1], merged.input_files.values())))
+    cutforname1 = len(os.path.commonprefix([x[0] for x in list(merged.input_files.values())]))
+    cutforname2 = len(os.path.commonprefix([x[0][::-1] for x in list(merged.input_files.values())]))
     formatn = "%"+str(fwidth-cutforname1-cutforname2)+"s"
 
     if eval_internal:
-        results = map(lambda x: eval_cc_internal(merged_iobs, merged, x), sorted(set(merged.iset)))
+        results = [eval_cc_internal(merged_iobs, merged, x) for x in sorted(set(merged.iset))]
     else:
-        results = map(lambda x: eval_cc_with_original_file(x, merged_iobs),
-                      map(lambda x: x[0] if os.path.isabs(x[0]) else os.path.join(os.path.dirname(hklin), x[0]),
-                          merged.input_files.values()))
+        results = [eval_cc_with_original_file(x, merged_iobs) for x in [x[0] if os.path.isabs(x[0]) else os.path.join(os.path.dirname(hklin), x[0]) for x in list(merged.input_files.values())]]
 
     ret = collections.OrderedDict()
 
-    for (f, wavelen, cell), (ret1, ret2) in zip(merged.input_files.values(), results):
+    for (f, wavelen, cell), (ret1, ret2) in zip(list(merged.input_files.values()), results):
         name = f[cutforname1+1:-cutforname2]
         n_all, n_common, cc = ret1
-        print >>out_files, formatf%f, formatn%name, "%5d %5d %.4f" % (n_all, n_common, cc)
+        print(formatf%f, formatn%name, "%5d %5d %.4f" % (n_all, n_common, cc), file=out_files)
         ret[f] = []
 
         for frame, n_all, n_common, cc in ret2:
-            print >>out_frames, formatf%f, formatn%name, "%6d %5d %5d %.4f" % (frame, n_all, n_common, cc)
+            print(formatf%f, formatn%name, "%6d %5d %5d %.4f" % (frame, n_all, n_common, cc), file=out_frames)
             ret[f].append([frame, n_all, n_common, cc])
 
     return ret

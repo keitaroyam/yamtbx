@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
 
 import sys
 from libtbx import slots_getstate_setstate
@@ -89,7 +91,7 @@ def initial_estimate_byfit_cchalf(i_obs, cc_half_min, anomalous_flag, log_out):
 # initial_estimate_byfit_cchalf()
 
 
-class estimate_resolution_based_on_cc_half:
+class estimate_resolution_based_on_cc_half(object):
   def __init__(self, i_obs, cc_half_min, cc_half_tol, n_bins, anomalous_flag=False, log_out=null_out()):
     adopt_init_args(self, locals())
     log_out.write("estimate_resolution_based_on_cc_half: cc_half_min=%.4f, cc_half_tol=%.4f n_bins=%d\n" % (cc_half_min, cc_half_tol, n_bins))
@@ -152,7 +154,7 @@ class estimate_resolution_based_on_cc_half:
       upper_bound = d_min
       lower_bound = d_min
 
-      for i in xrange(1,300):
+      for i in range(1,300):
         if d_min-.01*i <= self.d_min_data: break
         lower_bound = d_min-.01*i
         cc = self.cc_outer_shell(lower_bound)
@@ -161,7 +163,7 @@ class estimate_resolution_based_on_cc_half:
           break
     else:
       lower_bound = d_min
-      for i in xrange(1,300):
+      for i in range(1,300):
         upper_bound = d_min+.01*i
         cc = self.cc_outer_shell(upper_bound)
         self.log_out.write("  CC1/2= %.4f at %.4f A\n" %(cc, d_min+.1*i))
@@ -228,7 +230,7 @@ class estimate_crude_resolution_cutoffs (slots_getstate_setstate) :
     # Decide n_bins
     if n_bins is None:
         n_bins = min(200, int(i_obs.complete_set().indices().size()/500.+.5)) # not well tested.
-        print "n_bins=",n_bins
+        print("n_bins=",n_bins)
 
     i_obs.setup_binner(n_bins=n_bins)
     bins = []
@@ -270,27 +272,27 @@ class estimate_crude_resolution_cutoffs (slots_getstate_setstate) :
       if (value is None) :
         return "(use all data)" #% self.d_min_overall
       return "%7.3f" % value
-    print >> out, prefix + "Crude resolution cutoff estimates:"
-    print >> out, prefix + "  resolution of all data          : %7.3f" % \
-      self.d_min_overall
+    print(prefix + "Crude resolution cutoff estimates:", file=out)
+    print(prefix + "  resolution of all data          : %7.3f" % \
+      self.d_min_overall, file=out)
     if (self.cc_one_half_min is not None) :
-      print >> out, prefix + "  based on CC(1/2) > %-6g       : %s" % \
-        (self.cc_one_half_min, format_d_min(self.cc_one_half_cut))
+      print(prefix + "  based on CC(1/2) > %-6g       : %s" % \
+        (self.cc_one_half_min, format_d_min(self.cc_one_half_cut)), file=out)
     if (self.i_over_sigma_min is not None) :
-      print >> out, prefix + "  based on mean(I/sigma) > %-6g : %s" % \
-        (self.i_over_sigma_min, format_d_min(self.i_over_sigma_cut))
+      print(prefix + "  based on mean(I/sigma) > %-6g : %s" % \
+        (self.i_over_sigma_min, format_d_min(self.i_over_sigma_cut)), file=out)
     if (self.r_merge_max is not None) :
-      print >> out, prefix + "  based on R-merge < %-6g       : %s" % \
-        (self.r_merge_max, format_d_min(self.r_merge_cut))
+      print(prefix + "  based on R-merge < %-6g       : %s" % \
+        (self.r_merge_max, format_d_min(self.r_merge_cut)), file=out)
     if (self.r_meas_max is not None) :
-      print >> out, prefix + "  based on R-meas < %-6g        : %s" % \
-        (self.r_meas_max, format_d_min(self.r_meas_cut))
+      print(prefix + "  based on R-meas < %-6g        : %s" % \
+        (self.r_meas_max, format_d_min(self.r_meas_cut)), file=out)
     if (self.completeness_min_conservative is not None) :
-      print >> out, prefix + "  based on completeness > %-6g  : %s" % \
+      print(prefix + "  based on completeness > %-6g  : %s" % \
         (self.completeness_min_conservative,
-         format_d_min(self.completeness_cut_conservative))
+         format_d_min(self.completeness_cut_conservative)), file=out)
     if (self.completeness_min_permissive is not None) :
-      print >> out, prefix + "  based on completeness > %-6g  : %s" % \
+      print(prefix + "  based on completeness > %-6g  : %s" % \
         (self.completeness_min_permissive,
-         format_d_min(self.completeness_cut_permissive))
+         format_d_min(self.completeness_cut_permissive)), file=out)
 

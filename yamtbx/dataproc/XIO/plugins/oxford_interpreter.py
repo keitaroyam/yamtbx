@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # FIXME: serial number...
 # reading the data: unpack the data using the ratio.
@@ -20,9 +23,9 @@ def date_seconds(time_str):
     "from tupple return seconds"
     try:
         return time.mktime(time.strptime(time_str))
-    except ValueError, err:
-        print "Warning:", err
-        print "... Using time.time() instead."
+    except ValueError as err:
+        print("Warning:", err)
+        print("... Using time.time() instead.")
         return time.time()
 
 def pixel_size(detector_type, binning):
@@ -44,7 +47,7 @@ def pixel_size(detector_type, binning):
 # float                 = f          = 4 bytes
 # double                = d          = 8 bytes
 
-class Interpreter:
+class Interpreter(object):
 
     HTD = {
     # The marccd Header Translator Dictionary.
@@ -170,7 +173,7 @@ class Interpreter:
             
             return _data
         else:
-            raise XIOError, "Sorry, this image is internaly compressed."
+            raise XIOError("Sorry, this image is internaly compressed.")
 
 if __name__ == "__main__":
     from pprint import pprint
@@ -183,4 +186,4 @@ if __name__ == "__main__":
     l = ["beam_x","beam_y","two_theta","lambda","distance","phi_start",
             "phi_width","phi_end","pixel_size_x","pixel_size_y","pixel_count_x","pixel_count_y"]
     for k in headKeys: #l:
-        print "%s:\t%s" % (k,h[k])
+        print("%s:\t%s" % (k,h[k]))

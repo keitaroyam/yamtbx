@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import time
 import sys
 import getpass
@@ -44,7 +46,7 @@ def config(beamline, log_root=None):
 
     if os.path.isdir(log_root):
         logfile = os.path.join(log_root, beamline, "%s_%s.log"%(date, getpass.getuser()))
-        print "logfile=", logfile
+        print("logfile=", logfile)
         if not os.path.exists(os.path.dirname(logfile)):
             os.makedirs(os.path.dirname(logfile))
 

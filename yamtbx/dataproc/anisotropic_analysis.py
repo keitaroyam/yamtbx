@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from mmtbx.scaling import absolute_scaling
 from mmtbx.scaling.matthews import p_vm_calculator
 from cctbx.array_family import flex
@@ -16,10 +19,10 @@ def axis_label(v, orth_mat):
     h /= numpy.linalg.norm(h)
 
     labs = ("a*", "b*", "c*")
-    hstr = map(lambda x: "%+.2f%s" % (x[1],labs[x[0]]), enumerate(h))
+    hstr = ["%+.2f%s" % (x[1],labs[x[0]]) for x in enumerate(h)]
 
-    hstr = filter(lambda x: "0.00" not in x, hstr)
-    hstr = map(lambda x: x.replace("1.00",""), hstr)
+    hstr = [x for x in hstr if "0.00" not in x]
+    hstr = [x.replace("1.00","") for x in hstr]
     hstr = "".join(hstr)
     if hstr[0]=="+": hstr = hstr[1:]
     return hstr
@@ -43,31 +46,31 @@ def calc_principal_vectors(miller_array, log_out):
                                                                    n_bases=0)
 
     if aniso_scale_and_b.eigen_values[0] == 0:
-        print >>log_out, "Error! Cannot determine B_cart"
+        print("Error! Cannot determine B_cart", file=log_out)
         return
 
     b_cart = aniso_scale_and_b.b_cart
-    print >>log_out, """ML estimate of overall B_cart:
+    print("""ML estimate of overall B_cart:
  /  %5.2f %5.2f %5.2f \\
  |  %11.2f %5.2f |
  \\  %17.2f /
 """ % (b_cart[0], b_cart[3], b_cart[4],
-       b_cart[1], b_cart[5], b_cart[2])
+       b_cart[1], b_cart[5], b_cart[2]), file=log_out)
 
     ev = aniso_scale_and_b.eigen_vectors
 
     orth_mat = numpy.array(miller_array.unit_cell().orthogonalization_matrix()).reshape(3,3)
 
-    print >>log_out, "Eigenvalues/vectors:"
+    print("Eigenvalues/vectors:", file=log_out)
     for i, eg in enumerate(aniso_scale_and_b.eigen_values):
         v = ev[3*i:3*(i+1)]
-        vs = ", ".join(map(lambda x: "% .4f"%x, v))
+        vs = ", ".join(["% .4f"%x for x in v])
         vl = axis_label(v, orth_mat)
-        print >>log_out, " %8.3f (%s) %s" % (eg, vs, vl)
+        print(" %8.3f (%s) %s" % (eg, vs, vl), file=log_out)
     cs = miller_array.space_group().crystal_system()
 
     if cs == "Cubic":
-        print >>log_out, "No anisotropy in this symmetry."
+        print("No anisotropy in this symmetry.", file=log_out)
         return []
     elif cs == "Orthorhombic":
         return ([1.,0.,0.], "a*", False), ([0.,1.,0.], "b*", False), ([0.,0.,1.], "c*", False)

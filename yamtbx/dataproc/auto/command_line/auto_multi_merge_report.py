@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import glob
 import time
@@ -17,7 +19,7 @@ from libtbx.utils import null_out
 
 def total_deg_from_xds_inp(xdsinp):
     kwds = dict(get_xdsinp_keyword(xdsinp))
-    dr = map(int, kwds["DATA_RANGE"].split())
+    dr = list(map(int, kwds["DATA_RANGE"].split()))
     osc = float(kwds["OSCILLATION_RANGE"])
     return (dr[1]-dr[0]+1)*osc
 # total_deg_from_xds_inp()
@@ -119,7 +121,7 @@ created on %(cdate)s
         workdir_rel = "%s%s" % (prefix,
                                 replace_forbidden_chars(name).replace(" ","_"))
         workdir = os.path.join(rootdir, workdir_rel)
-        print workdir
+        print(workdir)
         assert os.path.isdir(workdir)
         topdirs = samples[name][0]
         ncol,dcol,npro,dpro,nmrg,dmrg = 0,0,0, 0,0,0
@@ -131,7 +133,7 @@ created on %(cdate)s
         for topdir in topdirs:
             for root, dirnames, filenames in os.walk(topdir):
                 if "XDS.INP" not in filenames: continue
-                print "Checking", name, root
+                print("Checking", name, root)
                 deg = total_deg_from_xds_inp(os.path.join(root, "XDS.INP"))
                 deg_dict[root] = deg
                 ncol += 1
@@ -142,9 +144,9 @@ created on %(cdate)s
 
         mrg_lst = os.path.join(workdir, "formerge.lst")
         if os.path.isfile(mrg_lst):
-            mrg_dirs = map(lambda x:os.path.dirname(x.strip()), open(mrg_lst).readlines())
+            mrg_dirs = [os.path.dirname(x.strip()) for x in open(mrg_lst).readlines()]
             nmrg = len(mrg_dirs)
-            dmrg = sum(map(lambda x: deg_dict[x], mrg_dirs))
+            dmrg = sum([deg_dict.get(x, 0) for x in mrg_dirs])
 
             beam_plot_png = os.path.join(workdir, "beam_plot.png")
             #if not os.path.isfile(beam_plot_png):
@@ -218,8 +220,8 @@ created on %(cdate)s
     ofs.write("\n</body></html>\n")
     ofs.close()
 
-    print "Done!"
-    print "firefox", os.path.join(rootdir, "report.html")
+    print("Done!")
+    print("firefox", os.path.join(rootdir, "report.html"))
 # run()
 
 def run_from_args(argv):

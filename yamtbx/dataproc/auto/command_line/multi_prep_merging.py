@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.auto.command_line import multi_check_cell_consistency
 from yamtbx.dataproc.auto.command_line.run_all_xds_simple import run_xds
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
@@ -30,7 +32,7 @@ import numpy
 import traceback
 import tempfile
 import glob
-from cStringIO import StringIO
+from io import StringIO
 
 master_params_str = """
 xdsdir = None
@@ -83,8 +85,8 @@ def prepare_dials_files(wd, out, space_group=None, reindex_op=None, moveto=None)
         if moveto and wd!=moveto:
             for f in files: shutil.move(f, moveto)
     except:
-        print >>out, "Error in generation of dials files in %s" % wd
-        print >>out, traceback.format_exc()
+        print("Error in generation of dials files in {}".format(wd), file=out)
+        print(traceback.format_exc(), file=out)
 # prepare_dials_files()
 
 def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_symm, sgnum, sgnum_laue, prep_dials_files=False):
@@ -92,7 +94,7 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
 
     sym, wd, wdr = sym_wd_wdr
     out = StringIO()
-    print >>out,  os.path.relpath(wd, topdir),
+    print(os.path.relpath(wd, topdir), end=' ', file=out)
 
     # Find appropriate data # XXX not works for DIALS data!!
     xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
@@ -100,18 +102,18 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
                                              "XDS_ASCII.HKL.org", "XDS_ASCII.HKL"),
                                             wd=wd)
     if xac_file is None:
-        print >>out, "Can't find XDS_ASCII file in %s" % wd
+        print("Can't find XDS_ASCII file in %s" % wd, file=out)
         log_out.write(out.getvalue())
         log_out.flush()
         return (wd, None)
 
     xac = XDS_ASCII(xac_file, read_data=False)
-    print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
-                                 ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
+    print("%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
+                                 ",".join(["%.2f"%x for x in xac.symm.unit_cell().parameters()])), file=out)
 
     if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
         if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10):
-            print >>out,  "  Already scaled with specified symmetry"
+            print("  Already scaled with specified symmetry", file=out)
             log_out.write(out.getvalue())
             log_out.flush()
 
@@ -125,7 +127,7 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
     cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20)
 
     if len(cosets.combined_cb_ops())==0:
-        print >>out, "Can't find operator:"
+        print("Can't find operator:", file=out)
         sym.show_summary(out, " ")
         reference_symm.show_summary(out, " ")
         log_out.write(out.getvalue())
@@ -133,8 +135,8 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
         return (wdr, None)
 
     newcell = reference_symm.space_group().average_unit_cell(xac.symm.change_basis(cosets.combined_cb_ops()[0]).unit_cell())
-    newcell = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
-    print >>out,  "Scaling with transformed cell:", newcell
+    newcell = " ".join(["%.3f"%x for x in newcell.parameters()])
+    print("Scaling with transformed cell:", newcell, file=out)
 
     #for f in xds_files.generated_by_CORRECT:
     #    util.rotate_file(os.path.join(wd, f))
@@ -167,9 +169,9 @@ def rescale_with_specified_symm_worker(sym_wd_wdr, topdir, log_out, reference_sy
     ret = None
     if os.path.isfile(new_xac):
         ret = (XDS_ASCII(new_xac, read_data=False).symm.unit_cell().parameters(), new_xac)
-        print >>out, " OK:", ret[0]
+        print(" OK:", ret[0], file=out)
     else:
-        print >>out, "Error: rescaling failed (Can't find XDS_ASCII.HKL)"
+        print("Error: rescaling failed (Can't find XDS_ASCII.HKL)", file=out)
 
     return (wd, ret)
 # rescale_with_specified_symm_worker()
@@ -180,20 +182,20 @@ def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_
     if sgnum is not None:
         sgnum_laue = sgtbx.space_group_info(sgnum).group().build_derived_reflection_intensity_group(False).type().number()
 
-        matches = filter(lambda x:x.reflection_intensity_symmetry(False).space_group_info().type().number()==sgnum_laue, symms)
-        matched_cells = numpy.array(map(lambda x: x.unit_cell().parameters(), matches))
-        median_cell = map(lambda x: numpy.median(matched_cells[:,x]), xrange(6))
+        matches = [x for x in symms if x.reflection_intensity_symmetry(False).space_group_info().type().number()==sgnum_laue]
+        matched_cells = numpy.array([x.unit_cell().parameters() for x in matches])
+        median_cell = [numpy.median(matched_cells[:,x]) for x in range(6)]
 
         reference_symm = crystal.symmetry(median_cell, sgnum)
     else:
         sgnum = reference_symm.space_group_info().type().number()
         sgnum_laue = reference_symm.space_group().build_derived_reflection_intensity_group(False).type().number()
     
-    print >>out
-    print >>out,  "Re-scaling with specified symmetry:", reference_symm.space_group_info().symbol_and_number()
-    print >>out,  " reference cell:", reference_symm.unit_cell()
-    print >>out
-    print >>out
+    print(file=out)
+    print("Re-scaling with specified symmetry:", reference_symm.space_group_info().symbol_and_number(), file=out)
+    print(" reference cell:", reference_symm.unit_cell(), file=out)
+    print(file=out)
+    print(file=out)
     out.flush()
     st_time = time.time()
     wd_ret = []
@@ -209,9 +211,9 @@ def rescale_with_specified_symm(topdir, dirs, symms, out, sgnum=None, reference_
 
 
     ret = easy_mp.pool_map(fixed_func=lambda x: rescale_with_specified_symm_worker(x, topdir, out, reference_symm, sgnum, sgnum_laue, prep_dials_files),
-                           args=zip(symms, dirs, wd_ret), processes=nproc)
-    cells = dict(filter(lambda x: x[1] is not None, ret)) # cell and file
-    print >>out, "\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc)
+                           args=list(zip(symms, dirs, wd_ret)), processes=nproc)
+    cells = dict([x for x in ret if x[1] is not None]) # cell and file
+    print("\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc), file=out)
     return cells, reference_symm
 # rescale_with_specified_symm()
 
@@ -224,7 +226,7 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
     """
 
     out = StringIO()
-    print >>out, "%s:" % os.path.relpath(wd, topdir),
+    print("%s:" % os.path.relpath(wd, topdir), end=' ', file=out)
 
     # Find appropriate data
     xac_file = util.return_first_found_file(("XDS_ASCII.HKL_noscale.org", "XDS_ASCII.HKL_noscale", 
@@ -232,7 +234,7 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
                                              "XDS_ASCII.HKL.org", "XDS_ASCII.HKL", "DIALS.HKL.org", "DIALS.HKL"),
                                             wd=wd)
     if xac_file is None:
-        print >>out, "Can't find XDS_ASCII file in %s" % wd
+        print("Can't find XDS_ASCII file in %s" % wd, file=out)
         log_out.write(out.getvalue())
         log_out.flush()
         return (wdr, None)
@@ -241,12 +243,12 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
     else: xac_file_out = xac_file
 
     xac = XDS_ASCII(xac_file, read_data=False)
-    print >>out, "%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
-                               ",".join(map(lambda x: "%.2f"%x, xac.symm.unit_cell().parameters())))
+    print("%s %s (%s)" % (os.path.basename(xac_file), xac.symm.space_group_info(),
+                               ",".join(["%.2f"%x for x in xac.symm.unit_cell().parameters()])), file=out)
 
     if xac.symm.reflection_intensity_symmetry(False).space_group_info().type().number() == sgnum_laue:
         if xac.symm.unit_cell().is_similar_to(reference_symm.unit_cell(), 0.1, 10): # XXX Check unit cell consistency!!
-            print >>out,  "  Already scaled with specified symmetry"
+            print("  Already scaled with specified symmetry", file=out)
             log_out.write(out.getvalue())
             log_out.flush()
 
@@ -262,7 +264,7 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
     cosets = reindex.reindexing_operators(reference_symm, xac.symm, 0.2, 20) # XXX ISN'T THIS TOO LARGE?
 
     if len(cosets.combined_cb_ops())==0:
-        print >>out, "Can't find operator:"
+        print("Can't find operator:", file=out)
         xac.symm.show_summary(out, " ")
         reference_symm.show_summary(out, " ")
         log_out.write(out.getvalue())
@@ -296,8 +298,8 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
                             reindex_op=cosets.combined_cb_ops()[0],
                             moveto=dest)
 
-    newcell_str = " ".join(map(lambda x: "%.3f"%x, newcell.parameters()))
-    print >>out,  "  Reindexed to transformed cell: %s with %s" % (newcell_str, cosets.combined_cb_ops()[0].as_hkl())
+    newcell_str = " ".join(["%.3f"%x for x in newcell.parameters()])
+    print("  Reindexed to transformed cell: %s with %s" % (newcell_str, cosets.combined_cb_ops()[0].as_hkl()), file=out)
     log_out.write(out.getvalue())
     log_out.flush()
 
@@ -318,11 +320,11 @@ def reindex_with_specified_symm_worker(wd, wdr, topdir, log_out, reference_symm,
 # reindex_with_specified_symm_worker()
 
 def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, prep_dials_files=False, copyto_root=None):
-    print >>out
-    print >>out,  "Re-index to specified symmetry:"
+    print(file=out)
+    print("Re-index to specified symmetry:", file=out)
     reference_symm.show_summary(out, "  ")
-    print >>out
-    print >>out
+    print(file=out)
+    print(file=out)
     out.flush()
 
     st_time = time.time()
@@ -340,15 +342,15 @@ def reindex_with_specified_symm(topdir, reference_symm, dirs, out, nproc=10, pre
     sgnum_laue = reference_symm.space_group().build_derived_reflection_intensity_group(False).type().number()
 
     ret = easy_mp.pool_map(fixed_func=lambda wd2: reindex_with_specified_symm_worker(wd2[0], wd2[1], topdir, out, reference_symm, sgnum_laue, prep_dials_files),
-                           args=zip(dirs, wd_ret), processes=nproc)
-    cells = dict(filter(lambda x: x[1] is not None, ret)) # cell and file
+                           args=list(zip(dirs, wd_ret)), processes=nproc)
+    cells = dict([x for x in ret if x[1] is not None]) # cell and file
 
-    print >>out, "\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc)
+    print("\nTotal wall-clock time for reindexing: %.2f sec (using %d cores)." % (time.time()-st_time, nproc), file=out)
 
     return cells
 # reindex_with_specified_symm()
 
-class PrepMerging:
+class PrepMerging(object):
     def __init__(self, cell_graph):
         self.cell_graph = cell_graph
         self.cell_and_files = {}
@@ -383,8 +385,8 @@ class PrepMerging:
         prep_log_out.flush()
 
         # Scale with specified symmetry
-        symms = map(lambda i: cm.symms[i], cm.groups[group-1])
-        dirs = map(lambda i: cm.dirs[i], cm.groups[group-1])
+        symms = [cm.symms[i] for i in cm.groups[group-1]]
+        dirs = [cm.dirs[i] for i in cm.groups[group-1]]
         copyto_root = os.path.join(workdir, "input_files") if into_workdir else None
 
         if not topdir: topdir = os.path.dirname(os.path.commonprefix(dirs))
@@ -407,7 +409,7 @@ class PrepMerging:
         cosets = reindex.reindexing_operators(reference_symm, reference_symm, max_delta=5)
         reidx_ops = cosets.combined_cb_ops()
 
-        print >>prep_log_out, "\nReference symmetry:", reference_symm.unit_cell(), reference_symm.space_group_info().symbol_and_number()
+        print("\nReference symmetry:", reference_symm.unit_cell(), reference_symm.space_group_info().symbol_and_number(), file=prep_log_out)
         msg_reindex = "\n"
         if len(reidx_ops) > 1:
             msg_reindex += "!! ATTENTION !! Reindex operators found. You may need to reindex some files before merging.\n"
@@ -419,7 +421,7 @@ class PrepMerging:
         else:
             msg_reindex += "No reindex operators found. No need to run kamo.resolve_indexing_ambiguity."
 
-        print >>prep_log_out, "%s\n\n" % msg_reindex
+        print("%s\n\n" % msg_reindex, file=prep_log_out)
         prep_log_out.close()
 
         # Make list for merging
@@ -430,7 +432,7 @@ class PrepMerging:
         for wd in sorted(self.cell_and_files):
             cell, xas = self.cell_and_files[wd]
             ofs_lst.write(xas+"\n")
-            ofs_dat.write(xas+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
+            ofs_dat.write(xas+" "+" ".join(["%7.3f"%x for x in cell])+"\n")
 
         ofs_dat.close()
         ofs_lst.close()
@@ -458,7 +460,7 @@ kamo.multi_merge \\
         max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
 #        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
 """ % sge_pe_name)
-        os.chmod(os.path.join(workdir, "merge_blend.sh"), 0755)
+        os.chmod(os.path.join(workdir, "merge_blend.sh"), 0o755)
         
         open(os.path.join(workdir, "merge_ccc.sh"), "w").write("""\
 #!/bin/sh
@@ -481,7 +483,7 @@ kamo.multi_merge \\
         max_clusters=None xscale.use_tmpdir_if_available=${use_ramdisk} \\
 #        batch.engine=sge batch.par_run=merging batch.nproc_each=8 nproc=8 batch.sge_pe_name=%s
 """ % sge_pe_name)
-        os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0755)
+        os.chmod(os.path.join(workdir, "merge_ccc.sh"), 0o755)
 
         open(os.path.join(workdir, "filter_cell.R"), "w").write(r"""iqrf <- 2.5
 outliers <- function(x) {
@@ -558,10 +560,10 @@ dials.refine combined_experiments.json combined_reflections.pickle auto_reductio
 
 def run(params):
     if not params.workdir:
-        print "Give workdir="
+        print("Give workdir=")
         return
     if os.path.exists(params.workdir):
-        print "workdir already exists:", params.workdir
+        print("workdir already exists:", params.workdir)
         return
 
     params.workdir = os.path.abspath(params.workdir)
@@ -582,23 +584,22 @@ def run(params):
     xds_dirs = []
     for xd0 in params.xdsdir:
         for xd in glob.glob(xd0):
-            xds_dirs.extend(map(lambda x: x[0], filter(lambda x: any(map(lambda y: y.startswith("XDS_ASCII.HKL"), x[2])) or "DIALS.HKL" in x[2],
-                                                       os.walk(os.path.abspath(xd)))))
+            xds_dirs.extend([x[0] for x in [x for x in os.walk(os.path.abspath(xd)) if any([y.startswith("XDS_ASCII.HKL") for y in x[2]]) or "DIALS.HKL" in x[2]]])
     
     for i, xd in enumerate(xds_dirs):
         cm.add_proc_result(i, xd)
 
     pm = PrepMerging(cm)
-    print pm.find_groups()
+    print(pm.find_groups())
 
     if len(cm.groups) == 0:
-        print "Oh, no. No data."
+        print("Oh, no. No data.")
         return
 
     if params.group_choice is None:
         while True:
             try:
-                val = int(raw_input("Input group number [%d..%d]: " % (1, len(cm.groups))))
+                val = int(input("Input group number [%d..%d]: " % (1, len(cm.groups))))
                 if not 0 < val <= len(cm.groups): raise ValueError
                 params.group_choice = val
                 break
@@ -614,7 +615,7 @@ def run(params):
 
     while True:
         try:
-            val = int(raw_input("Input symmetry number [%d..%d]: " % (0, len(symms)-1)))
+            val = int(input("Input symmetry number [%d..%d]: " % (0, len(symms)-1)))
             if not 0 <= val < len(symms): raise ValueError
             symmidx = val
             break
@@ -632,13 +633,13 @@ def run(params):
 
 def run_from_args(argv):
     if "-h" in argv or "--help" in argv:
-        print """
+        print("""
 kamo.multi_prep_merging is a helper program to prepare for merging multiple (small wedge) datasets.
 Typical usage:
   kamo.multi_prep_merging workdir=merge_reidx xdsdir=../\*/
 
 All parameters:
-"""
+""")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         return
 

@@ -1,3 +1,5 @@
+from __future__ import division
+from __future__ import unicode_literals
 import numpy
 
 """
@@ -7,7 +9,7 @@ which are used in BLEND program (Foadi et al. 2013, Acta Cryst. D)
 
 
 def diagonals(cells):
-    a, b, c, al, be, ga = map(lambda i: cells[:,i], xrange(6))
+    a, b, c, al, be, ga = [cells[:,i] for i in range(6)]
 
     Dab = numpy.sqrt(a**2 + b**2 -2.*a*b*numpy.cos(numpy.pi-numpy.deg2rad(ga)))
     Dbc = numpy.sqrt(b**2 + c**2 -2.*b*c*numpy.cos(numpy.pi-numpy.deg2rad(al)))

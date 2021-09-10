@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import re
 import os
 import numpy
@@ -21,14 +23,14 @@ def is_xds_ascii(filein):
     return "FORMAT=XDS_ASCII" in line
 # is_xds_ascii()
 
-class XDS_ASCII:
+class XDS_ASCII(object):
 
     def __init__(self, filein, log_out=None, read_data=True, i_only=False):
         self._log = null_out() if log_out is None else log_out
         self._filein = filein
         self.indices = flex.miller_index()
         self.i_only = i_only
-        self.iobs, self.sigma_iobs, self.xd, self.yd, self.zd, self.rlp, self.peak, self.corr = [flex.double() for i in xrange(8)]
+        self.iobs, self.sigma_iobs, self.xd, self.yd, self.zd, self.rlp, self.peak, self.corr = [flex.double() for i in range(8)]
         self.iframe = flex.int()
         self.iset = flex.int() # only for XSCALE
         self.input_files = {} # only for XSCALE [iset:(filename, wavelength), ...]
@@ -86,9 +88,9 @@ class XDS_ASCII:
         for key, val in headers:
             if key == "NUMBER_OF_ITEMS_IN_EACH_DATA_RECORD":
                 nitem = int(val.strip())
-                print >>self._log, 'number of items according to header is', nitem
+                print('number of items according to header is', nitem, file=self._log)
             elif key == "UNIT_CELL_CONSTANTS":
-                a, b, c, al, be, ga = map(lambda x:float(x), val.strip().split())
+                a, b, c, al, be, ga = [float(x) for x in val.strip().split()]
             elif key == "UNIT_CELL_A-AXIS":
                 self.a_axis = tuple(map(float, val.split()))
             elif key == "UNIT_CELL_B-AXIS":
@@ -112,7 +114,7 @@ class XDS_ASCII:
             elif key == "ORGY":
                 self.orgy = float(val)
             elif key == "DATA_RANGE":
-                self.zmin, self.zmax = map(lambda x:int(x), val.strip().split())
+                self.zmin, self.zmax = [int(x) for x in val.strip().split()]
             elif key == "SPACE_GROUP_NUMBER":
                 ispgrp = int(val.strip())
             elif key == "FRIEDEL'S_LAW":
@@ -139,7 +141,7 @@ class XDS_ASCII:
                                      space_group=ispgrp)
 
         self.symm.show_summary(self._log)
-        print >>self._log, 'data_range=', self.zmin, self.zmax
+        print('data_range=', self.zmin, self.zmax, file=self._log)
 
     # read_header()
     
@@ -180,7 +182,7 @@ class XDS_ASCII:
 
                     if self.iframe[-1] < 0:
                         self.iframe[-1] = 0
-                        print >>self._log, 'reflection with surprisingly low z-value:', self.zd[-1]
+                        print('reflection with surprisingly low z-value:', self.zd[-1], file=self._log)
 
             if line.startswith('!END_OF_HEADER'):
                 flag_data_start = True
@@ -190,7 +192,7 @@ class XDS_ASCII:
         self.iframe = flex.int(self.iframe)
         self.iset = flex.int(self.iset) # only for XSCALE
 
-        print >>self._log, "Reading data done.\n"
+        print("Reading data done.\n", file=self._log)
 
     # read_data()
 
@@ -270,7 +272,7 @@ class XDS_ASCII:
         XXX Assuming hkl has 6*3 width!!
         """
         ofs = open(hklout, "w")
-        col_H, col_K, col_L = map(lambda x:self._colindex[x], "HKL")
+        col_H, col_K, col_L = [self._colindex[x] for x in "HKL"]
         assert col_H==0 and col_K==1 and col_L==2
 
         tr_mat = numpy.array(op.c_inv().r().as_double()).reshape(3,3).transpose()

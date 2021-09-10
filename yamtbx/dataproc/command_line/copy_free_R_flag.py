@@ -1,5 +1,7 @@
 #!/usr/bin/env phenix.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import os
 import iotbx.mtz
@@ -11,26 +13,26 @@ from iotbx.reflection_file_utils import get_r_free_flags_scores, make_joined_set
 def get_flag_array(arrays, flag_name=None, log_out=sys.stdout):
     flag_array = None
     if flag_name is None:
-        flags = filter(lambda x: is_rfree_array(x, x.info()), arrays)
+        flags = [x for x in arrays if is_rfree_array(x, x.info())]
         if len(flags) == 0:
-            print >>log_out, " No R free flags like column found."
+            print(" No R free flags like column found.", file=log_out)
             return None, None
         elif len(flags) > 1:
-            print >>log_out, " More than one column which looks like R free flag:"
+            print(" More than one column which looks like R free flag:", file=log_out)
             for f in flags:
-                print >>log_out, " ", f.info().label_string()
+                print(" ", f.info().label_string(), file=log_out)
             return None, None
         else:
             flag_name = flags[0].info().label_string()
             flag_array = flags[0]
-            print >>log_out, " Guessing R free flag:", flag_name
+            print(" Guessing R free flag:", flag_name, file=log_out)
     else:
-        flags = filter(lambda x: flag_name==x.info().label_string(), arrays)
+        flags = [x for x in arrays if flag_name==x.info().label_string()]
         if len(flags) == 0:
-            print >>log_out, " Specified flag name not found:", flag
+            print(" Specified flag name not found:", flag, file=log_out)
             return None, None
         else:
-            print >>log_out, " Use specified flag:", flag
+            print(" Use specified flag:", flag, file=log_out)
             flag_array = flags[0]
     return flag_array, flag_name
 # get_flag_array()
@@ -38,13 +40,13 @@ def get_flag_array(arrays, flag_name=None, log_out=sys.stdout):
 def copy_flag_to_mtz(flag_array, flag_name, flag_value, mtz_in, mtz_out, log_out=sys.stdout):
     # Open mtz
     miller_arrays = iotbx.mtz.object(mtz_in).as_miller_arrays()
-    print >>log_out, "Opening", mtz_in
+    print("Opening", mtz_in, file=log_out)
 
     if flag_name in [arr.info().label_string() for arr in miller_arrays]:
-        print >>log_out, "Error: The column %s already exists in the mtz file: %s" % (flag_name, mtz_in)
+        print("Error: The column %s already exists in the mtz file: %s" % (flag_name, mtz_in), file=log_out)
         return
 
-    print >>log_out, " Using information from", miller_arrays[0].info().label_string()
+    print(" Using information from", miller_arrays[0].info().label_string(), file=log_out)
     input_symm = crystal.symmetry(
         unit_cell=miller_arrays[0].unit_cell(),
         space_group_info=miller_arrays[0].space_group().info(),
@@ -53,9 +55,9 @@ def copy_flag_to_mtz(flag_array, flag_name, flag_value, mtz_in, mtz_out, log_out
 
     d_max, d_min = get_best_resolution(miller_arrays, input_symm)
     
-    print >>log_out, " d_max, d_min=", d_max, d_min
-    print >>log_out, " Symm:", input_symm.space_group_info(), input_symm.unit_cell()
-    print >>log_out
+    print(" d_max, d_min=", d_max, d_min, file=log_out)
+    print(" Symm:", input_symm.space_group_info(), input_symm.unit_cell(), file=log_out)
+    print(file=log_out)
 
     # Extend flag
     complete_set = make_joined_set(miller_arrays).complete_set()
@@ -70,7 +72,7 @@ def copy_flag_to_mtz(flag_array, flag_name, flag_value, mtz_in, mtz_out, log_out
         d_min=d_min,
         log=log_out).common_set(complete_set) #resolution_filter(d_min=d_min-0.01)
 
-    print >>log_out
+    print(file=log_out)
 
     r_free_flags.customized_copy(data=r_free_flags.data()==flag_value).show_r_free_flags_info(out=log_out)
 
@@ -84,7 +86,7 @@ def copy_flag_to_mtz(flag_array, flag_name, flag_value, mtz_in, mtz_out, log_out
 
 def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
     ref_arrays = iotbx.mtz.object(mtz_ref).as_miller_arrays()
-    print "Opening reference:", mtz_ref
+    print("Opening reference:", mtz_ref)
 
     flag_array, flag_name = get_flag_array(ref_arrays, flag_name)
 
@@ -92,18 +94,18 @@ def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
     if flag_value is None:
         flag_scores = get_r_free_flags_scores(miller_arrays=[flag_array], test_flag_value=flag_value)
         flag_value = flag_scores.test_flag_values[0]
-        print " Guessing flag number:", flag_value
+        print(" Guessing flag number:", flag_value)
     else:
-        print " Specified flag number:", flag_value
+        print(" Specified flag number:", flag_value)
 
-    print " d_max, d_min=", get_best_resolution([flag_array], flag_array.crystal_symmetry())
-    print " Symm:", flag_array.space_group().info(), flag_array.unit_cell()
-    print
+    print(" d_max, d_min=", get_best_resolution([flag_array], flag_array.crystal_symmetry()))
+    print(" Symm:", flag_array.space_group().info(), flag_array.unit_cell())
+    print()
 
     copy_flag_to_mtz(flag_array, flag_name, flag_value, mtz, mtz_out)
-    print
-    print "Written:", mtz_out
-    print 
+    print()
+    print("Written:", mtz_out)
+    print() 
 # run()
 
 if __name__ == "__main__":
@@ -119,15 +121,15 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args(sys.argv)
 
     if len(args) < 2 or opts.mtz_ref is None:
-        print parser.print_help()
+        print(parser.print_help())
         quit()
 
     if not os.path.isfile(args[1]):
-        print "File not found:", args[1]
+        print("File not found:", args[1])
         quit()
 
     if not os.path.isfile(opts.mtz_ref):
-        print "File not found:", opts.mtz_ref
+        print("File not found:", opts.mtz_ref)
         quit()
 
     
@@ -138,8 +140,8 @@ if __name__ == "__main__":
         opts.mtz_out = os.path.splitext(os.path.basename(args[1]))[0] + "_copy_free.mtz"
 
     if os.path.isfile(opts.mtz_out):
-        print "File already exists:", opts.mtz_out
-        print "Please remove the file or change the output name with -o option"
+        print("File already exists:", opts.mtz_out)
+        print("Please remove the file or change the output name with -o option")
         quit()
     
     run(mtz=args[1], mtz_ref=opts.mtz_ref, mtz_out=opts.mtz_out, flag_name=opts.flag, flag_value=opts.flag_value)

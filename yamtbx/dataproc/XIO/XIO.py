@@ -10,7 +10,11 @@
 
 New BSD License http://www.opensource.org/licenses/bsd-license.php
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+from functools import reduce
 __version__ = "0.4.5"
 __author__ = "Pierre Legrand (pierre.legrand \at synchrotron-soleil.fr)"
 __date__ = "7-12-2009"
@@ -53,7 +57,7 @@ REC_FULLIMAGENAME3 =  re.compile(RE_FULLIMAGENAME3)
 
 def list_of_string(arg):
     "Return True if all the component of the list are of string type."
-    return reduce(lambda a, b: a and b, map(lambda s: type(s) == str, arg))
+    return reduce(lambda a, b: a and b, [type(s) == str for s in arg])
 
 def isExtCompressed(filename):
     "Tells from the filename suffix if the file is externaly compressed"
@@ -72,7 +76,7 @@ def remove_redundancy(seq):
     "Fast way to remove the redundant elements in any sorted sequence."
     _seq_shift = seq[1:]
     _seq_shift.append(None)
-    return [E for E, C in zip(seq, map(cmp, seq, _seq_shift)) if C]
+    return [E for E, C in zip(seq, list(map(cmp, seq, _seq_shift))) if C]
 
 def add_reduce(seq):
     "Like Numeric.add.reduce(array)..."
@@ -98,7 +102,7 @@ class XIOError(Exception):
     """This level of exception raises a recoverable error which can be fixed.
     """
 
-class Image:
+class Image(object):
     """Defines a generic X-ray diffraction image file.
     The constructor tries first to determine the image type (using guessType()),
     and then the internal compression (using guessIntCompression()).
@@ -160,8 +164,8 @@ class Image:
             _image = self.open()
             self.rawHead = _image.read(9000)
             _image.close()
-        except XIOError, msg:
-            print msg
+        except XIOError as msg:
+            print(msg)
             raise XIOError("Can't read compressed file %s" \
                                              % (imageFileName))
         if len(self.rawHead) < 9000:
@@ -203,7 +207,7 @@ class Image:
                     raise XIOError("Can't read compressed file %s." \
                                    % (self.fileName) + " (No module gzip!)")
                 try:
-                    return gzip.open(self.fileName)
+                    return gzip.open(self.fileName, "rt")
                 except IOError:
                     raise XIOError("Can't open compressed file %s" \
                                             % (self.fileName))
@@ -214,14 +218,14 @@ class Image:
                     raise XIOError("Can't read compressed file %s." \
                                    % (self.fileName) + " (No module bz2!)")
                 try:
-                    print "trying bz2"
+                    print("trying bz2")
                     return bz2.BZ2File(self.fileName)
-                except IOError, _mess:
-                    print "IOError", _mess
-                    raise XIOError, "argh! Can't open compressed file %s" \
-                                            % (self.fileName)
+                except IOError as _mess:
+                    print("IOError", _mess)
+                    raise XIOError("argh! Can't open compressed file %s" \
+                                            % (self.fileName))
         else:
-            return open(self.fileName)
+            return open(self.fileName, "rb")
 
     def guessType(self):
         """Try to guess the image detector type.
@@ -231,10 +235,10 @@ class Image:
         if self.fileName.endswith(".h5"):
             import h5py
             h5 = h5py.File(self.fileName, "r")
-            if "entry/instrument/detector/description" in h5 and "Eiger" in h5["entry/instrument/detector/description"].value:
+            if b"entry/instrument/detector/description" in h5 and b"Eiger" in h5[b"entry/instrument/detector/description"][()]:
                 self.type = "eiger_hdf5"
                 return self.type
-            elif "/entry/instrument/detector/detectorSpecific/eiger_fw_version" in h5:
+            elif b"/entry/instrument/detector/detectorSpecific/eiger_fw_version" in h5:
                 self.type = "eiger_hdf5" # probably eiger2..
                 return self.type
             return
@@ -271,14 +275,14 @@ class Image:
 
         # Test to identify MarCCD header
         elif self.rawHead[0:3] == "II*" and \
-                struct.unpack('<I', self.rawHead[1024:1028])[0] == 2L and \
+                struct.unpack('<I', self.rawHead[1024:1028])[0] == 2 and \
                 self.rawHead[1028:1031] == "MMX" :
             self.type = "marccd"
             return self.type
 
         # Test to identify imageCIF or CBF header
-        elif self.rawHead.count("loop_") >= 3 and \
-             self.rawHead.count("data_image_"):
+        elif self.rawHead.count(b"loop_") >= 3 and \
+             self.rawHead.count(b"data_image_"):
             self.type = "cbf"
             return self.type
 
@@ -300,7 +304,7 @@ class Image:
 
         # Failled to identify any image type :-(
         else:
-            print self.rawHead[:20]
+            print(self.rawHead[:20])
             self.type = "unknown"
             return self.type
 
@@ -339,11 +343,11 @@ class Image:
         For now the only known used (by MAR and XDS) internal compression
         format is the pck CCP4 packed ."""
 
-        if self.rawHead.count("CCP4 packed image"):
+        if self.rawHead.count(b"CCP4 packed image"):
             self.intCompression = "pck"
         elif self.rawHead[0:7] == "###CBF:":
             self.intCompression = "cbf"
-        elif "COMPRESSION=" in self.rawHead[:50]:
+        elif b"COMPRESSION=" in self.rawHead[:50]:
             self.intCompression = "CRYSALIS"
         return  self.intCompression
 
@@ -351,13 +355,13 @@ class Image:
         """Try to interpret the header, and return a dictionary with the header
         information"""
         #print self.type
-        interpreterClass = importName("XIO.plugins.%s_interpreter" % \
+        interpreterClass = importName("yamtbx.dataproc.XIO.plugins.%s_interpreter" % \
                                        self.type, "Interpreter")
         if not  interpreterClass:
             interpreterClass = importName("plugins.%s_interpreter" % \
                                        self.type, "Interpreter")
         if not interpreterClass:
-            raise XIOError, "Can't import %s interperter" % (self.type)
+            raise XIOError("Can't import %s interperter" % (self.type))
 
         # Rules are serial number (or other identifier) based rules
         # To be added
@@ -369,16 +373,16 @@ class Image:
         else:
             self.RawHeadDict = self.interpreter.getRawHeadDict(self.rawHead)
         #VERBOSE = True
-        for k in self.interpreter.HTD.keys():
+        for k in list(self.interpreter.HTD.keys()):
             args, func = self.interpreter.HTD[k]
             #self.header[k] = apply(func, map(self.RawHeadDict.get,args))
             if args[0] in self.RawHeadDict:
                 try:
-                    self.header[k] = func(*map(self.RawHeadDict.get, args))
+                    self.header[k] = func(*list(map(self.RawHeadDict.get, args)))
                 except ValueError:
                     self.header[k] = 0.
                     if VERBOSE:
-                        print "WARNING: Can't interpret header KEY %s" % k
+                        print("WARNING: Can't interpret header KEY %s" % k)
         # Check consistancy of beam center coordinates (should be in mm).
         # with pixel size and number...
         # Some time the beam center is expressed in pixels rather than in mm.
@@ -427,28 +431,28 @@ class Image:
             #print "Image. TRY import exporter:", exportType.lower()
             exporter = __import__(exportType.lower()+'_export')
         except:
-            raise XIOError, "Can't load %s exporter" % (exportType)
+            raise XIOError("Can't load %s exporter" % (exportType))
         #
         exportDict = {}
-        for k in exporter.HTD.keys():
+        for k in list(exporter.HTD.keys()):
             args, func = exporter.HTD[k]
 
-            exportDict[k] = func(*map(self.header.get, args))
+            exportDict[k] = func(*list(map(self.header.get, args)))
         return exportDict
 
     def info(self, verbose=0):
         "Print object internal information"
         #import pprint
-        print ">> Interpreting header of image:  %s" % self.fileName
-        print ">> Image format:      %s" % self.type
+        print(">> Interpreting header of image:  %s" % self.fileName)
+        print(">> Image format:      %s" % self.type)
         if self.detModel:
-            print ">> Detector type:     %s" % self.detModel
+            print(">> Detector type:     %s" % self.detModel)
         if hasattr(self, "beamline") and self.beamline:
-            print ">> Beamline guess:    %s %s %s" % self.beamline
+            print(">> Beamline guess:    %s %s %s" % self.beamline)
         if self.intCompression:
-            print ">> Image Compression:\t%s" % self.intCompression
+            print(">> Image Compression:\t%s" % self.intCompression)
         if verbose:
-            print ">> Header: ",
+            print(">> Header: ", end=' ')
             pprint.pprint(self.header)
         return self.header
 
@@ -460,27 +464,26 @@ class Image:
     def data_info(self):
         "Print object internal information"
         #import pprint
-        print ">> Loading %s" % (self.fileName)
-        print ">> %d x %d pixels" % (self.header['Width'],
-                                         self.header['Height'])
-        print ">> Distance: %.1f mm, Lambda: %.3f A" % \
-                           (self.header['Distance'],self.header['Wavelength'])
+        print(">> Loading %s" % (self.fileName))
+        print(">> %d x %d pixels" % (self.header['Width'],
+                                         self.header['Height']))
+        print(">> Distance: %.1f mm, Lambda: %.3f A" % \
+                           (self.header['Distance'],self.header['Wavelength']))
         try:
             data = self.getData()
             if self.type == 'marccd':
-                data = filter(None, data)
-                print data[:10]
+                data = [_f for _f in data if _f]
+                print(data[:10])
             if self.type == 'raxis':
-                hval = map(lambda val: (0x7fff&val)*8,
-                              filter(lambda x: x>0x7fff, data))
-                print hval
-                print len(hval), max(hval)
+                hval = [(0x7fff&val)*8 for val in [x for x in data if x>0x7fff]]
+                print(hval)
+                print(len(hval), max(hval))
             len_data = len(data)
             mean_data = add_reduce(data)/len_data
-            print ">> MaxI: %d, AvgI: %.0f" % (max(data), mean_data)
+            print(">> MaxI: %d, AvgI: %.0f" % (max(data), mean_data))
         except XIOError:
-            print ">> Don't know how (yet) to read %s compressed raw data." %\
-                         self.intCompression
+            print(">> Don't know how (yet) to read %s compressed raw data." %\
+                         self.intCompression)
 
     def getData(self, clipping=False):
         """Read the image bytes. For now only support the 16bits unsigned,
@@ -525,7 +528,7 @@ class Image:
             _fmt = endian + "B" * _dataSize
             _data = struct.unpack(_fmt, _data)
             file_size = self.header['HeaderSize'] + _dataSize + OI*2 + OL*4
-            print "Total file size = %d" % (file_size)
+            print("Total file size = %d" % (file_size))
             _overloads_short = 0
             _overloads_long = 0
             if OI:
@@ -533,13 +536,13 @@ class Image:
                 _fmt = endian + OI*"h"
                 _overloads_short = _image.read(OI*2)
                 _overloads_short = struct.unpack(_fmt, _overloads_short)
-                print "short_max=", max(_overloads_short), 2**16
+                print("short_max=", max(_overloads_short), 2**16)
             if OL:
                 #_fmt = self.header['EndianType'] + OL*"I"
                 _fmt = endian + OL*"i"
                 _overloads_long = _image.read(OL*4)
                 _overloads_long = struct.unpack(_fmt, _overloads_long)
-                print "long_max=", max(_overloads_long), 2**32
+                print("long_max=", max(_overloads_long), 2**32)
             _image.close()
             # unpack
             image = _dataSize*[0,]
@@ -568,8 +571,8 @@ class Image:
                     image[i] = image[i-1] + tmp - 127
                 i+= 1
             i = 0
-            print "MinI: %7d  MaxI: %7d  " % (min(image), max(image)),
-            print "AvgI: %.1f" % (add_reduce(image)*1./len(image))
+            print("MinI: %7d  MaxI: %7d  " % (min(image), max(image)), end=' ')
+            print("AvgI: %.1f" % (add_reduce(image)*1./len(image)))
             if clipping:
                 while i < _dataSize:
                     if image[i] < 0:
@@ -580,9 +583,9 @@ class Image:
             #_data = [pix-127 for pix in _data if pix < 254]
             #print len(image) - _dataSize
             if _overloads_short:
-                print "OI", OI, j#, _overloads_short[:20]
+                print("OI", OI, j)#, _overloads_short[:20]
             if _overloads_long:
-                print "OL", OL, k, _overloads_long[:20]
+                print("OL", OL, k, _overloads_long[:20])
             #for i in range(30,500):
             #    print "%8d %8d %8d" % (i, _data[i], image[i])
             #for i in range(-100,-30):
@@ -590,7 +593,7 @@ class Image:
             return image
 
         else:
-            raise XIOError, "Sorry, this image is internaly compressed."
+            raise XIOError("Sorry, this image is internaly compressed.")
 
     def make_dummy_pilatus_header(self):
         return """
@@ -614,7 +617,7 @@ class Image:
            osc_width=self.header["PhiWidth"])
 
 
-class Collect:
+class Collect(object):
     """ A simple class to handle X-ray data collection informations.
     It can be contruct from either a string template or a
     tupple of 4 building elements (dir, prefix, nDigits, suffix).
@@ -686,8 +689,8 @@ class Collect:
                 _err_message = "String constructor: %s doesn't match Collect "
                 _err_message += "naming convention:\n"
                 _err_message += "[dirPath/]+{prefix}_{num}.{suffix}[.compress]"
-                raise XIOError, _err_message
-                print _err_message
+                raise XIOError(_err_message)
+                print(_err_message)
 
             #print M.groups()
             if self._naming_convension == 2:
@@ -710,7 +713,7 @@ class Collect:
             self.nDigits = int(init[2])
             self.suffix = init[3]
         else:
-            raise TypeError, "Unexpected Collect contructor argument:", init
+            raise TypeError("Unexpected Collect contructor argument:").with_traceback(init)
 
         if not self.directory:
             self.directory = "./"
@@ -769,18 +772,17 @@ class Collect:
             _mess = " Warning NAME_TEMPLATE_OF_DATA_FRAMES has more than 50 ",
             _mess += "characters! XDS will stop. Lengthy path names should "
             _mess += "be abbreviated by a symboliclink for frames directory."
-            print _mess
+            print(_mess)
 
     def setDirectory(self, newpath):
         "Change the absolute dirPath information and update templates."
 
-        if type(newpath) == str or type(newpath) == unicode:
+        if type(newpath) == str or type(newpath) == str:
             if newpath[-1] != "/": newpath += "/"
             self.directory = newpath
             self.setTemplates()
         else:
-            raise TypeError, "Unexpected argument type in setDirectory:", \
-                                                        type(newpath)
+            raise TypeError("Unexpected argument type in setDirectory:").with_traceback(type(newpath))
 
 
     def getNumber(self, imageName):
@@ -796,7 +798,7 @@ class Collect:
         files.sort()
 
         # Get numbers and remove non matching
-        images_num = filter(None, map(self.getNumber, files))
+        images_num = [_f for _f in map(self.getNumber, files) if _f]
         #print len(images_num), ( images_num[-1] - images_num[0] + 1)
 
         # If the list contains duplicates: remove duplicate numbers.
@@ -826,9 +828,9 @@ class Collect:
         return _range
 
     def _ranges_to_sequence(self, ranges):
-        _rangePlus1 = lambda R: range(R[0], R[1]+1)
+        _rangePlus1 = lambda R: list(range(R[0], R[1]+1))
         _add = lambda a, b: a+b
-        return reduce(_add, map(_rangePlus1, ranges))
+        return reduce(_add, list(map(_rangePlus1, ranges)))
 
 
     def lookup_imageRanges(self, forceCheck=False, mask_range=None):
@@ -872,7 +874,7 @@ class Collect:
         if methode == 0:
             phi_range = self.image.header['PhiWidth']
             if phi_range == 0:
-                print  "WARNING: Oscillation_Range recorded in image header is null ! Use the -O option to give the true value."
+                print("WARNING: Oscillation_Range recorded in image header is null ! Use the -O option to give the true value.")
                 return True
             phi_start = self.image.header['PhiStart']
             phi_last = Image(last_image).header['PhiStart']
@@ -884,10 +886,10 @@ class Collect:
             return True
         else:
             fmt = "Image: %s  phi_start= %8.3f  phi_range= %8.3f"
-            print fmt % (imagename_list[0], phi_start, phi_range)
-            print fmt % (imagename_list[-1], phi_last, phi_range)
-            print "Diff = (phi_last - phi_start)/phi_range -",
-            print "(num_last - num_start) = %.4f" % diff
+            print(fmt % (imagename_list[0], phi_start, phi_range))
+            print(fmt % (imagename_list[-1], phi_last, phi_range))
+            print("Diff = (phi_last - phi_start)/phi_range -", end=' ')
+            print("(num_last - num_start) = %.4f" % diff)
             return False
 
     def get_range(self, minf=None, maxf=None):
@@ -906,7 +908,7 @@ class Collect:
             self.lookup_imageNumbers()
 
         substract = lambda x: abs(x-int(target))
-        diff = map(substract, self.imageNumbers)
+        diff = list(map(substract, self.imageNumbers))
         return self.imageNumbers[diff.index(min(diff))]
 
     def export(self, exportType='xds'):
@@ -915,10 +917,10 @@ class Collect:
             #print "Collect. TRY import exporter:", exportType.lower()
             exporter = __import__(exportType.lower()+'_export')
         except:
-            raise XIOError, "Can't load %s exporter" % (exportType)
+            raise XIOError("Can't load %s exporter" % (exportType))
 
         if not self.image.header:
-            print "Not sefl.image.header"
+            print("Not sefl.image.header")
             self.interpretImage()
 
         self.lookup_imageRanges()
@@ -927,14 +929,14 @@ class Collect:
         #except ValueError:
         except NameError:
             exportDict = {}
-        for k in exporter.CTD.keys():
+        for k in list(exporter.CTD.keys()):
             args, func = exporter.CTD[k]
-            exportDict[k] = func(*map(self.__dict__.get, args))
+            exportDict[k] = func(*list(map(self.__dict__.get, args)))
         exportDict["SPECIFIC_KEYWORDS"] = ""
         det_SN = self.image.header["SerialNumber"]
         try:
             spec_SN = exporter.SPECIFIC_SUPPLEMENTARY_KEYWORDS
-            for spec_type in spec_SN.keys():
+            for spec_type in list(spec_SN.keys()):
                 if spec_type in det_SN:
                     exportDict["SPECIFIC_KEYWORDS"] = spec_SN[spec_type]
         except:
@@ -945,7 +947,7 @@ class Collect:
         try:
             exporter = __import__(exportType.lower()+'_export')
         except:
-            raise XIOError, "Can't load %s exporter" % (exportType)
+            raise XIOError("Can't load %s exporter" % (exportType))
         exportDict = self.export(exportType)
         #import pprint
         #pprint.pprint(exportDict)
@@ -955,10 +957,10 @@ class Collect:
         try:
             exporter = __import__(exportType.lower()+'_export')
         except:
-            raise XIOError, "Can't load %s exporter" % (exportType)
+            raise XIOError("Can't load %s exporter" % (exportType))
         return exporter.TEMPLATE
 
-class Interpreter:
+class Interpreter(object):
     """ A basic interpreter class.
     The interpreter mecanism is based on Translation Dictionaries (TD).
     These TD are containers of the rules used to translate from one dictionary to
@@ -980,7 +982,7 @@ class Interpreter:
         read_size = struct.calcsize(headerStructureFmt)
         read_unp = struct.unpack(headerStructureFmt, rawHead[:read_size])
 
-        RawHeadDict = dict(zip(headerStructureKeys, read_unp))
+        RawHeadDict = dict(list(zip(headerStructureKeys, read_unp)))
         RawHeadDict.update({'MESSAGE':'', 'EndianType':EndianType})
 
         return header
@@ -1004,15 +1006,15 @@ def test_regexp():
     r_a = REC_FULLIMAGENAME2.match("/d/r/1.9923.bz2")
     r_b = REC_FULLIMAGENAME2.match("/d/r/654082.0086")
     r_c = REC_FULLIMAGENAME3.match("/TH050916A0001.img")
-    print r_1.groups()
-    print r_2.groups()
-    print r_3.groups()
-    print r_4.groups()
-    print r_8.groups()
-    print r_9.groups()
-    print r_a.groups()
-    print r_b.groups()
-    print r_c.groups()
+    print(r_1.groups())
+    print(r_2.groups())
+    print(r_3.groups())
+    print(r_4.groups())
+    print(r_8.groups())
+    print(r_9.groups())
+    print(r_a.groups())
+    print(r_b.groups())
+    print(r_c.groups())
     assert r_1.groups() == ('./', 'ref-trypsin_1', '023', 'img', '.gz')
     assert r_2.groups() == (None, 'ref-trypsin_1', '023', 'img', None)
     assert r_3.groups() == (None, '_1', '023', 'img', None)
@@ -1045,19 +1047,19 @@ def test2(filename):
     im = Image(filename)
     DH1 = im.headerInterpreter()
     s2 = time.time()
-    print s2-s1
+    print(s2-s1)
     DH2 = GetHeader(filename)
     s3 = time.time()
-    print s3-s2
+    print(s3-s2)
     #pprint.pprint(DH2)
-    for k in DH2.keys():
+    for k in list(DH2.keys()):
         if not DH1[k] == DH2[k]:
             try:
                 _diff = abs(DH1[k] - DH2[k])
                 assert _diff/DH1[k] < 1.e-7
             except  AssertionError:
-                print "Error. Difference %s between value '%s': %s != %s" % \
-                                 (_diff/DH1[k],k,DH1[k],DH2[k])
+                print("Error. Difference %s between value '%s': %s != %s" % \
+                                 (_diff/DH1[k],k,DH1[k],DH2[k]))
     pprint.pprint(DH1)
 
 

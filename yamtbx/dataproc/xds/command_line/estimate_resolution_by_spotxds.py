@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 # The same method in CrystFEL
 # libcrystfel/src/integration.c
@@ -16,10 +18,10 @@ def run(spot_xds, xparm_in):
     sx.set_xparm(xparm_in)
 
     idxed = sx.indexed_and_unindexed_on_detector(with_resolution=True)["indexed"]
-    acc = map(lambda x:1./x[-1], idxed) # list of 1/d
+    acc = [1./x[-1] for x in idxed] # list of 1/d
 
     if len(acc) < 3:
-        print "WARNING: Too few peaks to estimate resolution."
+        print("WARNING: Too few peaks to estimate resolution.")
         return 0
 
     # outlier removal
@@ -35,4 +37,4 @@ if __name__ == "__main__":
     import sys
     spot_xds = sys.argv[1]
     xparm_in = sys.argv[2]
-    print run(spot_xds, xparm_in)
+    print(run(spot_xds, xparm_in))

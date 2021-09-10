@@ -5,27 +5,30 @@
 # 14th April 2005
 #
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os
 import sys
-import XIO
+from . import XIO
 
 def _print_autopar(parDict):
-    K = parDict.keys()
+    K = list(parDict.keys())
     K.sort()
     for k in K:
-        print "%s = %s" % (k, parDict[k])
+        print("%s = %s" % (k, parDict[k]))
 
 def _test1(filename):
     #dc = XIO.Collect(filename)
     try:
         im = XIO.Image(filename)
     except XIO.XIOError:
-        print XIO.Image(filename)
+        print(XIO.Image(filename))
         im =  XIO.Image(filename, doInterpret=False)
         if im.type == 'unknown':
-            print "\nUnrecognise file type for image %s.\nSorry." % filename
+            print("\nUnrecognise file type for image %s.\nSorry." % filename)
         else:
-            print "\nNo plugin to interpret '%s' image type.\nSorry." % im.type
+            print("\nNo plugin to interpret '%s' image type.\nSorry." % im.type)
         sys.exit()
     im.info()
     im.info2()
@@ -37,13 +40,13 @@ def _export(filename, format):
         datacoll.interpretImage()
         datacoll.lookup_imageRanges()
     except XIO.XIOError:
-        print "\nError while trying to acceess %s.\nSorry." % filename
+        print("\nError while trying to acceess %s.\nSorry." % filename)
         sys.exit()
     newPar = datacoll.export(format)
     if format == "adp":
         newPar["anomalous"] = "off"
         newPar["spg"] = 0
-    print datacoll.export_template(format)
+    print(datacoll.export_template(format))
 
 if __name__ == "__main__":
 

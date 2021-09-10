@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import numpy
 import os
 from cctbx import sgtbx
@@ -37,7 +40,7 @@ def get_angles(ib, a_axis, b_axis, c_axis, xs, ref_xs, filename):
     if ref_xs:
         cosets = reindex.reindexing_operators(ref_xs, xs, 0.2, 20)
         if len(cosets.combined_cb_ops())==0:
-            print "Error: cannot find reindex operator"
+            print("Error: cannot find reindex operator")
             return
         
         op = cosets.combined_cb_ops()[0]
@@ -45,11 +48,11 @@ def get_angles(ib, a_axis, b_axis, c_axis, xs, ref_xs, filename):
         transformed = numpy.dot(m, numpy.array([a_axis,b_axis,c_axis]))
         a, b, c = transformed[0,:], transformed[1,:], transformed[2,:]
         sg = ref_xs.space_group()
-        print "Reading %s (%s; reindex: %s)" % (filename, sg.info(), op)
+        print("Reading %s (%s; reindex: %s)" % (filename, sg.info(), op))
     else:
         a, b, c = a_axis, b_axis, c_axis
         sg = xs.space_group()
-        print "Reading %s (%s)" % (filename, sg.info())
+        print("Reading %s (%s)" % (filename, sg.info()))
 
     laue = sg.build_derived_reflection_intensity_group(False).build_derived_point_group()
 
@@ -123,21 +126,21 @@ def make_dat(angles, dat_out):
     ofs.write("theta phi\n")
     for theta, phi in angles: ofs.write("%.4f %.4f\n" % (theta,phi))
     ofs.close()
-    print
-    print "Data file written. See %s" % dat_out
-    print """\
+    print()
+    print("Data file written. See %s" % dat_out)
+    print("""\
 If you want to plot it with R:
 R
 library(ggplot2)
 d <- read.table("%s",h=T)
 p <- ggplot(d, aes(x=phi, y=2*sin(theta/2))) +geom_point(alpha=.1,size=2) +coord_polar(start=pi/2,direction=-1) +scale_x_continuous(breaks=seq(-pi,pi,by=20/180*pi),labels=function(x)sprintf("%%.0f",x/pi*180)) 
 ggsave("beam.png", p)
-""" % dat_out
+""" % dat_out)
 # make_dat()
 
 def make_plot(angles, plot_out, plot_title="Beam direction plot"):
-    r = map(lambda x: 2*numpy.sin(x[0]/2.), angles)
-    phi = map(lambda x: x[1], angles)
+    r = [2*numpy.sin(x[0]/2.) for x in angles]
+    phi = [x[1] for x in angles]
 
     ax = plt.subplot(111, projection='polar')
     ax.scatter(phi, r, color="b", alpha=.1, s=4)
@@ -145,14 +148,14 @@ def make_plot(angles, plot_out, plot_title="Beam direction plot"):
     
     theta_labs = numpy.linspace(0, numpy.pi/2, 5, endpoint=True)
     ax.set_yticks(2*numpy.sin(theta_labs/2.))
-    ax.set_yticklabels(map(lambda x: "%.0f$^\circ$"%x, numpy.rad2deg(theta_labs)))
+    ax.set_yticklabels(["%.0f$^\circ$"%x for x in numpy.rad2deg(theta_labs)])
     ax.grid(True)
 
     ax.set_title(plot_title, va='bottom')
     plt.savefig(plot_out, dpi=150)
     plt.gcf().clear() # Required when plot more than once
-    print
-    print "Plot written. See %s" % plot_out
+    print()
+    print("Plot written. See %s" % plot_out)
 # make_plot()
 
 def run(params):
@@ -182,7 +185,7 @@ def run(params):
 
 def run_from_args(argv):
     if "-h" in argv or "--help" in argv or not argv:
-        print """
+        print("""
 This program makes a beam-direction plot in crystal frame to see bias of crystal orientations.
 The beam direction is replicated using crystal symmetry.
 
@@ -193,7 +196,7 @@ Usages:
 Theta=0 at c*-axis and Phi=0 at a-axis.
 
 Parameters:\
-"""
+""")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         return
 
@@ -205,7 +208,7 @@ Parameters:\
         if os.path.isfile(arg):
             params.input.append(arg)
         else:
-            print "File not found:",arg
+            print("File not found:",arg)
             return
 
     run(params)
