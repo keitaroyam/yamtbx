@@ -1,3 +1,4 @@
+from __future__ import unicode_literals
 from yamtbx.dataproc.XIO import XIO
 from collections import OrderedDict
 

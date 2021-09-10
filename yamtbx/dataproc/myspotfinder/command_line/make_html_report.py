@@ -1,11 +1,14 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import re
 import time
 import datetime
 import collections
 import glob
-import pysqlite2.dbapi2 as sqlite3
-import cPickle as pickle
+import sqlite3
+import pickle
 import numpy
 import matplotlib
 matplotlib.use('Agg') # Allow to work without X
@@ -59,16 +62,16 @@ def plot_heatmap(subplot, xs, ys, ds, scaninfo):
 def plot_circles(subplot, xs, ys, ds, zero_xs, zero_ys):
     def normalize(v, m=100., sd=60.):
         vm = float(sum(v))/float(len(v))
-        vsd = math.sqrt(sum(map(lambda x:(x-vm)**2, v))/float(len(v)))
+        vsd = math.sqrt(sum([(x-vm)**2 for x in v])/float(len(v)))
         if vsd < 1e-12:
-            return [m for x in xrange(len(v))]
-        return map(lambda x:sd*(x-vm)/vsd+m, v)
+            return [m for x in range(len(v))]
+        return [sd*(x-vm)/vsd+m for x in v]
     # normalize()
 
     def normalize_max(v, maximum=400.):
         max_v = max(v)
         f = maximum / max_v if max_v > 0 else 1.
-        return map(lambda x:f*x + 1., v) # add 1 to make zero-value pickable
+        return [f*x + 1. for x in v] # add 1 to make zero-value pickable
     # normalize_max()
 
     p1 = subplot.scatter(xs, ys, s=normalize_max(ds), c=ds, alpha=0.5)
@@ -80,7 +83,7 @@ def prepare_plot(plot_data, f, kind, wdir, rotate=False, plot_grid=True):
     def normalize_max(v, maximum=400.):
         max_v = max(v)
         f = maximum / max_v if max_v > 0 else 1.
-        return map(lambda x:f*x + 1., v) # add 1 to make zero-value pickable # XXX when max_v is Inf?
+        return [f*x + 1. for x in v] # add 1 to make zero-value pickable # XXX when max_v is Inf?
     # normalize_max()
 
     scan_prefix = f[:f.index(" ")] if " (phi=" in f else f
@@ -182,7 +185,7 @@ def make_html_report(current_stats, wdir, htmlout, zoo_mode, rotate=False, plot_
     startt = time.time()
 
     plot_data = collections.OrderedDict()
-    for f, stat in current_stats.items():
+    for f, stat in list(current_stats.items()):
         if stat is None: continue
         fpref = decide_fpref(f, stat.scan_info)
         plot_data.setdefault(fpref, []).append((f, stat))
@@ -210,8 +213,8 @@ def make_html_report(current_stats, wdir, htmlout, zoo_mode, rotate=False, plot_
                 im.save(os.path.join(wdir, "loop_before.jpg"))
             except:
                 import traceback
-                print "Can't convert loop image"
-                print traceback.format_exc()
+                print("Can't convert loop image")
+                print(traceback.format_exc())
             plots += '  Loop image</td><td><img src="loop_before.jpg" /></td></tr>\n'
             plots += '  <tr><td>\n'
 
@@ -248,7 +251,7 @@ def make_html_report(current_stats, wdir, htmlout, zoo_mode, rotate=False, plot_
         plots += '<td style="border:solid 1px #999"><canvas id="%scanvas" width=600 height=600></canvas>\n' % scan_prefix
         plots += '<td id="%sinfo" valign="top"></tr></table>\n\n' % scan_prefix
 
-    result = current_stats.items()
+    result = list(current_stats.items())
     if len(result) == 0:
         shikalog.warning("No results found. Exiting. %s"% wdir)
         return
@@ -256,9 +259,9 @@ def make_html_report(current_stats, wdir, htmlout, zoo_mode, rotate=False, plot_
     dbfile = os.path.join(wdir, "shika.db")
     con = sqlite3.connect(dbfile, timeout=10, isolation_level=None)
     con.execute('pragma query_only = ON;')
-    print "Reading data from DB for making report html."
+    print("Reading data from DB for making report html.")
     c = con.execute("select filename,spots from spots")
-    dbspots = dict(map(lambda x: (str(x[0]), pickle.loads(str(x[1]))), c.fetchall()))
+    dbspots = dict([(str(x[0]), pickle.loads(str(x[1]))) for x in c.fetchall()])
     spot_data = "var spot_data = {"
     for i, (f, stat) in enumerate(result):
         if stat is None: continue
@@ -465,7 +468,7 @@ def load_results(target_dir):
     con.execute('pragma query_only = ON;')
     cur = con.cursor()
 
-    for itrial in xrange(60):
+    for itrial in range(60):
         try:
             c = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='status';")
             if c.fetchone() is None:
@@ -477,17 +480,17 @@ def load_results(target_dir):
             time.sleep(1)
             continue
 
-    for itrial in xrange(60):
+    for itrial in range(60):
         try:
             c = con.execute("select filename,spots from spots")
-            results = dict(map(lambda x: (str(x[0]), pickle.loads(str(x[1]))), c.fetchall()))
+            results = dict([(str(x[0]), pickle.loads(str(x[1]))) for x in c.fetchall()])
             break
         except sqlite3.DatabaseError:
             shikalog.warning("DB failed. retrying (%d)" % itrial)
             time.sleep(1)
             continue
 
-    print "DEBUG:: scans=", slog.scans 
+    print("DEBUG:: scans=", slog.scans) 
     for scan in slog.scans:
         for imgf, (gonio, gc) in scan.filename_coords:
             #print imgf, (gonio, gc) 
@@ -496,10 +499,10 @@ def load_results(target_dir):
             possible_imgfs = (imgf, os.path.splitext(imgf)[0] + ".img",
                               re.sub("(.*)_0([0-9]{6})\..*$", r"\1_\2.img", imgf), # too dirty fix!! for new bss which writes 7-digits filename..
                               )
-            imgfs_found = filter(lambda x: x in results, possible_imgfs)
+            imgfs_found = [x for x in possible_imgfs if x in results]
             if not imgfs_found: continue
             imgf = imgfs_found[0]
-            snrlist = map(lambda x: x[2], results[imgf]["spots"])
+            snrlist = [x[2] for x in results[imgf]["spots"]]
             stat.stats = (len(snrlist), sum(snrlist), numpy.median(snrlist) if snrlist else 0)
             stat.spots = results[imgf]["spots"]
             stat.gonio = gonio
