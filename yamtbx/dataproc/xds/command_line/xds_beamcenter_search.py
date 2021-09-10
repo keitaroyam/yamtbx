@@ -50,6 +50,10 @@ def work(rootdir, xdsinp, orgxy):
     workdir = os.path.join(rootdir, "bs_x%+.1f_y%+.1f" % orgxy)
     inpdir = os.path.normpath(os.path.dirname(xdsinp))
     print workdir
+    if os.path.exists(workdir):
+        print "- exists. skipping."
+        return
+    
     os.makedirs(workdir)
     shutil.copyfile(os.path.join(inpdir, "SPOT.XDS"), os.path.join(workdir, "SPOT.XDS"))
     shutil.copyfile(xdsinp, os.path.join(workdir, "XDS.INP"))
