@@ -32,8 +32,10 @@ def calc_cc(a1, a2):
 # calc_cc()
 
 class ReindexResolver:
-    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=5, log_out=null_out()):
+    def __init__(self, xac_files=None, stream_files=None, space_group=None, d_min=3, min_ios=3, nproc=1, max_delta=5, log_out=null_out()):
         adopt_init_args(self, locals())
+        assert xac_files or stream_files
+        assert not (xac_files and stream_files)
         self.arrays = []
         self.best_operators = None
         self._representative_xs = None
@@ -55,7 +57,8 @@ class ReindexResolver:
             for f in self.xac_files:
                 xac =  XDS_ASCII(f, read_data=False)
                 cells.append(xac.symm.unit_cell().parameters())
-                sgs.append(xac.symm.space_group())
+                sgs.append(xac.symm.space_group().build_derived_reflection_intensity_group(True))
+            print set(map(lambda x: str(x.info()), sgs))
             assert len(set(sgs)) < 2
             avg_symm = crystal.symmetry(list(numpy.median(cells, axis=0)), space_group=sgs[0])
             op_to_p1 = avg_symm.change_of_basis_op_to_niggli_cell()
@@ -98,6 +101,80 @@ class ReindexResolver:
         self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
                                                    space_group_info=self.arrays[0].space_group_info())
     # read_xac_files()
+
+    def read_stream_files(self, from_p1=False, space_group=None):
+        from yamtbx.dataproc.crystfel.stream import stream_iterator
+        op_to_p1 = None
+        if from_p1:
+            """
+            This option is currently for multi_determine_symmetry.
+            Do not use this for ambiguity resolution! op_to_p1 is not considered when writing new HKL files.
+            """
+            self.log_out.write("\nAveraging symmetry of all inputs..\n")
+            cells = []
+            sgs = []
+            for f in self.stream_files:
+                for chunk in stream_iterator(f, read_reflections=False):
+                    if space_group is None:
+                        symm = chunk.indexed_symmetry()
+                    else:
+                        symm = crystal.symmetry(chunk.cell, space_group, assert_is_compatible_unit_cell=False)
+                        
+                    cells.append(symm.unit_cell().parameters())
+                    sgs.append(symm.space_group())
+            assert len(set(sgs)) < 2
+            avg_symm = crystal.symmetry(list(numpy.median(cells, axis=0)), space_group=sgs[0])
+            op_to_p1 = avg_symm.change_of_basis_op_to_niggli_cell()
+            self.log_out.write("  Averaged symmetry: %s (%s)\n" % (format_unit_cell(avg_symm.unit_cell()), sgs[0].info()))
+            self.log_out.write("  Operator to Niggli cell: %s\n" % op_to_p1.as_hkl())
+            self.log_out.write("        Niggli cell: %s\n" % format_unit_cell(avg_symm.unit_cell().change_basis(op_to_p1)))
+
+        print >>self.log_out, "\nReading"
+        cells = []
+        bad_files, good_files = [], []
+        self.stream_valid_idxes = []
+        idx = 0
+        for i, f in enumerate(self.stream_files):
+            print >>self.log_out, "%4d %s" % (i, f)
+            for j, chunk in enumerate(stream_iterator(f)):
+                self.log_out.write(" %4d %s %s\n" % (j, chunk.filename, chunk.event))
+                if space_group is None:
+                    symm = chunk.indexed_symmetry()
+                else:
+                    symm = crystal.symmetry(chunk.cell, space_group, assert_is_compatible_unit_cell=False)
+
+                i_obs = chunk.data_array(symm.space_group(), anomalous_flag=False)
+                self.log_out.write("     d_range: %6.2f - %5.2f" % i_obs.resolution_range())
+                self.log_out.write(" n_ref=%6d" % i_obs.size())
+
+                a = i_obs.resolution_filter(d_min=self.d_min)
+                if self.min_ios is not None: a = a.select(a.data()/a.sigmas()>=self.min_ios)
+                self.log_out.write(" n_ref_filtered=%6d" % a.size())
+                if from_p1:
+                    a = a.change_basis(op_to_p1).customized_copy(space_group_info=sgtbx.space_group_info("P1"))
+                a = a.as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
+                self.log_out.write(" n_ref_merged=%6d\n" % a.size())
+                if a.size() < 2:
+                    self.log_out.write("     !! WARNING !! number of reflections is dangerously small!!\n")
+                    bad_files.append(f)
+                else:
+                    self.arrays.append(a)
+                    cells.append(a.unit_cell().parameters())
+                    good_files.append(f)
+                    self.stream_valid_idxes.append(idx)
+                idx += 1
+
+        #if bad_files:
+        #    self.xac_files = good_files
+        #    self.bad_files = bad_files
+
+        #assert len(self.xac_files) == len(self.arrays) == len(cells)
+            
+        print >>self.log_out, ""
+
+        self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
+                                                   space_group_info=self.arrays[0].space_group_info())
+    # read_stream_files()
 
     def show_assign_summary(self, log_out=None):
         if not log_out: log_out = self.log_out
@@ -151,6 +228,30 @@ class ReindexResolver:
         return new_files
     # modify_xds_ascii_files()
 
+    def modify_stream_files(self, output):
+        from yamtbx.dataproc.crystfel.stream import stream_iterator, stream_header
+
+        print >>self.log_out, "Writing reindexed stream.."
+        assert len(self.stream_valid_idxes) == len(self.best_operators)
+        ofs = open(output, "w")
+        ofs.write(stream_header())
+        best_ops = copy.copy(self.best_operators)
+        idx = 0
+        for f in self.stream_files:
+            for chunk in stream_iterator(f):
+                if idx in self.stream_valid_idxes:
+                    op = best_ops.pop(0)
+                    print " %4d %s %s %s" % (idx, chunk.filename, chunk.event, op.as_hkl())
+                    chunk.change_basis(op)
+                    ofs.write(chunk.make_lines())
+                else:
+                    print " %4d %s %s skipped" % (idx, chunk.filename, chunk.event)
+                idx += 1
+
+        assert not best_ops
+        ofs.close()
+    # modify_stream_files()
+
     def debug_write_mtz(self):
         arrays = self.arrays
         
@@ -199,12 +300,15 @@ class KabschSelectiveBreeding(ReindexResolver):
     If I understand correctly...
     """
 
-    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=5, from_p1=False, log_out=null_out()):
-        ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
+    def __init__(self, xac_files=None, stream_files=None, space_group=None, d_min=3, min_ios=3, nproc=1, max_delta=5, from_p1=False, log_out=null_out()):
+        ReindexResolver.__init__(self, xac_files, stream_files, space_group, d_min, min_ios, nproc, max_delta, log_out)
         self._final_cc_means = [] # list of [(op_index, cc_mean), ...]
         self._reidx_ops = []
-        self.read_xac_files(from_p1=from_p1)
-    # __init__()
+        if xac_files:
+            self.read_xac_files(from_p1=from_p1)
+        else:
+            self.read_stream_files(from_p1=from_p1, space_group=space_group)
+        # __init__()
 
     def final_cc_means(self): return self._final_cc_means
     def reindex_operators(self): return self._reidx_ops
@@ -309,9 +413,14 @@ class KabschSelectiveBreeding(ReindexResolver):
 # class KabschSelectiveBreeding
 
 class ReferenceBased(ReindexResolver):
-    def __init__(self, xac_files, ref_array, d_min=3, min_ios=3,  nproc=1, max_delta=5, log_out=null_out()):
-        ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
-        self.read_xac_files()
+    def __init__(self, xac_files=None, stream_files=None, space_group=None, ref_array=None, d_min=3, min_ios=3,  nproc=1, max_delta=5, log_out=null_out()):
+        ReindexResolver.__init__(self, xac_files, stream_files, space_group, d_min, min_ios, nproc, max_delta, log_out)
+        assert ref_array
+        if xac_files:
+            self.read_xac_files()
+        else:
+            self.read_stream_files(space_group=space_group)
+
         self.ref_array = ref_array.resolution_filter(d_min=d_min).as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
         
     # __init__()
@@ -340,9 +449,12 @@ class ReferenceBased(ReindexResolver):
                 cc = calc_cc(tmp, self.ref_array)
                 if cc==cc: cc_list.append((j,cc))
 
-            max_el = max(cc_list, key=lambda x:x[1])
-            print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_list)))
-            new_ops[i] = max_el[0]
+            if len(cc_list) == 0:
+                print >>self.log_out, "%3d failed" % i
+            else:
+                max_el = max(cc_list, key=lambda x:x[1])
+                print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_list)))
+                new_ops[i] = max_el[0]
 
         print >>self.log_out, "  operator:", new_ops
         print >>self.log_out, "  number of different assignments:", len(filter(lambda x:x!=0, new_ops))
@@ -353,9 +465,12 @@ class ReferenceBased(ReindexResolver):
 # class ReferenceBased
 
 class BrehmDiederichs(ReindexResolver):
-    def __init__(self, xac_files, d_min=3, min_ios=3, nproc=1, max_delta=5, log_out=null_out()):
-        ReindexResolver.__init__(self, xac_files, d_min, min_ios, nproc, max_delta, log_out)
-        self.read_xac_files()
+    def __init__(self, xac_files=None, stream_files=None, space_group=None, d_min=3, min_ios=3, nproc=1, max_delta=5, log_out=null_out()):
+        ReindexResolver.__init__(self, xac_files, stream_files, space_group, d_min, min_ios, nproc, max_delta, log_out)
+        if xac_files:
+            self.read_xac_files()
+        else:
+            self.read_stream_files(space_group=space_group)
     # __init__()
 
     def assign_operators(self, reidx_ops=None):

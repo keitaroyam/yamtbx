@@ -18,6 +18,13 @@ master_params_str = """
 lstin = None
  .type = path
  .help = list of XDS_ASCII.HKL
+streamin = None
+ .type = path
+ .help = crystfel stream files
+ .multiple = true
+space_group = None
+ .type = str
+ .help = "Space group for stream files"
 method = brehm_diederichs *selective_breeding reference
  .type = choice(multi=False)
  .help = Method to resolve ambiguity
@@ -63,18 +70,25 @@ def run(params):
 
     libtbx.phil.parse(master_params_str).format(params).show(out=log_out, prefix=" ")
 
-    xac_files = read_path_list(params.lstin, only_exists=True, err_out=log_out)
+    xac_files = []
+    if params.lstin:
+        xac_files = read_path_list(params.lstin, only_exists=True, err_out=log_out)
 
-    if len(xac_files) == 0:
-        print >>log_out, "No (existing) files in the list: %s" % params.lstin
+        if len(xac_files) == 0:
+            print >>log_out, "No (existing) files in the list: %s" % params.lstin
+            return
+
+    elif not params.streamin:
+        print >>log_out, "Give either listin= or streamin=."
         return
+        
     
     if params.method == "brehm_diederichs":
-        rb = BrehmDiederichs(xac_files, max_delta=params.max_delta,
+        rb = BrehmDiederichs(xac_files, params.streamin, params.space_group, max_delta=params.max_delta,
                              d_min=params.d_min, min_ios=params.min_ios,
                              nproc=params.nproc, log_out=log_out)
     elif params.method == "selective_breeding":
-        rb = KabschSelectiveBreeding(xac_files, max_delta=params.max_delta,
+        rb = KabschSelectiveBreeding(xac_files, params.streamin, params.space_group, max_delta=params.max_delta,
                                      d_min=params.d_min, min_ios=params.min_ios,
                                      nproc=params.nproc, log_out=log_out)
     elif params.method == "reference":
@@ -114,7 +128,7 @@ def run(params):
         if ref_array is None:
             raise "suitable reference data not found"
 
-        rb = ReferenceBased(xac_files, ref_array, max_delta=params.max_delta,
+        rb = ReferenceBased(xac_files, params.streamin, params.space_group, ref_array, max_delta=params.max_delta,
                             d_min=params.d_min, min_ios=params.min_ios,
                             nproc=params.nproc, log_out=log_out)
     else:
@@ -139,17 +153,18 @@ def run(params):
     if params.dry_run:
         print >>log_out, "This is dry-run. Exiting here."
     else:
-        out_prefix = os.path.splitext(os.path.basename(params.lstin))[0]
-
-        ofs_cell = open(out_prefix+"_reindexed_cells.dat", "w")
-        new_files = rb.modify_xds_ascii_files(cells_dat_out=ofs_cell)
-
-        lstout = out_prefix + "_reindexed.lst"
-        ofs = open(lstout, "w")
-        ofs.write("\n".join(new_files)+"\n")
-        ofs.close()
-        print >>log_out, "Reindexing done. For merging, use %s instead!" % lstout
-
+        if xac_files:
+            out_prefix = os.path.splitext(os.path.basename(params.lstin))[0]
+            ofs_cell = open(out_prefix+"_reindexed_cells.dat", "w")
+            new_files = rb.modify_xds_ascii_files(cells_dat_out=ofs_cell)
+            lstout = out_prefix + "_reindexed.lst"
+            ofs = open(lstout, "w")
+            ofs.write("\n".join(new_files)+"\n")
+            ofs.close()
+            print >>log_out, "Reindexing done. For merging, use %s instead!" % lstout
+        else:
+            rb.modify_stream_files("reindexed.stream")
+            
     if params.method == "brehm_diederichs":
         print >>log_out, """
 CCTBX-implementation (by Richard Gildea) of the "algorithm 2" of the following paper was used.
@@ -198,12 +213,14 @@ if __name__ == "__main__":
     args = cmdline.remaining_args
 
     for arg in args:
-        if os.path.isfile(arg) and params.lstin is None:
+        if os.path.isfile(arg) and ".stream" in arg:
+            params.streamin.append(arg)
+        elif os.path.isfile(arg) and params.lstin is None:
             params.lstin = arg
 
-    if params.lstin is None:
+    if not params.lstin and not params.streamin:
         show_help()
-        print "Error: Give .lst of XDS_ASCII files"
+        print "Error: Give .lst of XDS_ASCII files or stream files"
         quit()
 
     if params.method is None:

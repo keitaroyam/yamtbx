@@ -200,6 +200,17 @@ class Chunk:
         return ub
     # ub_matrix()
 
+    def change_basis(self, op):
+        if op.is_identity_op(): return
+        if not self.indexed_by: return
+        
+        symm = self.indexed_symmetry().change_basis(op)
+        self.cell = symm.unit_cell().parameters()
+        # XXX need to change self.latt_type, self.centering, self.unique_axis
+        
+        self.indices = list(op.apply(flex.miller_index(self.indices)))
+    # change_basis()
+
     def miller_set(self, space_group, anomalous_flag):
         return miller.set(crystal_symmetry=crystal.symmetry(unit_cell=self.cell,
                                                             space_group=space_group,
@@ -214,7 +225,7 @@ class Chunk:
                             sigmas=flex.double(self.sigma))
     # data_array()
 
-    def make_lines(self, ver):
+    def make_lines(self, ver="2.3"):
         ret = ["----- Begin chunk -----"]
         if self.filename is not None: ret.append("Image filename: %s" % self.filename)
         if self.event is not None: ret.append("Event: %s" % self.event)
@@ -353,6 +364,9 @@ def stream_iterator(stream, start_at=0, read_reflections=True):
         elif read_flag:
             chunk.parse_line(l)
 # stream_iterator()
+
+def stream_header(ver="2.3"):
+    return "CrystFEL stream format %s\n" % ver
 
 if __name__ == "__main__":
     import sys
