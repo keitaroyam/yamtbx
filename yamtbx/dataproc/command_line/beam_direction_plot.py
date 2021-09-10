@@ -105,23 +105,27 @@ def from_xparm(xpin, ref_xs):
 
 def from_crystfel_stream(stin, ref_xs): # XXX Not tested!!
     from yamtbx.dataproc.crystfel import stream
-    ret = []
+    angles, labels = [], []
     ib = numpy.array([0., 0., 1.])
     for chunk in stream.stream_iterator(stin, read_reflections=False):
         xs = chunk.indexed_symmetry()
         if xs is None: continue
         ub = chunk.ub_matrix()
         avec, bvec, cvec = numpy.linalg.inv(ub)
-        ret.extend(get_angles(ib, avec, bvec, cvec,
-                              xs, ref_xs, "%s:%s:%s" % (stin, chunk.filename, chunk.event)))
+        tmp = get_angles(ib, avec, bvec, cvec,
+                         xs, ref_xs, "%s:%s:%s" % (stin, chunk.filename, chunk.event))
+        labels.extend(["%s:%s"%(stin,chunk.event)]*len(tmp))
+        angles.extend(tmp)
 
-    return ret
+    return labels, angles
 # from_crystfel_stream()
                               
-def make_dat(angles, dat_out):
+def make_dat(labels, angles, dat_out):
     ofs = open(dat_out, "w")
-    ofs.write("theta phi\n")
-    for theta, phi in angles: ofs.write("%.4f %.4f\n" % (theta,phi))
+    ofs.write("data theta phi\n")
+    for i in range(len(angles)):
+        ofs.write(labels[i])
+        ofs.write(" %.4f %.4f\n" % tuple(angles[i]))
     ofs.close()
     print
     print "Data file written. See %s" % dat_out
@@ -167,16 +171,23 @@ def run(params):
     if len(params.input) == 0: return
 
     angles = []
+    labels = []
 
     for arg in params.input:
         if ".stream" in arg:            
-            angles.extend(from_crystfel_stream(arg, ref_xs))
+            l, a = from_crystfel_stream(arg, ref_xs)
+            angles.extend(a)
+            labels.extend(l)
         elif xds_ascii.is_xds_ascii(arg):
-            angles.extend(from_xds_ascii(arg, ref_xs))
+            tmp = from_xds_ascii(arg, ref_xs)
+            angles.extend(tmp)
+            labels.extend([arg]*len(tmp))
         else:
-            angles.extend(from_xparm(arg, ref_xs))
+            tmp = from_xparm(arg, ref_xs)
+            angles.extend(tmp)
+            labels.extend([arg]*len(tmp))
 
-    if params.dat_out: make_dat(angles, params.dat_out)
+    if params.dat_out: make_dat(labels, angles, params.dat_out)
     if params.plot_out: make_plot(angles, params.plot_out, plot_title=params.plot_title)
 # run()
 
