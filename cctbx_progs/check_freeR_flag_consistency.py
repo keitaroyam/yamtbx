@@ -1,4 +1,6 @@
 #!/usr/bin/env phenix.python
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, optparse
 import iotbx.mtz
 from iotbx.reflection_file_editor import is_rfree_array
@@ -7,11 +9,11 @@ from iotbx.reflection_file_utils import get_r_free_flags_scores
 def guess_flag_name_and_value(mtzin, name=None, val=None):
     arrays = iotbx.mtz.object(mtzin).as_miller_arrays()
     if name is None:
-        flags = filter(lambda x: is_rfree_array(x, x.info()), arrays)
+        flags = [x for x in arrays if is_rfree_array(x, x.info())]
         name = flags[0].info().label_string()
         flag_array = flags[0]
     else:
-        flags = filter(lambda x: name==x.info().label_string(), arrays)
+        flags = [x for x in arrays if name==x.info().label_string()]
         flag_array = flags[0]
     
     if val is None:
@@ -35,7 +37,7 @@ def compare(mtzin_list, label_list, flag_list):
     assert( len(mtzin_list) == len(label_list) == len(flag_list) )
 
     for m, l, f in zip(mtzin_list, label_list, flag_list):
-        print m, l, f
+        print(m, l, f)
 
     # number of mtz files
     num = len(mtzin_list)
@@ -60,8 +62,8 @@ def compare(mtzin_list, label_list, flag_list):
 
     # Compare flag numbers
 
-    print "Inconsistent indices:"
-    print
+    print("Inconsistent indices:")
+    print()
 
     for (h,k,l), flags in sorted(for_comp.items()):
         bool_list = [ flag == ref for flag,ref in zip(flags, flag_list) ]
@@ -70,15 +72,15 @@ def compare(mtzin_list, label_list, flag_list):
         if 0 < sum(bool_list):
             if sum(bool_list) < len(bool_list):
                 n_notmatch += 1
-                print "%3d %3d %3d" % (h, k, l), " ".join(map(lambda x:str(x), flags))
+                print("%3d %3d %3d" % (h, k, l), " ".join([str(x) for x in flags]))
             else:
                 n_match += 1
 
-    print
-    print "SUMMARY"
+    print()
+    print("SUMMARY")
     digit = str(len(str(max(n_match, n_notmatch))))
-    print ("%"+digit+"d match") % n_match
-    print ("%"+digit+"d not match") % n_notmatch
+    print(("%"+digit+"d match") % n_match)
+    print(("%"+digit+"d not match") % n_notmatch)
 
 
 if __name__ == "__main__":
@@ -108,7 +110,7 @@ if __name__ == "__main__":
     
 
     if not( len(opts.mtz_list) == len(opts.label_list) == len(opts.flag_list) ):
-        print "Number doesn't match"
+        print("Number doesn't match")
         exit(1)
 
 

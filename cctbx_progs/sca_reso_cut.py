@@ -1,4 +1,6 @@
 #!/usr/bin/env cctbx.python
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 from cctbx import uctbx
 import os
@@ -16,7 +18,7 @@ d_max = None
 
 def run(params):
     if params.scain == params.scaout: # need to be more careful
-        print "MUST BE DIFFERENT FILE!"
+        print("MUST BE DIFFERENT FILE!")
         return
 
     file_handle = open(params.scain)
@@ -34,12 +36,12 @@ def run(params):
     if (len(line) < 63 or line[60] != ' '):
         raise Exception("Cell reading error")
 
-    uc_params = [float(line[i * 10 : (i + 1) * 10]) for i in xrange(6)]
+    uc_params = [float(line[i * 10 : (i + 1) * 10]) for i in range(6)]
     unit_cell = uctbx.unit_cell(uc_params)
     rejected = 0
 
     for line in file_handle:
-        h, k, l = map(int, (line[:4], line[4:8], line[8:12]))
+        h, k, l = list(map(int, (line[:4], line[4:8], line[8:12])))
         d = unit_cell.d((h,k,l))
         accept = True
         if params.d_max is not None: accept &= (d <= params.d_max)
@@ -49,8 +51,8 @@ def run(params):
         else:
             rejected += 1
 
-    print "%d reflections rejected." % rejected
-    print "See", params.scaout
+    print("%d reflections rejected." % rejected)
+    print("See", params.scaout)
 # run()
 
 if __name__ == "__main__":
@@ -66,7 +68,7 @@ if __name__ == "__main__":
             params.scain = arg
 
     if params.scain is None:
-        print "Give scain="
+        print("Give scain=")
         quit()
 
     if params.scaout is None:

@@ -1,5 +1,7 @@
 #!/usr/bin/env phenix.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, os, optparse
 import iotbx.mtz
 from cctbx import crystal
@@ -23,54 +25,54 @@ def create_mtz_dataset(miller_arrays):
 def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
 
     ref_arrays = iotbx.mtz.object(mtz_ref).as_miller_arrays()
-    print "Opening reference:", mtz_ref
+    print("Opening reference:", mtz_ref)
 
     # Get flag array
     flag_array = None
     if flag_name is None:
-        flags = filter(lambda x: is_rfree_array(x, x.info()), ref_arrays)
+        flags = [x for x in ref_arrays if is_rfree_array(x, x.info())]
         if len(flags) == 0:
-            print " No R free flags like column found."
+            print(" No R free flags like column found.")
             quit()
         elif len(flags) > 1:
-            print " More than one column which looks like R free flag:"
+            print(" More than one column which looks like R free flag:")
             for f in flags:
-                print " ", f.info().label_string()
+                print(" ", f.info().label_string())
             quit()
         else:
             flag_name = flags[0].info().label_string()
             flag_array = flags[0]
-            print " Guessing R free flag:", flag_name
+            print(" Guessing R free flag:", flag_name)
     else:
-        flags = filter(lambda x: flag_name==x.info().label_string(), ref_arrays)
+        flags = [x for x in ref_arrays if flag_name==x.info().label_string()]
         if len(flags) == 0:
-            print " Specified flag name not found:", flag
+            print(" Specified flag name not found:", flag)
             quit()
         else:
-            print " Use specified flag:", flag
+            print(" Use specified flag:", flag)
             flag_array = flags[0]
             
     # Get flag number
     if flag_value is None:
         flag_scores = get_r_free_flags_scores(miller_arrays=[flag_array], test_flag_value=flag_value)
         flag_value = flag_scores.test_flag_values[0]
-        print " Guessing flag number:", flag_value
+        print(" Guessing flag number:", flag_value)
     else:
-        print " Specified flag number:", flag_value
+        print(" Specified flag number:", flag_value)
 
-    print " d_max, d_min=", get_best_resolution([flag_array], flag_array.crystal_symmetry())
-    print " Symm:", flag_array.space_group().info(), flag_array.unit_cell()
-    print
+    print(" d_max, d_min=", get_best_resolution([flag_array], flag_array.crystal_symmetry()))
+    print(" Symm:", flag_array.space_group().info(), flag_array.unit_cell())
+    print()
 
     # Open mtz
     miller_arrays = iotbx.mtz.object(mtz).as_miller_arrays()
-    print "Opening", mtz
+    print("Opening", mtz)
 
     if flag_name in [arr.info().label_string() for arr in miller_arrays]:
-        print "Error: The column %s already exists in the mtz file: %s" % (flag_name, mtz)
+        print("Error: The column %s already exists in the mtz file: %s" % (flag_name, mtz))
         quit()
 
-    print " Using information from", miller_arrays[0].info().label_string()
+    print(" Using information from", miller_arrays[0].info().label_string())
     input_symm = crystal.symmetry(
         unit_cell=miller_arrays[0].unit_cell(),
         space_group_info=miller_arrays[0].space_group().info(),
@@ -79,9 +81,9 @@ def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
 
     d_max, d_min = get_best_resolution(miller_arrays, input_symm)
     
-    print " d_max, d_min=", d_max, d_min
-    print " Symm:", input_symm.space_group_info(), input_symm.unit_cell()
-    print
+    print(" d_max, d_min=", d_max, d_min)
+    print(" Symm:", input_symm.space_group_info(), input_symm.unit_cell())
+    print()
 
     # Extend flag
     complete_set = make_joined_set(miller_arrays).complete_set()
@@ -96,9 +98,9 @@ def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
         d_min=d_min,
         log=sys.stdout).common_set(complete_set) #resolution_filter(d_min=d_min-0.01)
 
-    print
+    print()
 
-    print r_free_flags.customized_copy(data=r_free_flags.data()==flag_value).show_r_free_flags_info()
+    print(r_free_flags.customized_copy(data=r_free_flags.data()==flag_value).show_r_free_flags_info())
 
 
     # Write mtz file
@@ -112,9 +114,9 @@ def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
     #mtz_object.show_summary(out=sys.stdout, prefix="  ")
     mtz_object.write(file_name=mtz_out)
 
-    print
-    print "Writing:", mtz_out
-    print 
+    print()
+    print("Writing:", mtz_out)
+    print() 
 # run()
 
 if __name__ == "__main__":
@@ -129,15 +131,15 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args(sys.argv)
 
     if len(args) < 2 or opts.mtz_ref is None:
-        print parser.print_help()
+        print(parser.print_help())
         quit()
 
     if not os.path.isfile(args[1]):
-        print "File not found:", args[1]
+        print("File not found:", args[1])
         quit()
 
     if not os.path.isfile(opts.mtz_ref):
-        print "File not found:", opts.mtz_ref
+        print("File not found:", opts.mtz_ref)
         quit()
 
     
@@ -148,8 +150,8 @@ if __name__ == "__main__":
         opts.mtz_out = os.path.splitext(os.path.basename(args[1]))[0] + "_copy_free.mtz"
 
     if os.path.isfile(opts.mtz_out):
-        print "File already exists:", opts.mtz_out
-        print "Please remove the file or change the output name with -o option"
+        print("File already exists:", opts.mtz_out)
+        print("Please remove the file or change the output name with -o option")
         quit()
     
     run(mtz=args[1], mtz_ref=opts.mtz_ref, mtz_out=opts.mtz_out, flag_name=opts.flag, flag_value=opts.flag_value)

@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.mtz
 from cctbx.array_family import flex
 from cctbx import miller
@@ -9,46 +11,46 @@ def get_flag(arrays, flag_name=None, flag_value=None):
 
     # Get flag array
     if flag_name is None:
-        flags = filter(lambda x: is_rfree_array(x, x.info()), arrays)
+        flags = [x for x in arrays if is_rfree_array(x, x.info())]
         if len(flags) == 0:
-            print " No R free flags like column found."
+            print(" No R free flags like column found.")
             return None
         elif len(flags) > 1:
-            print " More than one column which looks like R free flag:"
+            print(" More than one column which looks like R free flag:")
             for f in flags:
-                print " ", f.info().label_string()
+                print(" ", f.info().label_string())
             return None
         else:
             flag_name = flags[0].info().label_string()
             flag_array = flags[0]
-            print "# Guessing R free flag:", flag_name
+            print("# Guessing R free flag:", flag_name)
     else:
-        flags = filter(lambda x: flag_name==x.info().label_string(), arrays)
+        flags = [x for x in arrays if flag_name==x.info().label_string()]
         if len(flags) == 0:
-            print " Specified flag name not found:", flag
+            print(" Specified flag name not found:", flag)
             quit()
         else:
-            print "# Use specified flag:", flag
+            print("# Use specified flag:", flag)
             flag_array = flags[0]
 
     # Get flag number
     if flag_value is None:
         flag_scores = get_r_free_flags_scores(miller_arrays=[flag_array], test_flag_value=flag_value)
         flag_value = flag_scores.test_flag_values[0]
-        print "# Guessing flag number:", flag_value
+        print("# Guessing flag number:", flag_value)
     else:
-        print "# Specified flag number:", flag_value
+        print("# Specified flag number:", flag_value)
 
     return flag_array.customized_copy(data=flag_array.data() == flag_value)
 # get_flag()
 
 def get_arrays(f):
     arrays = iotbx.mtz.object(f).as_miller_arrays()
-    f_obs = filter(lambda x:x.info().labels[0]=="F-obs-filtered", arrays)[0]
-    f_model = filter(lambda x:x.info().labels[0]=="F-model", arrays)[0].as_amplitude_array()
+    f_obs = [x for x in arrays if x.info().labels[0]=="F-obs-filtered"][0]
+    f_model = [x for x in arrays if x.info().labels[0]=="F-model"][0].as_amplitude_array()
     flag = get_flag(arrays)
 
-    print "#",f, "includes %d reflections. (d= %.2f - %.2f)" % ((f_obs.data().size(),)+ f_obs.d_max_min())
+    print("#",f, "includes %d reflections. (d= %.2f - %.2f)" % ((f_obs.data().size(),)+ f_obs.d_max_min()))
 
     f_obs, flag = f_obs.common_sets(flag)
     f_model, flag = f_model.common_sets(flag)
@@ -64,7 +66,7 @@ def calc_r(f_obs, f_model):
 
 def calc_cc(obs, model, as_intensity=True):
     if as_intensity:
-        obs, model = map(lambda x:x.as_intensity_array(), (obs, model))
+        obs, model = [x.as_intensity_array() for x in (obs, model)]
 
     corr = flex.linear_correlation(obs.data(), model.data())
     if corr.is_well_defined(): return corr.coefficient()
@@ -76,7 +78,7 @@ def run(mtzfile):
 
     f_obs.setup_binner(auto_binning=True)
     f_model.setup_binner(auto_binning=True)
-    e_obs, e_model = map(lambda x:x.quasi_normalize_structure_factors(), (f_obs, f_model))
+    e_obs, e_model = [x.quasi_normalize_structure_factors() for x in (f_obs, f_model)]
 
     binner = f_obs.setup_binner(reflections_per_bin=400)
 
@@ -99,13 +101,13 @@ def run(mtzfile):
         cc_work, cc_free = calc_cc(f_obs_w_b, f_model_w_b, True), calc_cc(f_obs_t_b, f_model_t_b, True)
 
         tmp = dmax, dmin, r_free, r_work, cc_free, cc_work, cc_free_E, cc_work_E, mtzfile
-        print "%6.3f %6.3f %.4f %.4f % 7.4f % 7.4f % 7.4f % 7.4f %s" % tmp
+        print("%6.3f %6.3f %.4f %.4f % 7.4f % 7.4f % 7.4f % 7.4f %s" % tmp)
 # run()
 
 if __name__ == "__main__":
     import sys
 
-    print "  dmax   dmin  rfree  rwork  ccfree  ccwork ccfree.E ccwork.E file"
+    print("  dmax   dmin  rfree  rwork  ccfree  ccwork ccfree.E ccwork.E file")
 
     for f in sys.argv[1:]:
         run(f)

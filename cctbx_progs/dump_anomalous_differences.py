@@ -13,6 +13,8 @@ library(ggplot2)
 d$d.cut <- cut(1/d$d**2, 10)
 ggplot(d, aes(x=F.model,y=F.obs.filtered))+geom_point()+facet_grid(d.cut~.)
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import iotbx.file_reader
 from cctbx.array_family import flex
@@ -38,19 +40,18 @@ def commonalize(Is):
 def run(hklin, labels):
     labels = labels.split(",")
     data = []
-    arrays = filter(lambda x:x.anomalous_flag(),
-                    iotbx.file_reader.any_file(hklin).file_server.miller_arrays)
+    arrays = [x for x in iotbx.file_reader.any_file(hklin).file_server.miller_arrays if x.anomalous_flag()]
 
     for lab in labels:
-        tmp = filter(lambda x: lab+"(+)" in x.info().label_string(), arrays)
+        tmp = [x for x in arrays if lab+"(+)" in x.info().label_string()]
 
         if len(tmp) == 0:
-            print "Such data not found in mtz file:", lab
-            print "All available anomalous labels:", map(lambda x:x.info().labels[0].replace("(+)", ""), arrays)
+            print("Such data not found in mtz file:", lab)
+            print("All available anomalous labels:", [x.info().labels[0].replace("(+)", "") for x in arrays])
             return
         elif len(tmp) > 1:
-            print "The label is ambiguous for label", lab
-            print map(lambda x:x.info().label_string(), tmp)
+            print("The label is ambiguous for label", lab)
+            print([x.info().label_string() for x in tmp])
             return
 
         array = tmp[0]
@@ -63,15 +64,15 @@ def run(hklin, labels):
 
     data = commonalize(data)
     indices = data[0].indices()
-    diffs = map(lambda x:x.data(), data)
+    diffs = [x.data() for x in data]
 
     ofs = open("ano_%s.dat" % os.path.splitext(os.path.basename(hklin))[0], "w")
-    print >>ofs, "h k l d %s" % " ".join(labels)
+    print("h k l d %s" % " ".join(labels), file=ofs)
     for x in zip(indices, *diffs):
         hkl = x[0]
         d = anodiff.unit_cell().d(hkl)
         h,k,l = hkl
-        print >>ofs, h, k, l, d, " ".join(map(lambda y: "%.3f"%y, x[1:]))
+        print(h, k, l, d, " ".join(["%.3f"%y for y in x[1:]]), file=ofs)
 
 if __name__ == "__main__":
     import sys

@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import math
 import iotbx.mtz
 import iotbx.phil
@@ -37,17 +39,17 @@ def run(mtz_files, params):
     for mtzfile in mtz_files:
         arrays = iotbx.mtz.object(file_name=mtzfile).as_miller_arrays()
         remove_phase(arrays)
-        f_obs = filter(lambda s: "F-obs-filtered" in s.info().label_string(), arrays)
-        f_model = filter(lambda s: "F-model" in s.info().label_string(), arrays)
+        f_obs = [s for s in arrays if "F-obs-filtered" in s.info().label_string()]
+        f_model = [s for s in arrays if "F-model" in s.info().label_string()]
 
         if not (len(f_obs) == len(f_model) == 1):
-            print "File %s does not contain single F-obs-filtered and F-model" % mtzfile
+            print("File %s does not contain single F-obs-filtered and F-model" % mtzfile)
             continue
 
         #flag = get_flag(arrays, params.flag_name, params.flag_value)
         flag = get_flag(arrays, params.flag_name, params.flag_value)
         if flag is None:
-            print "File %s does not contain test flag" % mtzfile
+            print("File %s does not contain test flag" % mtzfile)
             continue
 
         assert f_obs[0].anomalous_flag() == f_model[0].anomalous_flag()
@@ -71,7 +73,7 @@ def run(mtz_files, params):
             flag_sel = flag.resolution_filter(d_max=dmax, d_min=dmin)
             fo_sel = f_obs.common_set(flag_sel)
             fm_sel = f_model.common_set(flag_sel)
-            print fo_sel.size(), fm_sel.size(), flag_sel.size()
+            print(fo_sel.size(), fm_sel.size(), flag_sel.size())
             r_free = calc_r(fo_sel.select(flag_sel.data()), fm_sel.select(flag_sel.data()))
             r_work = calc_r(fo_sel.select(~flag_sel.data()), fm_sel.select(~flag_sel.data()))
             plot_data[0].append(1./dmin**2)
@@ -100,6 +102,6 @@ if __name__ == "__main__":
     params = cmdline.work.extract()
     args = cmdline.remaining_args
 
-    mtz_files = filter(lambda s:s.endswith(".mtz"), args)
+    mtz_files = [s for s in args if s.endswith(".mtz")]
 
     run(mtz_files, params)

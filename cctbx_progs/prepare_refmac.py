@@ -1,5 +1,7 @@
 #!/usr/bin/env phenix.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, os, optparse
 import iotbx.mtz
 from iotbx.reflection_file_editor import is_rfree_array
@@ -20,7 +22,7 @@ if __name__ == "__main__":
             mtzfile = arg
 
     if None in (pdbfile, mtzfile):
-        print "Provide pdb and mtz"
+        print("Provide pdb and mtz")
         quit()
 
 
@@ -51,11 +53,11 @@ if __name__ == "__main__":
 
         elif array.is_xray_amplitude_array():
             if array.sigmas() is None:
-                print "Not having sigma:", array.info().labels
+                print("Not having sigma:", array.info().labels)
                 continue
             if array.anomalous_flag():
                 if "+" not in array.info().label_string():
-                    print "non-supported anomalous array:", array.info().labels
+                    print("non-supported anomalous array:", array.info().labels)
                     col_target.append("FP=%s SIGFP=%s" % tuple(array.info().labels[:2]))
                 else:
                     col_target.append("F+=%s SIGF+=%s F-=%s SIGF-=%s" % tuple(array.info().labels))
@@ -66,11 +68,11 @@ if __name__ == "__main__":
             col_ph.append("HLA=%s HLB=%s HLC=%s HLD=%s" % tuple(array.info().labels))
 
         else:
-            print "Unrecognized:", array.info().labels
+            print("Unrecognized:", array.info().labels)
 
     if os.path.exists("go_refmac_1.sh") or os.path.exists("go_refmac_2.sh"):
-        print
-        print "Error: Script file(s) already exists. aborting."
+        print()
+        print("Error: Script file(s) already exists. aborting.")
         sys.exit(1)
 
     sh_1_str = """\
@@ -83,7 +85,7 @@ refmac5 \\
 <<+ > $pref.log
 """ % dict(mtzfile=mtzfile, pdbfile=pdbfile)
 
-    wavelengths = list(set(filter(lambda x:x>0, wavelengths)))
+    wavelengths = list(set([x for x in wavelengths if x>0]))
     wavelengths.sort()
     wavelengths_str = " ! ".join(["%.6f"%w for w in wavelengths])
 

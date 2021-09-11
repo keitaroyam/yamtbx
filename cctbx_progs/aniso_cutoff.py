@@ -1,5 +1,7 @@
 #!/usr/bin/env phenix.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import string
 import re
@@ -15,7 +17,7 @@ def get_original_array_types (mtz_file, original_labels) :
     array_types = ""
     mtz_columns = mtz_file.column_labels()
     mtz_types = mtz_file.column_types()
-    mtz_crossref = dict(zip(mtz_columns, mtz_types))
+    mtz_crossref = dict(list(zip(mtz_columns, mtz_types)))
     for label in original_labels :
         array_types += mtz_crossref[label]
     return array_types
@@ -55,7 +57,7 @@ def run(mtzin, rescut, mtzout):
     # Open mtz
     mtz_file = iotbx.mtz.object(mtzin)
     miller_arrays = mtz_file.as_miller_arrays()
-    print "Opening", mtzin
+    print("Opening", mtzin)
 
     mtz_dataset = None
     labels = ["H", "K", "L"]
@@ -64,7 +66,7 @@ def run(mtzin, rescut, mtzout):
         d_spacings = ar.d_spacings().data()
         sel = aniso_res_cut_selection(ar, *rescut)
 
-        print "%d reflections removed from %s" % (sum(~sel), ar.info().label_string())
+        print("%d reflections removed from %s" % (sum(~sel), ar.info().label_string()))
         fake_label = 2 * string.uppercase[i]
         for lab in guess_array_output_labels(ar):
             labels.append(lab)
@@ -94,7 +96,7 @@ def run(mtzin, rescut, mtzout):
 
             try:
                 column.set_label(label)
-            except RuntimeError, e:
+            except RuntimeError as e:
                 if ("new_label is used already" in str(e)) :
                     col_names = [ col.label() for col in mtz_object.columns() ]
                     raise RuntimeError(("Duplicate column label '%s': current labels "+
@@ -105,16 +107,16 @@ def run(mtzin, rescut, mtzout):
 
     mtz_object.write(file_name=mtzout)
 
-    print
-    print "Writing:", mtzout
-    print
+    print()
+    print("Writing:", mtzout)
+    print()
 # run()
 
 if __name__ == "__main__":
     import sys
 
     mtzin = sys.argv[1]
-    res_cut = map(float, sys.argv[2].split(",")) # resolution cutoff along a*,b*,c*
+    res_cut = list(map(float, sys.argv[2].split(","))) # resolution cutoff along a*,b*,c*
     mtzout = os.path.splitext(os.path.basename(mtzin))[0] + "_anisocutoff.mtz"
 
     run(mtzin= mtzin, rescut= res_cut, mtzout=mtzout)

@@ -2,6 +2,8 @@
 
 # The original code is iotbx/command_line/emma.py
 from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from iotbx import crystal_symmetry_from_any
 from iotbx.option_parser import option_parser
@@ -21,7 +23,7 @@ def get_emma_models_from_lst(file_name, crystal_symmetry):
     elif read_flag and l.strip() == "":
       read_flag = False
     elif read_flag:
-      site = map(float, (l[:8], l[8:16], l[16:24]))
+      site = list(map(float, (l[:8], l[8:16], l[16:24])))
       positions.append(emma.position(str(len(positions)+1), site))
     elif l.startswith(" Try "):
       r = re_lst_header.search(l)
@@ -59,15 +61,15 @@ def run(args, command_name="emma_shelxd_lst.py"):
         force=False)
 
   tolerance = command_line.options.tolerance
-  print "Tolerance:", tolerance
+  print("Tolerance:", tolerance)
   if (tolerance <= 0.):
-    raise ValueError, "Tolerance must be greater than zero."
-  print
+    raise ValueError("Tolerance must be greater than zero.")
+  print()
   diffraction_index_equivalent = \
     command_line.options.diffraction_index_equivalent
   if (diffraction_index_equivalent):
-    print "Models are diffraction index equivalent."
-    print
+    print("Models are diffraction index equivalent.")
+    print()
   emma_ref = get_emma_model(file_name=command_line.args[0],
                             crystal_symmetry=crystal_symmetry)
 
@@ -76,24 +78,24 @@ def run(args, command_name="emma_shelxd_lst.py"):
   emma_others = get_emma_models_from_lst(command_line.args[1], crystal_symmetry)
 
 
-  print "try CCall CCweak nmatch rms order.min order.max"
+  print("try CCall CCweak nmatch rms order.min order.max")
   
   for emma_other, itry, ccall, ccweak in emma_others:
     model_matches = emma.model_matches(model1=emma_ref,
                                        model2=emma_other,
                                        tolerance=tolerance,
                                        models_are_diffraction_index_equivalent=diffraction_index_equivalent)
-    print itry, ccall, ccweak,
+    print(itry, ccall, ccweak, end=' ')
 
     if (model_matches.n_matches() == 0):
-      print "0 nan nan nan"
+      print("0 nan nan nan")
     else:
       max_n_pairs = None
       first=True
       for match in model_matches.refined_matches:
         if (max_n_pairs is None or len(match.pairs) > max_n_pairs*0.2):
-          orders = map(lambda x: int(x[1]), match.pairs)
-          print "%3d %.5f %3d %3d" % (len(match.pairs), match.rms, min(orders), max(orders))
+          orders = [int(x[1]) for x in match.pairs]
+          print("%3d %.5f %3d %3d" % (len(match.pairs), match.rms, min(orders), max(orders)))
           #match.show()
           #first=False
           break

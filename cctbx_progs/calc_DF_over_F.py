@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.file_reader
 from cctbx.array_family import flex
 
@@ -7,7 +9,7 @@ def run(hklin):
         if not arr.anomalous_flag():
             continue
 
-        print arr.info()
+        print(arr.info())
         if arr.is_complex_array():
             arr = arr.as_amplitude_array() # must be F
 
@@ -15,9 +17,9 @@ def run(hklin):
         ave = arr.average_bijvoet_mates()
         
         ano, ave = ano.common_sets(ave)
-        print "   <d''/mean>=", flex.mean(flex.abs(ano.data()) / ave.data())
-        print " <d''>/<mean>=", flex.mean(flex.abs(ano.data())) / flex.mean(ave.data())
-        print
+        print("   <d''/mean>=", flex.mean(flex.abs(ano.data()) / ave.data()))
+        print(" <d''>/<mean>=", flex.mean(flex.abs(ano.data())) / flex.mean(ave.data()))
+        print()
 
 if __name__ == "__main__":
     import sys
