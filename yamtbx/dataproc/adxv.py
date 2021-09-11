@@ -60,7 +60,7 @@ class Adxv(object):
         self.start(cwd=os.path.dirname(imgfile))
 
 
-        sent = self.sock.send("load_image %s\n"%imgfile)
+        sent = self.sock.send(b"load_image %s\n"%imgfile.encode("utf-8"))
         if sent == 0:
             raise RuntimeError("adxv load failed! Close adxv and double-click again.")
 

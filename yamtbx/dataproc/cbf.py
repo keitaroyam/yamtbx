@@ -60,27 +60,27 @@ def load_xds_special(cbfin):
 
 def save_numpy_data_as_cbf(data, size1, size2, title, cbfout, pilatus_header=None, header_convention="PILATUS_1.2"):
     h = pycbf.cbf_handle_struct()
-    h.new_datablock(title)
+    h.new_datablock(title.encode("utf-8"))
 
-    h.require_category('array_data')
+    h.require_category(b'array_data')
 
     if pilatus_header is not None:
-        h.require_column('header_convention')
-        h.set_value('"%s"'%header_convention)
-        h.require_column('header_contents')
-        h.set_value(pilatus_header)
+        h.require_column(b'header_convention')
+        h.set_value(b'"%s"'%header_convention.encode("utf-8"))
+        h.require_column(b'header_contents')
+        h.set_value(pilatus_header.encode("utf-8"))
 
 
-    h.require_category('array_data')
-    h.require_column('data')
+    h.require_category(b'array_data')
+    h.require_column(b'data')
 
     assert data.dtype.kind in "iu"
     elsigned = 1 if data.dtype.kind == "i" else 0
 
     h.set_integerarray_wdims_fs(pycbf.CBF_BYTE_OFFSET, 1, data.tostring(), data.dtype.itemsize,
-                                elsigned, len(data), "little_endian",
+                                elsigned, len(data), b"little_endian",
                                 size1, size2, 1, 0)
-    h.write_file(cbfout, pycbf.CBF,
+    h.write_file(cbfout.encode("utf-8"), pycbf.CBF,
                  pycbf.MIME_HEADERS|pycbf.MSG_DIGEST|pycbf.PAD_4K, pycbf.ENC_NONE)
 # save_numpy_data_as_cbf()
 
