@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import unicode_literals
 from yamtbx.dataproc import XIO
 
 def make_geom(header, geom_out):
@@ -32,7 +33,7 @@ rigid_group_collection_independent = p0
     nh_sensors = (header["Width"]-487)//494+1
     nv_sensors = (header["Height"]-195)//212+1
 
-    for i in xrange(nh_sensors):
+    for i in range(nh_sensors):
         s += """
 badp0v%(i)d/min_fs = %(min_fs)d
 badp0v%(i)d/max_fs = %(max_fs)d
@@ -40,7 +41,7 @@ badp0v%(i)d/min_ss = %(min_ss)d
 badp0v%(i)d/max_ss = %(max_ss)d
 """ % dict(i=i, min_fs=494*i+487, max_fs=494*(i+1)-1, min_ss=0, max_ss=header["Height"]-1)
 
-    for i in xrange(nv_sensors):
+    for i in range(nv_sensors):
         s += """
 badp0h%(i)d/min_fs = %(min_fs)d
 badp0h%(i)d/max_fs = %(max_fs)d

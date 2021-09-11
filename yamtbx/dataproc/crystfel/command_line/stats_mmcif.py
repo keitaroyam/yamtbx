@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 def parse_dat(f_in, ret):
     ifs = open(f_in)
     first = ifs.readline()
@@ -10,7 +12,7 @@ def parse_dat(f_in, ret):
         else:
             return None
 
-        if key in ret: print "Warning: duplidated %s" %key
+        if key in ret: print("Warning: duplidated %s" %key)
         ret[key] = {}
         for l in ifs:
             _, fom, nref, d, dmax, dmin = l.split()
@@ -24,7 +26,7 @@ def parse_dat(f_in, ret):
             ret[key].setdefault("value", []).append(fom)
 
     elif first.startswith("Center 1/nm"):
-        if "table" in ret: print "Warning: duplicated table"
+        if "table" in ret: print("Warning: duplicated table")
         ret["table"] = {}
         nposs_all = 0
         nref_all = 0
@@ -52,19 +54,19 @@ def parse_file(logfile, ret):
 
     for l in open(logfile):
         if "Overall Rsplit = " in l:
-            if "rsplit" in ret: print "Warning: duplicated Rsplit"
+            if "rsplit" in ret: print("Warning: duplicated Rsplit")
             ret["rsplit"] = "%.3f"%(float(l[l.rindex("=")+1:l.rindex("%")])/100.)
         elif "Overall CC = " in l:
-            if "cc12" in ret: print "Warning: duplicated CC"
+            if "cc12" in ret: print("Warning: duplicated CC")
             ret["cc12"] = "%.4f"%(float(l[l.rindex("=")+1:].strip()))
         elif "overall <snr> = " in l:
-            if "snr" in ret: print "Warning: duplicated SNR"
+            if "snr" in ret: print("Warning: duplicated SNR")
             ret["snr"] = "%.2f"%(float(l[l.rindex("=")+1:].strip()))
         elif "measurements in total" in l:
-            if "nmeas" in ret: print "Warning: duplicated measurements"
+            if "nmeas" in ret: print("Warning: duplicated measurements")
             ret["nmes"] = l.split()[0]
         elif "reflections in total" in l:
-            if "nuniq" in ret: print "Warning: duplicated reflections"
+            if "nuniq" in ret: print("Warning: duplicated reflections")
             ret["nuniq"] = l.split()[0]
         elif "Accepted resolution range" in l:
             ret["dmin"] = l[l.rindex("to")+3:l.rindex("Ang")].strip()
@@ -112,7 +114,7 @@ _reflns_shell.pdbx_diffrn_id
 _reflns_shell.pdbx_CC_half
 _reflns_shell.pdbx_R_split
 """
-    for i in xrange(len(ret["table"]["dmax"])):
+    for i in range(len(ret["table"]["dmax"])):
         tmp = dict(dmin=ret["table"]["dmin"][i],
                    dmax=ret["table"]["dmax"][i],
                    snr=ret["table"]["snr"][i],
@@ -123,7 +125,7 @@ _reflns_shell.pdbx_R_split
                    rsplit=ret["table_rsplit"]["value"][i])
         s += "%(dmax)s %(dmin)s %(snr)s %(nuniq)s %(cmpl)s %(redun)s 1 %(cc12)s %(rsplit)s\n" % tmp
 
-    print s
+    print(s)
 
 if __name__ == "__main__":
     import sys

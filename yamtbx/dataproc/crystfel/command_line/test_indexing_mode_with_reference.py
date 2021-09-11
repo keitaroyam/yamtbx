@@ -8,6 +8,8 @@ yamtbx.python test_indexing_mode_with_reference.py \
 | tee test_index.dat
 
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from cctbx import sgtbx
 from cctbx.array_family import flex
@@ -17,8 +19,8 @@ from yamtbx.dataproc.crystfel.command_line.stats_stream_savememory import read_s
 
 def get_reference_data(refdata, reflabel):
     arrays = iotbx.file_reader.any_file(refdata).file_server.miller_arrays
-    array = filter(lambda x: x.info().label_string()==reflabel, arrays)[0]
-    print "# Read", array.info()
+    array = [x for x in arrays if x.info().label_string()==reflabel][0]
+    print("# Read", array.info())
     array = array.resolution_filter(d_min=2)
     if array.anomalous_flag(): array = array.average_bijvoet_mates()
     return array.as_intensity_array()
@@ -37,15 +39,15 @@ def calc_cc(a1, a2):
 def run(stream_in, refmtz_in, refmtz_lab, ops):
     refarr = get_reference_data(refmtz_in, refmtz_lab)
 
-    print "# Stream_in=", stream_in
+    print("# Stream_in=", stream_in)
 
-    print "file event dmin",
-    for op in ops: print "%s n_%s" % (op,op),
-    print
+    print("file event dmin", end=' ')
+    for op in ops: print("%s n_%s" % (op,op), end=' ')
+    print()
 
-    ops = map(lambda x: sgtbx.change_of_basis_op(x), ops)
+    ops = [sgtbx.change_of_basis_op(x) for x in ops]
 
-    refarrs = map(lambda op: refarr.customized_copy(indices=op.apply(refarr.indices())).map_to_asu(), ops)
+    refarrs = [refarr.customized_copy(indices=op.apply(refarr.indices())).map_to_asu() for op in ops]
 
     for chunk in read_stream(stream_in):
         datarr = chunk.data_array(refarr.space_group(), False).merge_equivalents(use_internal_variance=False).array()
@@ -56,7 +58,7 @@ def run(stream_in, refmtz_in, refmtz_lab, ops):
             #else: tmp = datarr.customized_copy(indices=op.apply(datarr.indices())).map_to_asu()
             ccs.append(calc_cc(datarr, r))
 
-        print "%s %s %.2f %s" % (chunk.filename, chunk.event, chunk.res_lim, " ".join(map(lambda x: "% .4f %4d" % x, ccs)))
+        print("%s %s %.2f %s" % (chunk.filename, chunk.event, chunk.res_lim, " ".join(["% .4f %4d" % x for x in ccs])))
 # run()        
 
 if __name__ == "__main__":

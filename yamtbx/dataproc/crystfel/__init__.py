@@ -1,6 +1,8 @@
-import geom
-import hkl
-import stream
+from __future__ import absolute_import
+from __future__ import unicode_literals
+from . import geom
+from . import hkl
+from . import stream
 from iotbx import crystal_symmetry_from_any
 
 def get_run_and_tag_from_filename(filename):
@@ -29,7 +31,7 @@ def read_cell_file(filename):
 
     if filever == "1.0":
         for l in ifs:
-            sp = map(lambda x: x.strip(), l.split("="))
+            sp = [x.strip() for x in l.split("=")]
             if len(sp) != 2: continue
             lhs, rhs = sp
             if lhs in cellkeys:
