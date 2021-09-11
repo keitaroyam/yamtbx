@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import iotbx.cif
 import iotbx.shelx.hklf
@@ -6,8 +8,8 @@ def run(cif_file, prefix=None):
     if prefix is None: prefix = os.path.splitext(os.path.basename(cif_file))[0]
     
     reader = iotbx.cif.reader(cif_file)
-    print reader.build_miller_arrays()
-    print reader.as_miller_arrays()
+    print(reader.build_miller_arrays())
+    print(reader.as_miller_arrays())
 
     model = reader.model()
     hklf = None
@@ -16,8 +18,8 @@ def run(cif_file, prefix=None):
 
     for key in xrss:
         xrs = xrss[key]
-        print key, xrs
-        print "Saving %s_%s.pdb"%(prefix,key)
+        print(key, xrs)
+        print("Saving %s_%s.pdb"%(prefix,key))
         open("%s_%s.pdb"%(prefix,key), "w").write(xrs.as_pdb_file(resname="XXX"))
     
     for k in model:
@@ -26,7 +28,7 @@ def run(cif_file, prefix=None):
             open("%s_%s.res"%(prefix,k), "w").write(res_str)
 
             res_lines = res_str.splitlines()
-            hklf_line = filter(lambda x: x.startswith("HKLF "), res_lines)
+            hklf_line = [x for x in res_lines if x.startswith("HKLF ")]
             if hklf_line:
                 hklf = int(hklf_line[0][5])
 
