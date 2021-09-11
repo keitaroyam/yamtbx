@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.command_line.pilatus_for_crystfel import make_geom_decomposed_for_raw
 from yamtbx.dataproc.XIO import XIO
 from yamtbx.dataproc import crystfel
@@ -19,10 +21,10 @@ def run(img_in):
     panel = 0
 
     if shape == (2527, 2463):
-        for j in xrange(12):
-            for i in xrange(5):
+        for j in range(12):
+            for i in range(5):
                 panel += 1
-                print """\
+                print("""\
  SEGMENT= %(min_fs)d %(max_fs)d %(min_ss)d %(max_ss)d ! %(panel).2d
   DIRECTION_OF_SEGMENT_X-AXIS= 1.000000 0.000000 0
   DIRECTION_OF_SEGMENT_Y-AXIS= 0.000000 1.000000 0
@@ -33,7 +35,7 @@ def run(img_in):
 """ % dict(panel=panel, 
            min_ss=j*212+1, max_ss=j*212+195,
            min_fs=i*494+1, max_fs=i*494+487
-           )
+           ))
 
 
 

@@ -5,6 +5,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import os
 import numpy
@@ -35,12 +38,12 @@ def run(bkgpix_in, xparm_in, nbins):
     xparm = XPARM(xparm_in)
 
     d_min = calc_edge_resolution(xparm, nx, ny)
-    print "# edge resolution=", d_min
+    print("# edge resolution=", d_min)
     s2_step = (1./d_min**2) / nbins
 
-    bins = [[] for i in xrange(nbins)]
+    bins = [[] for i in range(nbins)]
 
-    for i in xrange(0, bkgpix.size(), 2):
+    for i in range(0, bkgpix.size(), 2):
         val = bkgpix[i]
         if val < 0:
             continue
@@ -55,9 +58,9 @@ def run(bkgpix_in, xparm_in, nbins):
         if idx >= nbins: idx = nbins - 1
         bins[idx].append(val/100.)
 
-    for i in xrange(nbins):
+    for i in range(nbins):
         dmax, dmin =  1./numpy.sqrt(i*s2_step), 1./numpy.sqrt((i+1)*s2_step)
-        print "%7.2f %7.2f %.4f" % (dmax, dmin, sum(bins[i])/len(bins[i]))
+        print("%7.2f %7.2f %.4f" % (dmax, dmin, sum(bins[i])/len(bins[i])))
 
 
 

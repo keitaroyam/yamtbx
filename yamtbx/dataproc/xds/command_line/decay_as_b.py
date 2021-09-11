@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc import cbf
 import numpy
 import re
@@ -29,17 +32,17 @@ def run(cbfin):
 
     xmin, xmax, nxbin = re_x.search(header).groups() # batch number
     ymin, ymax, nybin = re_y.search(header).groups() # 1/d^2
-    xmin, xmax, ymin, ymax = map(float, (xmin, xmax, ymin, ymax))
-    nxbin, nybin = map(int, (nxbin, nybin))
+    xmin, xmax, ymin, ymax = list(map(float, (xmin, xmax, ymin, ymax)))
+    nxbin, nybin = list(map(int, (nxbin, nybin)))
 
     xstep = (xmax-xmin)/nxbin
     ystep = (ymax-ymin)/nybin
 
 
-    print "1/d^2 scale batch"
-    for x in xrange(nfast):
+    print("1/d^2 scale batch")
+    for x in range(nfast):
         for j, d in enumerate(data[:,x]):
-            print ymin+(j+.5)*ystep, d, x
+            print(ymin+(j+.5)*ystep, d, x)
 
     # TODO fit B here.
 

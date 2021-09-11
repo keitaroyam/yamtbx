@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import math
 import numpy
@@ -21,9 +23,9 @@ def run(hklin):
     for_plot = {}
 
     cut_ios = (2, 1, 0.5, 0)
-    print "iset file cmpl redun",
-    for cut in cut_ios: print "cut_ios_%.2f" % cut,
-    print
+    print("iset file cmpl redun", end=' ')
+    for cut in cut_ios: print("cut_ios_%.2f" % cut, end=' ')
+    print()
 
     for iset in isets:
         sel = (xscaled.iset == iset)
@@ -32,7 +34,7 @@ def run(hklin):
         data_i = merge_i.array()
         cmpl_i = data_i.completeness()
         cutoffs = eval_resolution(data_i, 100, cut_ios)
-        print "%3d %s %5.1f%% %.1f %s" % (iset, xscaled.input_files[iset][0], cmpl_i*100, redun_i, " ".join(map(lambda x: "%.2f"%x, cutoffs)))
+        print("%3d %s %5.1f%% %.1f %s" % (iset, xscaled.input_files[iset][0], cmpl_i*100, redun_i, " ".join(["%.2f"%x for x in cutoffs])))
 
         for i_bin in binner.range_used():
             dmax, dmin = binner.bin_d_range(i_bin)
@@ -53,7 +55,7 @@ def run(hklin):
     pp = PdfPages("test.pdf")
 
     keys = sorted(for_plot)
-    for names in (keys[i:i+100] for i in xrange(0, len(keys), 100)):
+    for names in (keys[i:i+100] for i in range(0, len(keys), 100)):
         ncols = 5
         nrows = int(math.ceil(len(names)/float(ncols)))
         

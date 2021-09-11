@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc.xds import idxreflp
 from yamtbx.dataproc.xds import get_xdsinp_keyword
@@ -38,7 +40,7 @@ def run(params):
 
     filename_template = dict(inputs).get("NAME_TEMPLATE_OF_DATA_FRAMES", "")
     if filename_template == "":
-        print "Error! Can't find filename from XDS.INP"
+        print("Error! Can't find filename from XDS.INP")
         return
 
     # Start adxv
@@ -50,21 +52,21 @@ def run(params):
     num = params.image
 
     while True:
-        print "Showing image %d" % num
+        print("Showing image %d" % num)
 
         img_file = dataset.template_to_filenames(filename_template, num, num)[0]
         adxv.open_image(img_file)
 
-        uninds = map(lambda x: [x[0], x[1], type_unindexed], spots["unindexed"].get(num, []))
-        inds = map(lambda x: [x[0], x[1], type_indexed], spots["indexed"].get(num, []))
+        uninds = [[x[0], x[1], type_unindexed] for x in spots["unindexed"].get(num, [])]
+        inds = [[x[0], x[1], type_indexed] for x in spots["indexed"].get(num, [])]
 
-        print "Showing %d Indexed spots (blue)" % len(inds)
-        print "Showing %d Unindexed spots (red)" % len(uninds)
+        print("Showing %d Indexed spots (blue)" % len(inds))
+        print("Showing %d Unindexed spots (red)" % len(uninds))
 
         adxv.load_spots(inds+uninds)
 
         time.sleep(1) # wait until adxv finishes process..
-        num = int(raw_input("Next image number?: "))
+        num = int(input("Next image number?: "))
 
 # run()
 

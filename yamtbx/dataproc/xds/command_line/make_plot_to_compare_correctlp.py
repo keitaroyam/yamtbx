@@ -5,6 +5,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc.xds.correctlp import CorrectLp
 import iotbx.phil
@@ -30,7 +33,7 @@ def run(params, args):
 
     for_plot = OrderedDict() 
     for p in params.plot:
-        print "Preparing", p
+        print("Preparing", p)
         for_plot[p] = OrderedDict()
 
     trans_table = dict(ios="i_over_sigma",
@@ -42,11 +45,11 @@ def run(params, args):
                        red="redundancy")
 
 
-    for lpfile, label in ((args[2*i],args[2*i+1]) for i in xrange((len(args))//2)):
+    for lpfile, label in ((args[2*i],args[2*i+1]) for i in range((len(args))//2)):
         lp = CorrectLp(lpfile)
-        print label, lpfile, lp.space_group.info(), "anomalous=%s"%lp.anomalous_flag
+        print(label, lpfile, lp.space_group.info(), "anomalous=%s"%lp.anomalous_flag)
         ofs.write("# %s %s %s anomalous=%s\n" % (label, lpfile, lp.space_group.info(), lp.anomalous_flag))
-        plot_x = map(lambda x:1/x**2, lp.table["all"]["dmin"][:-1])
+        plot_x = [1/x**2 for x in lp.table["all"]["dmin"][:-1]]
         for p in params.plot:
             plot_y = lp.table["all"][trans_table[p]][:-1]
             for_plot[p][label] = plot_x, plot_y
@@ -74,7 +77,7 @@ def run(params, args):
     fig.savefig(params.output, bbox_extra_artists=(leg,), bbox_inches='tight')
     plt.show()
     
-    print """
+    print("""
 
 Instruction for R:
 
@@ -85,7 +88,7 @@ number_ticks <- function(n) {function(limits) pretty(limits, n)}
 ggplot(d, aes(x=s2max, y=value, colour=factor(name))) + geom_point() + geom_line() + facet_grid(variable~., scale="free") + scale_x_continuous(label=function(x)sprintf("%%.2f", 1/sqrt(x)), breaks=number_ticks(10)) 
 
 
-""" % params.rdataout
+""" % params.rdataout)
 # run()
 
 if __name__ == "__main__":

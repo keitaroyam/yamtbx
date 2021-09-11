@@ -19,6 +19,9 @@ TODO:
 To launch this script,
 PHENIX_TRUST_OTHER_ENV=1 phenix.python /.../xds_single_frame_integration_compare.py  -f 5 -o 2
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import subprocess
 from yamtbx.xds import *
@@ -62,8 +65,8 @@ def compare_integrate_hkls(result_single, result_range):
     
     # Output to terminal
     N = 20
-    print "      PEAK                          r_fac  cc"
-    for i in xrange(N):
+    print("      PEAK                          r_fac  cc")
+    for i in range(N):
         lrange, rrange = i * 100./N, (i+1)*100./N
         sel = lrange < data_single["PEAK"].data()
         sel &= data_single["PEAK"].data() <= rrange
@@ -79,9 +82,9 @@ def compare_integrate_hkls(result_single, result_range):
                      sel_I_single.data())
 
         for r, s, p in zip(sel_I_range[:10], sel_I_single[:10], data_single["PEAK"].select(sel).data()):
-            print "  ", r, s, p
+            print("  ", r, s, p)
 
-        print "%6.2f .. %6.2f [nref= %10d] %.4f %.4f" % (lrange, rrange, sum(sel), r_fac, cc)
+        print("%6.2f .. %6.2f [nref= %10d] %.4f %.4f" % (lrange, rrange, sum(sel), r_fac, cc))
 
     # Output to file
     ofs = open("result.dat", "w")

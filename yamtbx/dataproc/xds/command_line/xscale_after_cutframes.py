@@ -7,6 +7,8 @@ This software is released under the new BSD License; see LICENSE.
 """
 Use this script after xscale_cc_against_merged.py
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from collections import OrderedDict
 import os
@@ -43,9 +45,9 @@ def run(tabin, cc_min):
     lst = read_input(tabin, cc_min)
     inp_ofs = open("XSCALE.INP", "w")
 
-    topdir = os.path.dirname(os.path.commonprefix(map(lambda x: os.path.abspath(x), lst.keys())))
+    topdir = os.path.dirname(os.path.commonprefix([os.path.abspath(x) for x in list(lst.keys())]))
 
-    print "Cut frames with CC < %.4f" % cc_min
+    print("Cut frames with CC < %.4f" % cc_min)
 
     for f in lst:
         useframes = lst[f]
@@ -55,7 +57,7 @@ def run(tabin, cc_min):
         if not os.path.exists(os.path.dirname(hklout)): os.makedirs(os.path.dirname(hklout))
 
         if useframes is None or set(useframes).issuperset(set(range(min(xac.iframe), max(xac.iframe)))):
-            print "Just copying to %s" % hklout
+            print("Just copying to %s" % hklout)
             shutil.copyfile(f, hklout)
         else:
             sel = xac.iframe == useframes[0]
@@ -63,10 +65,10 @@ def run(tabin, cc_min):
 
             # XXX we may need to check I/sigma and throw < -3..
             if sum(sel) < 10:
-                print "Skipping %s with only %6d/%6d" % (hklout, sum(sel), len(sel))
+                print("Skipping %s with only %6d/%6d" % (hklout, sum(sel), len(sel)))
                 continue
 
-            print "Saving %s %6d/%6d" % (hklout, sum(sel), len(sel))
+            print("Saving %s %6d/%6d" % (hklout, sum(sel), len(sel)))
             xac.write_selected(sel, hklout)
 
         inp_ofs.write("INPUT_FILE= %s\n" % hklout)

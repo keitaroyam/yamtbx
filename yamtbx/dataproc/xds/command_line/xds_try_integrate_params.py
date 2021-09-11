@@ -11,6 +11,9 @@ Try several parameters in INTEGRATE step of XDS, and optionally run CORRECT and 
 Usage:
   PHENIX_TRUST_OTHER_ENV=1 phenix.python xds_try_integrate_params.py delphi=5,10,15,...
 """
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 
 master_params_str = """\
@@ -39,12 +42,12 @@ from yamtbx.dataproc.xds import *
 from yamtbx.util import call
 from yamtbx.dataproc.xds.command_line import xds2mtz
 from yamtbx.dataproc.xds import files
-from xds_try_scale_params import get_digit, copy_testflag
+from .xds_try_scale_params import get_digit, copy_testflag
 
 def make_all_refine_combinations():
     all_keywords = ["DISTANCE","BEAM","AXIS","ORIENTATION","CELL"]
     result = []
-    for i in xrange(len(all_keywords)+1):
+    for i in range(len(all_keywords)+1):
         for c in itertools.combinations(all_keywords, i):
             result.append(c)
 
@@ -52,7 +55,7 @@ def make_all_refine_combinations():
 # make_all_refine_combinations()
 
 def get_delphi_defined(xdsinp):
-    org_kwd = filter(lambda x:x[0].strip().startswith("DELPHI"), get_xdsinp_keyword(xdsinp))
+    org_kwd = [x for x in get_xdsinp_keyword(xdsinp) if x[0].strip().startswith("DELPHI")]
     if len(org_kwd) == 0:
         return 5.
     else:
@@ -60,7 +63,7 @@ def get_delphi_defined(xdsinp):
 # get_delphi_defined()
 
 def get_refine_defined(xdsinp):
-    org_kwd = filter(lambda x:x[0].strip().startswith("REFINE(INTEGRATE)"), get_xdsinp_keyword(xdsinp))
+    org_kwd = [x for x in get_xdsinp_keyword(xdsinp) if x[0].strip().startswith("REFINE(INTEGRATE)")]
     if len(org_kwd) == 0:
         return [("DISTANCE", "BEAM", "ORIENTATION", "CELL")]
     else:
@@ -130,9 +133,9 @@ def run(params):
                             copy_testflag(mtzfree=params.mtz_free,
                                           mtzin=os.path.join(workdir, work_name, "ccp4", "XDS_ASCII.mtz"))
                     except:
-                        print traceback.format_exc()
-                        print "Ignoring xds2mtz error.."
-                        print
+                        print(traceback.format_exc())
+                        print("Ignoring xds2mtz error..")
+                        print()
 
                 revert_files(backup_needed, bk_prefix) # Revert XDS.INP and others
 
@@ -154,7 +157,7 @@ if __name__ == "__main__":
     if params.mtz_free is not None:
         params.mtz_free = os.path.abspath(params.mtz_free)
 
-    print "Parameters:"
+    print("Parameters:")
     cmdline.work.format(python_object=params).show(out=sys.stdout, prefix=" ")
 
     #if len(params.delphi) == 1:
