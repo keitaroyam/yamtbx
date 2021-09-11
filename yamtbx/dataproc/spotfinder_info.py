@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import collections
 
 from cctbx.array_family import flex
@@ -32,7 +34,7 @@ def filter_spots_with_ex_resolution_range(spots, resolutions, exclude_resolution
     return ret
  # filter_spots_with_ex_resolution_range()
 
-class SpotsBase:
+class SpotsBase(object):
     def __init__(self):
         self.all_spots = None # flex.distl_spot type
         self.spots = collections.OrderedDict() # {descriptor: flex.int}
@@ -61,11 +63,11 @@ class SpotsBase:
     def find_nearest_key(self, key):
         assert key in all_keys or key == "xds"
 
-        if key in self.spots.keys() or key == "all": # fast ver
+        if key in list(self.spots.keys()) or key == "all": # fast ver
             return key
 
         for key in all_keys[all_keys.index(key)::-1]:
-            if key in self.spots.keys():
+            if key in list(self.spots.keys()):
                 return key
 
         return "all"
@@ -104,7 +106,7 @@ class SpotsBase:
             if hasattr(self, "median_integrated_signal"): # backward compatibility
                 return self.median_integrated_signal[key]
             else:
-                print "NOTE: median is not available. using mean value."
+                print("NOTE: median is not available. using mean value.")
                 return self.mean_integrated_signal[key]
         else:
             intensities = filter_spots_with_ex_resolution_range(self.intensities[key],
@@ -131,7 +133,7 @@ class SpotsBase:
     def get_summed_peaks(self, key):
         pass
 
-class DummySpot: # Dummy spot class for XDS result
+class DummySpot(object): # Dummy spot class for XDS result
     def __init__(self, x, y, d, intensity):
         self.x = x
         self.y = y
@@ -154,9 +156,9 @@ class XDSSpots(SpotsBase):
         for x, y, d, intensity in spots:
             self.all_spots.append(DummySpot(x, y, d, intensity))
 
-        self.spots["xds"] = range(len(self.all_spots))
+        self.spots["xds"] = list(range(len(self.all_spots)))
 
-        for k in self.keys():
+        for k in list(self.keys()):
             summed_wts = [spot.intensity for spot in self.get_spots(k)]
             self.intensities[k] = summed_wts
             self.resolutions[k] = [spot.resolution for spot in self.get_spots(k)] # XXX calculate resolution!!
@@ -200,7 +202,7 @@ class DistlSpots(SpotsBase):
                 self.spots[node.descriptor] = node.data
 
         # Pre-calculate stats
-        for k in self.keys():
+        for k in list(self.keys()):
             summed_wts = [flex.sum(spot.wts) for spot in self.get_spots(k)]
             self.intensities[k] = summed_wts
             self.resolutions[k] = [spot.resolution for spot in self.get_spots(k)]

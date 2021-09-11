@@ -4,12 +4,14 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import scipy.optimize
 import numpy
 from cctbx.array_family import flex
 import sys
 
-class kBdecider3:
+class kBdecider3(object):
     def __init__(self, obs, calc):
         self.obs, self.calc = obs.common_sets(calc, assert_is_similar_symmetry=False)
     # __init__()
@@ -25,11 +27,11 @@ class kBdecider3:
 
         B = -2*(b_calc - b_obs)
         k = kBdecider2.get_linear_scale(self.obs, self.calc, B)
-        print "k,B=",k,B
+        print("k,B=",k,B)
         return k, B
 
 # Does not work. why?
-class kBdecider2:
+class kBdecider2(object):
     def __init__(self, obs, calc):
         self.obs, self.calc = obs.common_sets(calc, assert_is_similar_symmetry=False)
 
@@ -49,8 +51,8 @@ class kBdecider2:
 
     def run(self):
         f = self.f(self.x)
-        print "# initial  f= %.6e" % f
-        print "# initial  x=", self.x
+        print("# initial  f= %.6e" % f)
+        print("# initial  x=", self.x)
 
         status = scipy.optimize.minimize(fun=self.f,
                                          x0=self.x,
@@ -59,14 +61,14 @@ class kBdecider2:
         self.x = status.x
 
         f = self.f(self.x)
-        print "#   final  f= %.6e" % f
-        print "#   final  x=", self.x
+        print("#   final  f= %.6e" % f)
+        print("#   final  x=", self.x)
         B = float(self.x[0])
         return self.get_linear_scale(self.obs, self.calc, B), B
     # run()
 
     def f(self, x):
-        print x
+        print(x)
         B = float(x[0])
         #d_star_sq = self.calc.d_star_sq().data()
         #obs = self.obs.data()
@@ -78,7 +80,7 @@ class kBdecider2:
 # class kBdecider2
 
 
-class kBdecider:
+class kBdecider(object):
     def __init__(self, obs, calc):
         self.obs, self.calc = obs.common_sets(calc, assert_is_similar_symmetry=False)
 
@@ -93,8 +95,8 @@ class kBdecider:
 
     def run(self):
         f, df = self.f(self.x), self.df(self.x)
-        print "# initial  f= %.6e" % f
-        print "# initial df=", tuple(df)
+        print("# initial  f= %.6e" % f)
+        print("# initial df=", tuple(df))
 
         status = scipy.optimize.minimize(fun=self.f,
                                          x0=self.x,
@@ -104,9 +106,9 @@ class kBdecider:
         self.x = status.x
 
         f, df = self.f(self.x), self.df(self.x)
-        print "#   final  f= %.6e" % f
-        print "#   final df=", tuple(df)
-        print "#   final  x=", self.x
+        print("#   final  f= %.6e" % f)
+        print("#   final df=", tuple(df))
+        print("#   final  x=", self.x)
 
         return float(self.x[0]), float(self.x[1])
     # run()
