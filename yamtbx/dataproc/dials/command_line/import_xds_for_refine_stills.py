@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 from cctbx import sgtbx
 from dxtbx.model.experiment_list import ExperimentListFactory
@@ -70,14 +72,14 @@ def import_integrated(integrate_hkl, min_ios=3):
 
 def import_spot_xds(spot_xds):
     sx = SpotXds(spot_xds)
-    spots = filter(lambda x: x[-1][0] is not None and not (x[-1][0]==x[-1][1]==x[-1][2]==0), sx.items)
+    spots = [x for x in sx.items if x[-1][0] is not None and not (x[-1][0]==x[-1][1]==x[-1][2]==0)]
 
     # reference: dials/command_line/import_xds.py
     table = flex.reflection_table()
     table["id"] = flex.int(len(spots), 0)
     table["panel"] = flex.size_t(len(spots), 0) # only assuming single panel
-    table["miller_index"] = flex.miller_index(map(lambda x: x[-1], spots))
-    table["xyzobs.px.value"] = flex.vec3_double(map(lambda x: (x[0][0], x[0][1], 0.), spots))
+    table["miller_index"] = flex.miller_index([x[-1] for x in spots])
+    table["xyzobs.px.value"] = flex.vec3_double([(x[0][0], x[0][1], 0.) for x in spots])
     table["flags"] = flex.size_t(len(table), table.flags.indexed | table.flags.strong)
     
 
@@ -94,7 +96,7 @@ def px_to_mm(experiment, table):
                                                                       table['xyzobs.px.value'],
                                                                       table['xyzobs.px.variance'],
                                                                       flex.vec3_double(len(table), (1,1,1)))
-    print centroid_position
+    print(centroid_position)
     table['xyzobs.mm.value'] = centroid_position
     table['xyzobs.mm.variance'] = centroid_variance
 

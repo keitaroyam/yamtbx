@@ -211,7 +211,7 @@ def run_dials_sequence(filename_template, prefix, nr_range, wdir, known_xs, over
     ret = calc_merging_stats(os.path.join(wdir, "aimless_unmerged.mtz"))
     ret["symm"] = get_most_possible_symmetry(wdir)
 
-    pickle.dump(ret, open(os.path.join(wdir, "kamo_dials.pkl"), "w"), -1)
+    pickle.dump(ret, open(os.path.join(wdir, "kamo_dials.pkl"), "wb"), -1)
 
     # TODO config.params.xds.exclude_resolution_range config.params.reverse_phi
 
