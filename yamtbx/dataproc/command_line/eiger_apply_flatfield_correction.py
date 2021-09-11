@@ -11,7 +11,7 @@ import os
 def run(infile):
     h5 = h5py.File(infile, "r")
 
-    if h5["/entry/instrument/detector/flatfield_correction_applied"].value:
+    if h5["/entry/instrument/detector/flatfield_correction_applied"][()]:
         print("Correction was already applied.")
         return 
 

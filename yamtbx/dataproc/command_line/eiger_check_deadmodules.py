@@ -8,7 +8,7 @@ def get_module_info(h):
     ret = []
     dsp = h["/entry/instrument/detector/detectorSpecific/"]
     for k in sorted([x for x in list(dsp.keys()) if x.startswith("detectorModule_")]):
-        rot = dsp[k]["data_rotation"].value
+        rot = dsp[k]["data_rotation"][()]
         org = dsp[k]["data_origin"][:]
         siz = dsp[k]["data_size"][:]
 

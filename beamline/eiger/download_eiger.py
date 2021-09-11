@@ -116,12 +116,12 @@ def fix_data_link(h5, bssid):
 # fix_data_link()
 
 def fix_omega(h5, omega_offset_by_trigger=None):
-    ntrigger = h5["/entry/instrument/detector/detectorSpecific/ntrigger"].value
+    ntrigger = h5["/entry/instrument/detector/detectorSpecific/ntrigger"][()]
     if ntrigger < 2: return
 
-    nimages = h5["/entry/instrument/detector/detectorSpecific/nimages"].value
+    nimages = h5["/entry/instrument/detector/detectorSpecific/nimages"][()]
 
-    omega_increment = h5["/entry/sample/goniometer/omega_increment"].value
+    omega_increment = h5["/entry/sample/goniometer/omega_increment"][()]
     if omega_increment == 0: return
 
     print("  Need to fix omega values: omega_offset_by_trigger=%s" % omega_offset_by_trigger)

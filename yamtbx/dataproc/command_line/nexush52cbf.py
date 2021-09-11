@@ -13,7 +13,7 @@ import numpy
 import os
 
 def make_dummy_pilatus_header(h5):
-    safe_str = lambda x,y,d: x[y].value if y in x else d
+    safe_str = lambda x,y,d: x[y][()] if y in x else d
     safe_val = lambda x,y,d: x[y][0] if y in x else d
 
     try:

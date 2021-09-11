@@ -105,16 +105,16 @@ def run(params, h5file):
         if k not in ("detectorSpecific", "beam_center_x", "beam_center_y", "x_pixel_size", "y_pixel_size"):
             h5out["/entry/instrument/detector"].copy(h5["/entry/instrument/detector"][k], k)
 
-    beamx, beamy = f_xyconv(h5["/entry/instrument/detector/beam_center_x"].value, h5["/entry/instrument/detector/beam_center_y"].value)
+    beamx, beamy = f_xyconv(h5["/entry/instrument/detector/beam_center_x"][()], h5["/entry/instrument/detector/beam_center_y"][()])
     h5out["/entry/instrument/detector"].create_dataset("beam_center_x", (), dtype=numpy.float32, data=beamx)
     h5out["/entry/instrument/detector/beam_center_x"].attrs["units"] = "pixel"
     h5out["/entry/instrument/detector"].create_dataset("beam_center_y", (), dtype=numpy.float32, data=beamy)
     h5out["/entry/instrument/detector/beam_center_y"].attrs["units"] = "pixel"
     h5out["/entry/instrument/detector"].create_dataset("x_pixel_size", (), dtype=numpy.float32,
-                                                       data=h5["/entry/instrument/detector/x_pixel_size"].value*params.bin)
+                                                       data=h5["/entry/instrument/detector/x_pixel_size"][()]*params.bin)
     h5out["/entry/instrument/detector/x_pixel_size"].attrs["units"] = "m"
     h5out["/entry/instrument/detector"].create_dataset("y_pixel_size", (), dtype=numpy.float32, 
-                                                       data=h5["/entry/instrument/detector/y_pixel_size"].value*params.bin)
+                                                       data=h5["/entry/instrument/detector/y_pixel_size"][()]*params.bin)
     h5out["/entry/instrument/detector/y_pixel_size"].attrs["units"] = "m"
 
     h5out.create_group("/entry/instrument/detector/detectorSpecific")
@@ -124,13 +124,13 @@ def run(params, h5file):
             h5out["/entry/instrument/detector/detectorSpecific"].copy(h5["/entry/instrument/detector/detectorSpecific"][k], k)
 
     h5out["/entry/instrument/detector/detectorSpecific"].create_dataset("countrate_correction_count_cutoff", (), dtype=numpy.uint32, 
-                                                                        data=h5["/entry/instrument/detector/detectorSpecific/countrate_correction_count_cutoff"].value*params.bin)
+                                                                        data=h5["/entry/instrument/detector/detectorSpecific/countrate_correction_count_cutoff"][()]*params.bin)
     #h5out["/entry/instrument/detector/detectorSpecific"].create_dataset("number_of_excluded_pixels", (), dtype=numpy.uint32, 
     #                                                                    data=)
     h5out["/entry/instrument/detector/detectorSpecific"].create_dataset("x_pixels_in_detector", (), dtype=numpy.uint32, 
-                                                                        data=h5["/entry/instrument/detector/detectorSpecific/x_pixels_in_detector"].value//params.bin)
+                                                                        data=h5["/entry/instrument/detector/detectorSpecific/x_pixels_in_detector"][()]//params.bin)
     h5out["/entry/instrument/detector/detectorSpecific"].create_dataset("y_pixels_in_detector", (), dtype=numpy.uint32, 
-                                                                        data=h5["/entry/instrument/detector/detectorSpecific/y_pixels_in_detector"].value//params.bin)
+                                                                        data=h5["/entry/instrument/detector/detectorSpecific/y_pixels_in_detector"][()]//params.bin)
 # run()
 
 def run_from_args(argv):

@@ -34,7 +34,7 @@ def save_cbf(wavelen, data, cbfout):
 def convert_single(h5in, root, cbfout):
     f = h5py.File(h5in, "r")
 
-    wavelen = f["%s/photon_wavelength_A"%root].value
+    wavelen = f["%s/photon_wavelength_A"%root][()]
     data = numpy.array(f["%s/data"%root])
     save_cbf(wavelen, data, cbfout)
     f.close()
