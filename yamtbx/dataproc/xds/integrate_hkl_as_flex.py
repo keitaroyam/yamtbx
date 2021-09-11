@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import unicode_literals
 import re
 import os
 from cctbx.array_family import flex
@@ -18,7 +19,7 @@ def is_integrate_hkl(filein):
     return "!OUTPUT_FILE=INTEGRATE.HKL" in line
 # is_xds_ascii()
 
-class reader:
+class reader(object):
     def __init__(self, filein, read_columns, read_data=True):
         assert len(set(["H","K","L"]).intersection(set(read_columns))) == 0
 
@@ -33,30 +34,30 @@ class reader:
         for l in open(filein):
 
             if l.startswith("!UNIT_CELL_CONSTANTS="):
-                cell = map(lambda x:float(x), l[len("!UNIT_CELL_CONSTANTS="):].strip().split())
+                cell = [float(x) for x in l[len("!UNIT_CELL_CONSTANTS="):].strip().split()]
                 self.unit_cell = uctbx.unit_cell(cell)
             elif l.startswith("!SPACE_GROUP_NUMBER="):
                 self.space_group_number = int(l[len("!SPACE_GROUP_NUMBER="):].strip())
                 assert 1 <= self.space_group_number <= 230
             elif l.startswith("!ROTATION_AXIS="):
-                self.rotation_axis = map(float, l[len("!ROTATION_AXIS="):].strip().split())
+                self.rotation_axis = list(map(float, l[len("!ROTATION_AXIS="):].strip().split()))
             elif l.startswith("!INCIDENT_BEAM_DIRECTION="):
-                self.beam_direction = map(float, l[len("!INCIDENT_BEAM_DIRECTION="):].strip().split())
+                self.beam_direction = list(map(float, l[len("!INCIDENT_BEAM_DIRECTION="):].strip().split()))
             elif l.startswith("!X-RAY_WAVELENGTH="):
                 self.wavelength = float(l[len("!X-RAY_WAVELENGTH="):].strip())
             elif "DETECTOR_DISTANCE=" in l:
                 self.distance = float(l[l.index("DETECTOR_DISTANCE=")+len("DETECTOR_DISTANCE="):].strip())
             elif l.startswith("!UNIT_CELL_A-AXIS="):
-                self.a_axis = map(float, l[len("!UNIT_CELL_A-AXIS="):].strip().split())
+                self.a_axis = list(map(float, l[len("!UNIT_CELL_A-AXIS="):].strip().split()))
             elif l.startswith("!UNIT_CELL_B-AXIS="):
-                self.b_axis = map(float, l[len("!UNIT_CELL_B-AXIS="):].strip().split())
+                self.b_axis = list(map(float, l[len("!UNIT_CELL_B-AXIS="):].strip().split()))
             elif l.startswith("!UNIT_CELL_C-AXIS="):
-                self.c_axis = map(float, l[len("!UNIT_CELL_C-AXIS="):].strip().split())
+                self.c_axis = list(map(float, l[len("!UNIT_CELL_C-AXIS="):].strip().split()))
 
 
             if re_column_info.search(l):
                 l = l[1:].strip() # remove !
-                column_names.extend(filter(lambda x:x!="", l.split(",")))
+                column_names.extend([x for x in l.split(",") if x!=""])
 
             if l.startswith("!END_OF_HEADER"):
                 if not read_data:
@@ -76,8 +77,8 @@ class reader:
                     break
 
                 sp = l.split()
-                self.hkl.append(map(lambda x:int(x), sp[:3]))
-                for i in xrange(3, len(sp)):
+                self.hkl.append([int(x) for x in sp[:3]])
+                for i in range(3, len(sp)):
                     if i in read_indices:
                         self.data[column_names[i]].append(float(sp[i]))
 

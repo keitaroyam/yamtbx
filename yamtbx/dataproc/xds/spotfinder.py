@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import unicode_literals
 # Only for SPring-8 MAR detectors
 xds_inp_template = """\
 JOB= XYCORR INIT COLSPOT
@@ -76,7 +77,7 @@ def res_range_to_trusted_region(dmin, dmax, header):
         rad = resol_to_radius(dmax, distance, wavelength)
         ret[0] = max(rad/qy/(nx-orgx), rad/qy/(ny-orgy)) # should be min?
 
-    return " ".join(map(lambda x:"%.2f"%x, ret))
+    return " ".join(["%.2f"%x for x in ret])
 #  res_range_to_trusted_region()
 
 def res_range_for_xds(dmin, dmax):
@@ -85,7 +86,7 @@ def res_range_for_xds(dmin, dmax):
         ret[1] = dmin
     if dmax is not None:
         ret[0] = dmax
-    return " ".join(map(lambda x:"%.2f"%x, ret))
+    return " ".join(["%.2f"%x for x in ret])
 # res_range_for_xds()
 
 def find_spots(img_file, params):
@@ -123,7 +124,7 @@ def find_spots(img_file, params):
     tmp = xds_inp_template.splitlines()
     for p, x in params_maps:
         if getattr(params.xds, p) is None:
-            tmp = filter(lambda s:not s.startswith(x), tmp)
+            tmp = [s for s in tmp if not s.startswith(x)]
     inp_template = "\n".join(tmp)
 
     # Prepare XDS.INP
@@ -171,7 +172,7 @@ def find_spots(img_file, params):
     spots = [] # (x, y, d, intensity)
     if os.path.isfile(spot_xds):
         for l in open(spot_xds):
-            x, y, z, intensity = map(lambda x:float(x), l.strip().split())
+            x, y, z, intensity = [float(x) for x in l.strip().split()]
             d = coord_to_resol(x, y, im.header)
             spots.append((x, y, d, intensity))
 

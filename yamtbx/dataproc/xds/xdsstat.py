@@ -4,10 +4,11 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import unicode_literals
 
 from yamtbx.util import safe_float
 
-class XdsstatLp:
+class XdsstatLp(object):
     def __init__(self, lpin):
         if lpin is not None:
             self.parse(lpin)
