@@ -1,9 +1,12 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 from libtbx import easy_mp
 from yamtbx.dataproc import eiger
 import h5py
 import numpy
 import os
+from functools import reduce
 master_params_str = """\
 bin = 4
  .type = int(value_min=1)
@@ -45,7 +48,7 @@ def software_binning(data, binning, dead_area_treatment):
         newdata[newdata==2**(newdata.dtype.itemsize*8)-1] = 0
 
     newdata = newdata.reshape(flattened)
-    for i in xrange(len(newshape)): newdata = newdata.sum(-1*(i+1), dtype=numpy.uint32)
+    for i in range(len(newshape)): newdata = newdata.sum(-1*(i+1), dtype=numpy.uint32)
 
     if dead_area_treatment == 0:
         newdata[:, mask==numpy.max(mask)] = 2**(newdata.dtype.itemsize*8)-1
@@ -67,7 +70,7 @@ def run(params, h5file):
     h5out["/entry/data"].attrs["NX_class"] = "NXdata"
 
     def worker(k):
-        print "Converting %s" % k
+        print("Converting %s" % k)
         data = h5["/entry/data"][k][:]
         data, u, l = software_binning(data, params.bin, params.dead_area_treatment)
         dfile = os.path.splitext(h5["/entry/data"].get(k, getlink=True).filename)[0]+"_bin%d.h5"%params.bin
@@ -79,7 +82,7 @@ def run(params, h5file):
     # worker()
 
     map_res = easy_mp.pool_map(fixed_func=worker,
-                               args=h5["/entry/data"].keys(),
+                               args=list(h5["/entry/data"].keys()),
                                processes=params.nproc)
 
     f_xyconv = lambda x,y: ((x-map_res[0][0])/params.bin, (y-map_res[0][1])/params.bin)
@@ -89,7 +92,7 @@ def run(params, h5file):
         h5out["/entry/data"][k] = h5py.ExternalLink(dfile, "/entry/data/data")
 
 
-    print "Converting master.h5"
+    print("Converting master.h5")
     if "/entry/sample" in h5: h5out["/entry"].copy(h5["/entry/sample"], "sample")
 
     h5out.create_group("/entry/instrument")

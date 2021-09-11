@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc import cbf
 import os
@@ -19,15 +21,15 @@ def run(cbfin, cbfout, repl=None):
     data[data<0] = repl
     cbf.save_numpy_data_as_cbf(data, ndimfast, ndimmid, "negative_replaced", cbfout)
 
-    print "Launch:"
-    print "adxv -overload %d %s" % (max_I, cbfout)
+    print("Launch:")
+    print("adxv -overload %d %s" % (max_I, cbfout))
 # run()
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print "Usage: %s ?????.cbf [replace-number]" % sys.argv[0]
+        print("Usage: %s ?????.cbf [replace-number]" % sys.argv[0])
         quit()
 
     repl = None

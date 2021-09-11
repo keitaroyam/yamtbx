@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 
 import os
@@ -43,7 +45,7 @@ def get_mean_time(files):
     length = img_date[-1][1] - img_date[0][1]
     mean = length / (len(img_date)-1)
     if len(img_date)-2 > 0:
-        sd = math.sqrt(sum([(img_date[i][1] - img_date[i-1][1] - mean)**2 for i in xrange(1,len(img_date))])/(len(img_date)-2))
+        sd = math.sqrt(sum([(img_date[i][1] - img_date[i-1][1] - mean)**2 for i in range(1,len(img_date))])/(len(img_date)-2))
     else:
         sd = 0
     return length, mean, sd
@@ -54,18 +56,18 @@ if __name__ == "__main__":
     else:
         parentdir = os.getcwd()
 
-    print "date file shutter exp framerate sec.total sec.mean sec.sd vpoints hpoints lines num"
+    print("date file shutter exp framerate sec.total sec.mean sec.sd vpoints hpoints lines num")
     for root, dirnames, filenames in os.walk(parentdir):
         if "diffscan.log" in filenames:
             scanlog = BssDiffscanLog(os.path.join(root, "diffscan.log"))
-            print "#", os.path.relpath(root, parentdir)
+            print("#", os.path.relpath(root, parentdir))
             for scan in remove_overwritten(scanlog.scans):
                 files = [os.path.join(root,f) for f, c in scan.filename_coords]
                 #etime = time.mktime(scan.date.timetuple())
-                print '"%s"' % scan.date.strftime("%Y/%m/%d %H:%M:%S"),
-                print scan.filename_template,
-                print "shutterless" if scan.is_shutterless() else "shutter",
-                print scan.exp_time, scan.frame_rate,
-                print "%4.2f %4.2f %.3f" % get_mean_time(files),
-                print "%4d %4d %4d %4d" %(scan.vpoints, scan.hpoints, min(scan.vpoints, scan.hpoints), len(files))
-            print "#"
+                print('"%s"' % scan.date.strftime("%Y/%m/%d %H:%M:%S"), end=' ')
+                print(scan.filename_template, end=' ')
+                print("shutterless" if scan.is_shutterless() else "shutter", end=' ')
+                print(scan.exp_time, scan.frame_rate, end=' ')
+                print("%4.2f %4.2f %.3f" % get_mean_time(files), end=' ')
+                print("%4d %4d %4d %4d" %(scan.vpoints, scan.hpoints, min(scan.vpoints, scan.hpoints), len(files)))
+            print("#")

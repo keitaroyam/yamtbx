@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import iotbx.phil
 import os
@@ -37,7 +39,7 @@ remove_overall = flatfield pixel_mask
  .help = "Optionally remove flatfield and pixel_mask data in /entry/instrument/detector/detectorSpecific/. NOTE they (especially pixel_mask) may be necessary data."
 """
 
-class ReduceMaster:
+class ReduceMaster(object):
     def __init__(self, h5in):
         self.h = h5py.File(h5in, "a")
     # __init__()
@@ -46,11 +48,11 @@ class ReduceMaster:
         assert set(kinds).issubset(("flatfield","pixel_mask","trimbit"))
 
         detSp = self.h["/entry/instrument/detector/detectorSpecific"]
-        for k in detSp.keys():
+        for k in list(detSp.keys()):
             if k.startswith("detectorModule_"):
                 for kk in kinds:
                     if kk not in detSp[k]: continue
-                    print "Removing", k+"/"+kk
+                    print("Removing", k+"/"+kk)
                     del detSp[k][kk]
     # remove_redundant()
 
@@ -59,7 +61,7 @@ class ReduceMaster:
         detSp = self.h["/entry/instrument/detector/detectorSpecific"]
 
         for k in kinds:
-            print "Removing %s" % k
+            print("Removing %s" % k)
             del detSp[k]
 
     def find_large_dataset_visitor(self, path, obj):
@@ -75,7 +77,7 @@ class ReduceMaster:
         self.h.visititems(self.find_large_dataset_visitor)
 
         for path in self.large_datasets:
-            print "Compressing %s (size=%d)" % (path, self.h[path].size)
+            print("Compressing %s (size=%d)" % (path, self.h[path].size))
             data = self.h[path][:]
             del self.h[path]
             
@@ -103,9 +105,9 @@ class ReduceMaster:
 # class ReduceMaster
 
 def run(params):
-    print "Parameters:"
+    print("Parameters:")
     iotbx.phil.parse(master_params_str).format(params).show(prefix="  ")
-    print
+    print()
 
     master_size_org = os.path.getsize(params.h5in)
 
@@ -121,7 +123,7 @@ def run(params):
             p = subprocess.Popen(["h5repack","-f","NONE",params.h5in,tmpout], shell=False)
             p.wait()
         except OSError:
-            print "h5repack failed. Is h5repack installed?"
+            print("h5repack failed. Is h5repack installed?")
             return
     else:
         shutil.copyfile(params.h5in, tmpout)
@@ -145,20 +147,20 @@ def run(params):
             p = subprocess.Popen(["h5repack",tmpout,params.h5out], shell=False)
             p.wait()
         except OSError:
-            print "h5repack failed. Is h5repack installed?"
+            print("h5repack failed. Is h5repack installed?")
     finally:
         os.remove(tmpout)
 
     master_size_after = os.path.getsize(params.h5out)
 
-    print
-    print "Finished."
-    print "  Original file: %s (%.2f MB)" % (params.h5in, master_size_org/1024**2)
-    print " Generated file: %s (%.2f MB)" % (params.h5out, master_size_after/1024**2)
+    print()
+    print("Finished.")
+    print("  Original file: %s (%.2f MB)" % (params.h5in, master_size_org/1024**2))
+    print(" Generated file: %s (%.2f MB)" % (params.h5out, master_size_after/1024**2))
 # run()
 
 def print_help(command_name):
-    print """\
+    print("""\
 This script (re)modifies master.h5 file of EIGER detectors written by DECTRIS software.
 All features are optional:
 - Remove filters
@@ -175,7 +177,7 @@ You need h5repack program. You also need phenix-1.11 or later if you use phenix.
 mv yours_master.h5 yours_master.h5.org
 %(command_name)s yours_master.h5.org h5out=yours_master.h5 compress=bslz4 remove_detectorModule_data=flatfield+pixel_mask+trimbit
 
-Default parameters:""" % dict(command_name=command_name)
+Default parameters:""" % dict(command_name=command_name))
 
     iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
 # print_help()
@@ -192,14 +194,14 @@ def run_from_args(argv, command_name="phenix.python this-script"):
 
     for arg in args:
         if not os.path.isfile(arg):
-            print "File not found: %s" % arg
+            print("File not found: %s" % arg)
             return
 
         if params.h5in is None and arg.endswith(".h5"):
             params.h5in = arg
 
     if params.h5in is None:
-        print "Please give _master.h5 file."
+        print("Please give _master.h5 file.")
         return
 
     if params.h5out is None:

@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.util import call
 from yamtbx.util.xtal import format_unit_cell
@@ -33,10 +35,10 @@ def check_symm(xs_hkl, xs_pdb):
     pdb_laue = xs_pdb.space_group().build_derived_reflection_intensity_group(False)
     hkl_laue = xs_hkl.space_group().build_derived_reflection_intensity_group(False)
     if pdb_laue != hkl_laue or not xs_pdb.unit_cell().is_similar_to(xs_hkl.unit_cell()):
-        print "WARNING! Incompatible symmetry (symmetry mismatch or too different unit cell)"
-        print " hklin:"
+        print("WARNING! Incompatible symmetry (symmetry mismatch or too different unit cell)")
+        print(" hklin:")
         xs_hkl.show_summary(prefix="  ")
-        print " pdbin:"
+        print(" pdbin:")
         xs_pdb.show_summary(prefix="  ")
 # check_symm()
 
@@ -73,17 +75,15 @@ def pha2mtz(phain, xs, mtzout):
 
 def run(hklin, pdbin, wdir, anisotropy_correction=False):
     arrays = iotbx.file_reader.any_file(hklin).file_server.miller_arrays
-    i_arrays = filter(lambda x:x.is_xray_intensity_array() and x.anomalous_flag(),
-                      arrays)
-    f_arrays = filter(lambda x:x.is_xray_amplitude_array() and x.anomalous_flag(),
-                      arrays)
+    i_arrays = [x for x in arrays if x.is_xray_intensity_array() and x.anomalous_flag()]
+    f_arrays = [x for x in arrays if x.is_xray_amplitude_array() and x.anomalous_flag()]
 
     if not i_arrays and not f_arrays:
-        print "No anomalous observation data"
+        print("No anomalous observation data")
         return
 
     if os.path.exists(wdir):
-        print "%s already exists. quiting." % wdir
+        print("%s already exists. quiting." % wdir)
         return
 
     os.mkdir(wdir)
@@ -100,12 +100,12 @@ def run(hklin, pdbin, wdir, anisotropy_correction=False):
         obs_array = i_arrays[0]
         infile = "%s.hkl" % os.path.splitext(os.path.basename(hklin))[0]
         in_opt = "%s" % infile
-        print "Using intensity array:", obs_array.info().label_string()
+        print("Using intensity array:", obs_array.info().label_string())
     else:
         obs_array = f_arrays[0]
         infile = "%s_f.hkl" % os.path.splitext(os.path.basename(hklin))[0]
         in_opt ="-f %s" % infile
-        print "No intensity arrays. Using amplitude arrays instead:", obs_array.info().label_string()
+        print("No intensity arrays. Using amplitude arrays instead:", obs_array.info().label_string())
         
     sh_out.write("! data from %s : %s\n" % (os.path.abspath(hklin), obs_array.info().label_string()))
     obs_array.crystal_symmetry().show_summary(sh_out, prefix="! ")
@@ -115,15 +115,15 @@ def run(hklin, pdbin, wdir, anisotropy_correction=False):
     obs_array = obs_array.eliminate_sys_absent()
     n_sys_abs = n_org - obs_array.size()
     if n_sys_abs > 0:
-        print "  %d systematic absences removed." % n_sys_abs
+        print("  %d systematic absences removed." % n_sys_abs)
 
     if anisotropy_correction:
-        print "Correcting anisotropy.."
+        print("Correcting anisotropy..")
         n_residues = p_vm_calculator(obs_array, 1, 0).best_guess
         abss = ml_aniso_absolute_scaling(obs_array, n_residues=n_residues)
         abss.show()
         tmp = -2. if i_arrays else -1.
-        b_cart = map(lambda x: x*tmp, abss.b_cart)
+        b_cart = [x*tmp for x in abss.b_cart]
         obs_array = obs_array.apply_debye_waller_factors(b_cart=b_cart)
         
         
@@ -141,17 +141,17 @@ def run(hklin, pdbin, wdir, anisotropy_correction=False):
     if os.path.isfile(pha_file):
         pha2mtz(pha_file, xs, os.path.join(wdir, "anode.pha.mtz"))
     
-    print "Done. See %s/" % wdir
+    print("Done. See %s/" % wdir)
 
     fa_file = os.path.join(wdir, "anode_fa.hkl")
     if os.path.isfile(fa_file):
         r = iotbx.shelx.hklf.reader(open(fa_file))
         fa_array = r.as_miller_arrays(crystal_symmetry=xs)[0]
-        print "\nData stats:"
-        print " # Cmpl.o = Anomalous completeness in original data"
-        print " # Cmpl.c = Anomalous completeness in shelxc result (rejections)"
-        print " # SigAno = <d''/sigma> in shelxc result"
-        print " d_max d_min Cmpl.o Cmpl.c SigAno"
+        print("\nData stats:")
+        print(" # Cmpl.o = Anomalous completeness in original data")
+        print(" # Cmpl.c = Anomalous completeness in shelxc result (rejections)")
+        print(" # SigAno = <d''/sigma> in shelxc result")
+        print(" d_max d_min Cmpl.o Cmpl.c SigAno")
         binner = obs_array.setup_binner(n_bins=12)
         for i_bin in binner.range_used():
             d_max_bin, d_min_bin = binner.bin_d_range(i_bin)
@@ -161,14 +161,14 @@ def run(hklin, pdbin, wdir, anisotropy_correction=False):
             cmplset = obs_sel_ano.complete_set(d_max=d_max_bin, d_min=d_min_bin).select_acentric()
             n_acentric = cmplset.size()
             sigano = flex.mean(fa_sel.data()/fa_sel.sigmas()) if fa_sel.size() else float("nan")
-            print " %5.2f %5.2f %6.2f %6.2f %6.2f" % (d_max_bin, d_min_bin,
+            print(" %5.2f %5.2f %6.2f %6.2f %6.2f" % (d_max_bin, d_min_bin,
                                                       100.*obs_sel_ano.size()/n_acentric,
                                                       100.*fa_sel.size()/n_acentric,
-                                                      sigano)
+                                                      sigano))
 
     lsa_file = os.path.join(wdir, "anode.lsa")
     if os.path.isfile(lsa_file):
-        print ""
+        print("")
         flag = False
         for l in open(lsa_file):
             if "Strongest unique anomalous peaks" in l:
@@ -176,7 +176,7 @@ def run(hklin, pdbin, wdir, anisotropy_correction=False):
             elif "Reflections written to" in l:
                 flag = False
             if flag:
-                print l.rstrip()
+                print(l.rstrip())
 
     if os.path.isfile(("anode_fa.res")):
         x = iotbx.shelx.cctbx_xray_structure_from(file=open("anode_fa.res"))

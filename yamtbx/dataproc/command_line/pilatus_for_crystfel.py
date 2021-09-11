@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import iotbx.phil
 from libtbx import easy_mp
@@ -69,8 +71,8 @@ max_adu = %(max_adu)d
     panel = 0
     # PILATSU 6M
     if shape == (195*12, 5*487):
-        for j in xrange(12):
-            for i in xrange(5):
+        for j in range(12):
+            for i in range(5):
                 panel += 1
                 s += """\
 %(panel)d/min_fs = %(min_fs)d
@@ -107,8 +109,8 @@ max_adu = %(max_adu)d
     corner = header["BeamX"]/header["PixelX"], header["BeamY"]/header["PixelY"]
     # PILATSU 6M
     if shape == (2527, 2463):
-        for j in xrange(12):
-            for i in xrange(5):
+        for j in range(12):
+            for i in range(5):
                 panel += 1
                 s += """\
 %(panel).2d/min_fs = %(min_fs)d
@@ -145,8 +147,8 @@ def decompose_panels(data):
     # PILATSU 6M
     if data.shape == (2527, 2463):
         new_data = numpy.zeros(shape=(195*12, 487*5), dtype=data.dtype)
-        for j in xrange(12):
-            for i in xrange(5):
+        for j in range(12):
+            for i in range(5):
                 new_data[195*j:195*(j+1), 487*i:487*(i+1)] = data[j*212:j*212+195, i*494:i*494+487]
 
     return new_data
@@ -196,16 +198,16 @@ def convert(cbfin, params):
 
     of.close()
 
-    print "Processed: %s" % os.path.basename(cbfin)
+    print("Processed: %s" % os.path.basename(cbfin))
 
     return data.shape
 # convert()
 
 def run(cbf_files, params):
-    print "Attention - assuming cbf files given belong to a single dataset"
-    print
-    print "%d cbf files were given." % len(cbf_files)
-    print
+    print("Attention - assuming cbf files given belong to a single dataset")
+    print()
+    print("%d cbf files were given." % len(cbf_files))
+    print()
 
     if params.byteoffset:
         import yamtbx_byteoffset_h5_ext
@@ -222,9 +224,9 @@ def run(cbf_files, params):
 
     make_beam(params.beam_out)
 
-    print "Done."
-    print
-    print "Check %s and %s!" % (params.geom_out, params.beam_out)
+    print("Done.")
+    print()
+    print("Check %s and %s!" % (params.geom_out, params.beam_out))
 
 # run()
 
@@ -240,10 +242,10 @@ if __name__ == "__main__":
             if "#" in l: l = l[:l.index("#")]
             cbf_files.append(l.strip())
     else:
-        cbf_files = filter(lambda x: x.endswith(".cbf"), args)
+        cbf_files = [x for x in args if x.endswith(".cbf")]
 
     if len(cbf_files) == 0:
-        print "Usage: %s cbf_files" % sys.argv[0]
+        print("Usage: %s cbf_files" % sys.argv[0])
         quit()
 
     run(cbf_files, params)

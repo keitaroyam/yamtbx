@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import sys, os, optparse, math
 from collections import OrderedDict
@@ -79,7 +81,7 @@ def commonalize(Is_in):
 # commonalize()
 
 def decide_label(labels):
-    labs = filter(lambda x:not x.upper().startswith(("SIG","PHI")), labels)
+    labs = [x for x in labels if not x.upper().startswith(("SIG","PHI"))]
     return ",".join(labs)
 
 if __name__ == "__main__":
@@ -89,16 +91,16 @@ if __name__ == "__main__":
     args = cmdline.remaining_args
 
     if len(args) == 0:
-        print "Usage: %s mtz1 lab1 mtz2 lab2 [mtz3 lab3...] param=value" % sys.argv[0]
-        print
-        print "Defaultparamters:"
-        print cmdline
+        print("Usage: %s mtz1 lab1 mtz2 lab2 [mtz3 lab3...] param=value" % sys.argv[0])
+        print()
+        print("Defaultparamters:")
+        print(cmdline)
         cmdline.work.format(python_object=params).show(out=sys.stdout, prefix=" ", attributes_level=1)
         quit()
 
-    print "Paramters:"
+    print("Paramters:")
     cmdline.work.format(python_object=params).show(out=sys.stdout, prefix=" ")
-    print
+    print()
 
     if params.over_sigma:
         assert params.noscale
@@ -106,13 +108,13 @@ if __name__ == "__main__":
 
     Is = [] # [[name, miller_array, scale], ..]
 
-    for mtzfile, label in ((args[2*i],args[2*i+1]) for i in xrange((len(args))//2)):
+    for mtzfile, label in ((args[2*i],args[2*i+1]) for i in range((len(args))//2)):
         mtzobj = iotbx.mtz.object(file_name=mtzfile)
-        arrays = filter(lambda s: label in s.info().labels, mtzobj.as_miller_arrays())
+        arrays = [s for s in mtzobj.as_miller_arrays() if label in s.info().labels]
 
         if len(arrays) == 0:
-            print "ERROR! %s does not have column %s"%(mtzfile, label)
-            print "Candidates:", map(lambda x:x.info().labels, mtzobj.as_miller_arrays())
+            print("ERROR! %s does not have column %s"%(mtzfile, label))
+            print("Candidates:", [x.info().labels for x in mtzobj.as_miller_arrays()])
             quit()
 
         labels = arrays[0].info().labels
@@ -120,17 +122,17 @@ if __name__ == "__main__":
             assert arrays[0].anomalous_flag()
             data = arrays[0].as_intensity_array().anomalous_differences()
         elif arrays[0].is_complex_array() or arrays[0].is_xray_reconstructed_amplitude_array() or arrays[0].is_xray_amplitude_array():
-            print "Warning - amplitude or complex array %s" % labels
+            print("Warning - amplitude or complex array %s" % labels)
             data = arrays[0].as_intensity_array().as_non_anomalous_array().merge_equivalents(use_internal_variance=False).array()
         elif arrays[0].is_integer_array() or arrays[0].is_real_array():
-            print "Warning - no experimental array %s" % labels
+            print("Warning - no experimental array %s" % labels)
             data = arrays[0].as_non_anomalous_array().as_double()
         else:
             raise "Can't plot %s" % labels
 
         data = data.resolution_filter(d_max=params.dmax, d_min=params.dmin)
         Is.append([mtzfile+":"+decide_label(labels), data, (1.0,0.0)])
-        print "loaded:", mtzfile, labels
+        print("loaded:", mtzfile, labels)
 
         #if "hkl" in mtzfile:
         #    Is[-1][1] = miller.array(miller_set=Is[-1][1], data= Is[-1][1].data() * flex.exp(4.8*Is[-1][1].d_star_sq().data()))
@@ -144,20 +146,20 @@ if __name__ == "__main__":
 
     # Decide scale
     if not params.noscale:
-        for i in xrange(1, len(Is)):
+        for i in range(1, len(Is)):
             I = Is[i][1].resolution_filter(d_max=params.scale.dmax, d_min=params.scale.dmin)
             I0 = Is[0][1].resolution_filter(d_max=params.scale.dmax, d_min=params.scale.dmin)
             I, I0 = I.common_sets(I0, assert_is_similar_symmetry=False)
 
             if params.scale.bscale:
                 Is[i][2] = kBdecider(I0, I).run()
-                print "Scale for", Is[i][0], "is", Is[i][2]
+                print("Scale for", Is[i][0], "is", Is[i][2])
             else:
                 scale = flex.sum(I0.data()*I.data()) / flex.sum(flex.pow2(I.data()))
                 Is[i][2] = scale, 0
-                print "Scale for", Is[i][0], "is", scale
+                print("Scale for", Is[i][0], "is", scale)
 
-    print Is[0][1].data().size()
+    print(Is[0][1].data().size())
     # Prepare plot data
     for_plot = OrderedDict() # {name: [mean, ...], ..}
     binner = Is[0][1].setup_binner(n_bins=params.nbins)#reflections_per_bin=50)
@@ -173,7 +175,7 @@ if __name__ == "__main__":
                 bfac = flex.exp(-b * Isel.d_star_sq().data()) if b != 0 else 1.
                 data = Isel.data() *scale*bfac
             if len(data)==0:
-                print "WARNING: ", name, "No data in %f .. %f" % binner.bin_d_range(i_bin)
+                print("WARNING: ", name, "No data in %f .. %f" % binner.bin_d_range(i_bin))
                 for_plot.setdefault(name, []).append(float("nan"))
             elif params.logscale:
                 for_plot.setdefault(name, []).append(math.log(flex.mean(data))) # taking log<I>
@@ -186,7 +188,7 @@ if __name__ == "__main__":
         for i_bin in binner.range_used():
             dmax, dmin = binner.bin_d_range(i_bin)
             #Isel0, Isel1 = map(lambda x:x[1].select(binner.bin_indices() == i_bin), Is)
-            Isel0, Isel1 = map(lambda x:x[1].resolution_filter(d_max=dmax, d_min=dmin), Is)
+            Isel0, Isel1 = [x[1].resolution_filter(d_max=dmax, d_min=dmin) for x in Is]
             Isel0, Isel1 = Isel0.common_sets(Isel1, assert_is_similar_symmetry=False)
             scale, b = Is[1][2][0], Is[1][2][1]
             #bfac = flex.exp(-b * Isel.d_star_sq().data()) if b != 0 else 1.
@@ -224,22 +226,22 @@ if __name__ == "__main__":
         bfac = flex.exp(-b * Isel1.d_star_sq().data()) if b != 0 else 1.
         corr = flex.linear_correlation(Isel0.data(), Isel1.data()*bfac)
         if corr.is_well_defined():
-            print "Overall CC=", corr.coefficient(), "with %d reflections" % len(Isel0.data())
+            print("Overall CC=", corr.coefficient(), "with %d reflections" % len(Isel0.data()))
         # Calc overall R
         denom = flex.sum(Isel0.data())
         numer = flex.sum(flex.abs(Isel0.data() - Isel1.data()*scale*bfac))
-        print "Overall R=", numer/denom
+        print("Overall R=", numer/denom)
 
     plot_x = [binner.bin_d_range(i)[1]**(-2) for i in binner.range_used()]
 
-    print "       d %s" % " ".join(for_plot.keys())
-    f = map(lambda x:"%"+"%d"%len(x)+".2f", for_plot.keys())
+    print("       d %s" % " ".join(list(for_plot.keys())))
+    f = ["%"+"%d"%len(x)+".2f" for x in list(for_plot.keys())]
     for i, x in enumerate(plot_x):
         line = "%8.3f " % (1./math.sqrt(x))
         line += " ".join([fj%for_plot[k][i] for fj, k in zip(f, for_plot)])
         if extra != []:
             line += " %.4f" % extra[i]
-        print line
+        print(line)
 
     # Plot
     import matplotlib
@@ -253,7 +255,7 @@ if __name__ == "__main__":
     fig, ax1 = plt.subplots()
 
     plots = {}
-    for name, vals in for_plot.items():
+    for name, vals in list(for_plot.items()):
         name = name[-30:].lstrip("_")
         plots[name] = plot(plot_x, vals, label=name)
 
@@ -267,7 +269,7 @@ if __name__ == "__main__":
     plot_title = ""
     if params.scale.bscale:
         plot_title += ' Scaled with B-factors'
-        plot_title += ' (' + ", ".join(map(lambda x: "%.1f"%x[2][1], Is)) + ')'
+        plot_title += ' (' + ", ".join(["%.1f"%x[2][1] for x in Is]) + ')'
 
     if params.take_anom_diff:
         plot_title += ' With anom diff'

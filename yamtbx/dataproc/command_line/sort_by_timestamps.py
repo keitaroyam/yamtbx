@@ -18,6 +18,8 @@ Mon Jan 21 04:47:27 2013          3 scan1_000002.img
 Mon Jan 21 04:47:30 2013          6 scan1_000003.img
 ....
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc import XIO
 import time
@@ -44,12 +46,12 @@ if __name__ == "__main__":
         
     img_date.sort(key=lambda x:x[1])
 
-    print "DateStr                    TimeDiff Filename"
+    print("DateStr                    TimeDiff Filename")
 
-    for i in xrange(len(img_date)):
-        print time.ctime(img_date[i][1]),
-        print "%10d %s" % (img_date[i][1] - img_date[0][1], 
-                           img_date[i][0])
+    for i in range(len(img_date)):
+        print(time.ctime(img_date[i][1]), end=' ')
+        print("%10d %s" % (img_date[i][1] - img_date[0][1], 
+                           img_date[i][0]))
 
             
             

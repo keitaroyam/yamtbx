@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import datetime
 import h5py
@@ -35,7 +37,7 @@ offset = 0
 
 def get_metadata(metadata):
     mds = []
-    for i in xrange(metadata.shape[1]):
+    for i in range(metadata.shape[1]):
         metadata_array = metadata[:, i].T
         mdata_string = metadata_array.tostring().decode("utf-8")
         mds.append(json.loads(mdata_string.rstrip('\x00')))
@@ -57,14 +59,14 @@ def dump_and_analyse_time_angle(metadata, prefix, detector):
         alphas.append(alpha)
 
         if i > 0 :
-            print "%6d %+f %+f" % (i+1, (times[-1]-times[-2]).total_seconds(), alphas[-1]-alphas[-2])
+            print("%6d %+f %+f" % (i+1, (times[-1]-times[-2]).total_seconds(), alphas[-1]-alphas[-2]))
 
     ofs.close()
 
     d_times = numpy.array([(times[i]-times[i-1]).total_seconds() for i in range(1, len(times))])
     d_alphas = numpy.diff(alphas)
-    print d_times
-    print d_alphas
+    print(d_times)
+    print(d_alphas)
     if len(d_alphas) == 0: return [], float("nan"), float("nan")
     q25, q50, q75 = numpy.percentile(d_alphas, [25, 50, 75])
     iqr = q75-q25
@@ -75,21 +77,21 @@ def dump_and_analyse_time_angle(metadata, prefix, detector):
     d_alpha_z = abs(d_alphas-numpy.mean(d_alphas2))/numpy.std(d_alphas2)
 
     valid_range = [0, len(metadata)-1]
-    for i in xrange(len(metadata)-1):
+    for i in range(len(metadata)-1):
         if d_alpha_z[i] < 3: break
         valid_range[0] = i+1
 
-    for i in reversed(xrange(len(metadata)-1)):
+    for i in reversed(range(len(metadata)-1)):
         if d_alpha_z[i] < 3: break
         valid_range[1] = i
 
     if valid_range[0] > valid_range[1]:
         valid_range = [0, len(metadata)-1] # reset
         
-    print "valid_range=", valid_range
+    print("valid_range=", valid_range)
 
-    print "time_diff= %.6f +/- %.9f seconds" % (numpy.mean(d_times), numpy.std(d_times))
-    print "d_alphas= %.6f +/- %.9f degrees" % (numpy.mean(d_alphas2), numpy.std(d_alphas2))
+    print("time_diff= %.6f +/- %.9f seconds" % (numpy.mean(d_times), numpy.std(d_times)))
+    print("d_alphas= %.6f +/- %.9f degrees" % (numpy.mean(d_alphas2), numpy.std(d_alphas2)))
 
     mean_alpha_step = (alphas[valid_range[1]] - alphas[valid_range[0]])/(valid_range[1]-valid_range[0])
     mean_time_step = (times[valid_range[1]] - times[valid_range[0]]).total_seconds()/(valid_range[1]-valid_range[0])
@@ -115,14 +117,14 @@ def write_minicbf(data, metadata, prefix, frame_range, alpha_step, time_step, pa
     else:
         beamx, beamy = params.beamxy
 
-    print "There are %d frames" % data.shape[2]
+    print("There are %d frames" % data.shape[2])
 
-    for i in xrange(data.shape[2]):
+    for i in range(data.shape[2]):
         if i < frame_range[0] or i > frame_range[1]:
-            print "Ignoring frame %d" % (i+1)
+            print("Ignoring frame %d" % (i+1))
             continue
         
-        print "Converting", i+1
+        print("Converting", i+1)
         frame_date = datetime.datetime.fromtimestamp(int(metadata[i]["CustomProperties"]["Detectors[%s].TimeStamp"%params.detector]["value"])/1.e6)
         datestr = datetime.datetime.strftime(frame_date, "%Y-%m%-dT%H:%M:%S.%f")
         start_angle = str(metadata[i]["Stage"]["AlphaTilt"])
@@ -148,8 +150,8 @@ def run(file_in, params):
     
     h = h5py.File(file_in, "r")
     image_path = h["/Data/Image"]
-    assert len(image_path.keys()) == 1
-    k = image_path.keys()[0]
+    assert len(list(image_path.keys())) == 1
+    k = list(image_path.keys())[0]
     data = image_path[k]["Data"]
     metadata = get_metadata(image_path[k]["Metadata"])
 
@@ -162,7 +164,7 @@ def run(file_in, params):
     if params.tilted_only:
         frame_range = valid_range
     if params.frame_range:
-        frame_range = map(lambda x:x-1, params.frame_range)
+        frame_range = [x-1 for x in params.frame_range]
         
     write_minicbf(data, metadata, prefix, frame_range, mean_alpha_step, mean_time_step, params)
 
@@ -171,13 +173,13 @@ if __name__ == "__main__":
     import sys
 
     if not sys.argv[1:] or "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
-        print """\
+        print("""\
 This script extracts metadata json file, writes dat file for time and alpha angles for each frame, and converts frames to cbf files.
 Only tested with Velox-written files and the BM-Ceta detector.
 
 Usage: convert_emd.py foo.emd [options]
 
-Parameters:"""
+Parameters:""")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         quit()
     

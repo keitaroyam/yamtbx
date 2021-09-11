@@ -11,6 +11,8 @@ Then we want to evaluate R-work/free factors using the common reflections.
 Usage:
  phenix.python eval_Rfree_factors_with_common_reflections.py refine_001.mtz refine2_001.mtz ...
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import iotbx.mtz
 from cctbx.array_family import flex
@@ -19,7 +21,7 @@ from iotbx.reflection_file_editor import is_rfree_array, get_best_resolution, ge
 from iotbx.reflection_file_utils import get_r_free_flags_scores
 from mmtbx.scaling import absolute_scaling
 from yamtbx.dataproc.scale_data import kBdecider
-import StringIO
+import io
 import numpy
 
 master_params_str="""\
@@ -38,35 +40,35 @@ def get_flag(arrays, flag_name=None, flag_value=None):
 
     # Get flag array
     if flag_name is None:
-        flags = filter(lambda x: is_rfree_array(x, x.info()), arrays)
+        flags = [x for x in arrays if is_rfree_array(x, x.info())]
         if len(flags) == 0:
-            print " No R free flags like column found."
+            print(" No R free flags like column found.")
             return None
         elif len(flags) > 1:
-            print " More than one column which looks like R free flag:"
+            print(" More than one column which looks like R free flag:")
             for f in flags:
-                print " ", f.info().label_string()
+                print(" ", f.info().label_string())
             return None
         else:
             flag_name = flags[0].info().label_string()
             flag_array = flags[0]
-            print "# Guessing R free flag:", flag_name
+            print("# Guessing R free flag:", flag_name)
     else:
-        flags = filter(lambda x: flag_name==x.info().label_string(), arrays)
+        flags = [x for x in arrays if flag_name==x.info().label_string()]
         if len(flags) == 0:
-            print " Specified flag name not found:", flag
+            print(" Specified flag name not found:", flag)
             quit()
         else:
-            print "# Use specified flag:", flag
+            print("# Use specified flag:", flag)
             flag_array = flags[0]
 
     # Get flag number
     if flag_value is None:
         flag_scores = get_r_free_flags_scores(miller_arrays=[flag_array], test_flag_value=flag_value)
         flag_value = flag_scores.test_flag_values[0]
-        print "# Guessing flag number:", flag_value
+        print("# Guessing flag number:", flag_value)
     else:
-        print "# Specified flag number:", flag_value
+        print("# Specified flag number:", flag_value)
 
     return flag_array.customized_copy(data=flag_array.data() == flag_value)
 # get_flag()
@@ -101,14 +103,13 @@ def get_arrays(mtzfiles, d_min=None, d_max=None):
     for f in mtzfiles:
         arrays = iotbx.mtz.object(f).as_miller_arrays()
         #print "labs:", map(lambda x:x.info().labels, arrays)
-        f_obs = filter(lambda x:x.info().labels[0]=="F-obs-filtered", arrays)[0]
-        f_model = filter(lambda x:x.info().labels[0]=="F-model", arrays)[0].as_amplitude_array()
+        f_obs = [x for x in arrays if x.info().labels[0]=="F-obs-filtered"][0]
+        f_model = [x for x in arrays if x.info().labels[0]=="F-model"][0].as_amplitude_array()
         flag = get_flag(arrays)
 
-        f_obs, f_model, flag = map(lambda x: x.resolution_filter(d_min=d_min, d_max=d_max),
-                                   (f_obs, f_model, flag))
+        f_obs, f_model, flag = [x.resolution_filter(d_min=d_min, d_max=d_max) for x in (f_obs, f_model, flag)]
 
-        print "#", f, "includes %d reflections. (d= %.2f - %.2f)" % ((f_obs.data().size(),)+ f_obs.d_max_min())
+        print("#", f, "includes %d reflections. (d= %.2f - %.2f)" % ((f_obs.data().size(),)+ f_obs.d_max_min()))
 
         f_obs, flag = f_obs.common_sets(flag)
         f_model, flag = f_model.common_sets(flag)
@@ -125,7 +126,7 @@ def calc_r(f_obs, f_model, scale):
 
 def calc_cc(obs, model, as_intensity=True):
     if as_intensity:
-        obs, model = map(lambda x:x.as_intensity_array(), (obs, model))
+        obs, model = [x.as_intensity_array() for x in (obs, model)]
 
     corr = flex.linear_correlation(obs.data(), model.data())
     if corr.is_well_defined(): return corr.coefficient()
@@ -144,7 +145,7 @@ def run(params, mtzfiles):
     if params.take_common:
         arrays = commonalize(arrays)
 
-    maxlen_f = max(map(lambda x: len(x[0]), arrays))
+    maxlen_f = max([len(x[0]) for x in arrays])
 
     ref_f_obs = arrays[0][1]
 
@@ -161,16 +162,16 @@ def run(params, mtzfiles):
         elif params.reference == "bmax": # scale to most weak
             kref, bref = min(scales, key=lambda x:x[1])
         elif params.reference == "bmed": # scale to most weak
-            perm = range(len(scales))
+            perm = list(range(len(scales)))
             perm.sort(key=lambda i:scales[i][1])
             kref, bref = scales[perm[len(perm)//2]]
         else:
             raise "Never reaches here"
 
-        print "# Set K=%.2f B=%.2f as reference" % (kref,bref)
-        scales = map(lambda x: (x[0]/kref, x[1]-bref), scales) # not bref-x[1], because negated later
+        print("# Set K=%.2f B=%.2f as reference" % (kref,bref))
+        scales = [(x[0]/kref, x[1]-bref) for x in scales] # not bref-x[1], because negated later
 
-    print ("%"+str(maxlen_f)+"s r_work r_free cc_work.E cc_free.E sigmaa fom k B") % "filename"
+    print(("%"+str(maxlen_f)+"s r_work r_free cc_work.E cc_free.E sigmaa fom k B") % "filename")
     for (f, f_obs, f_model, flag), (k, B) in zip(arrays, scales):
         d_star_sq = f_obs.d_star_sq().data()
         scale = k * flex.exp(-B*d_star_sq)
@@ -202,7 +203,7 @@ def run(params, mtzfiles):
         sigmaa = flex.mean(se.sigmaa().data())
         fom = flex.mean(se.fom().data())
 
-        print ("%"+str(maxlen_f)+"s %.4f %.4f % 7.4f % 7.4f %.4e %.4e %.3e %.3e") % (f, r_work, r_free, cc_work_E, cc_free_E, sigmaa, fom, k, B)
+        print(("%"+str(maxlen_f)+"s %.4f %.4f % 7.4f % 7.4f %.4e %.4e %.3e %.3e") % (f, r_work, r_free, cc_work_E, cc_free_E, sigmaa, fom, k, B))
 # run()
 
 if __name__ == "__main__":

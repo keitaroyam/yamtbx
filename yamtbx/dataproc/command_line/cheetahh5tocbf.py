@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from libtbx import easy_mp
 
@@ -36,7 +38,7 @@ def convert_single(h5in, root, cbfout):
     data = numpy.array(f["%s/data"%root])
     save_cbf(wavelen, data, cbfout)
     f.close()
-    print "Processed: %s %s" % (os.path.basename(h5in), root)
+    print("Processed: %s %s" % (os.path.basename(h5in), root))
 # convert_single()
 
 def convert(h5in, par=False):
@@ -58,7 +60,7 @@ def run(h5_files):
                          processes=nproc)
     else:
         h5in = h5_files[0]
-        tags = h5py.File(h5in, "r").keys()
+        tags = list(h5py.File(h5in, "r").keys())
         fun = lambda x: convert_single(h5in, root="/%s"%x,
                                        cbfout="%s_%s.cbf" % (os.path.basename(h5in), x))
         for tag in tags: fun(tag)
@@ -71,10 +73,10 @@ def run(h5_files):
 if __name__ == "__main__":
     import sys
 
-    h5_files = filter(lambda x: x.endswith(".h5"), sys.argv[1:])
+    h5_files = [x for x in sys.argv[1:] if x.endswith(".h5")]
 
     if len(h5_files) == 0:
-        print "Usage: %s h5_files" % sys.argv[0]
+        print("Usage: %s h5_files" % sys.argv[0])
         quit()
 
     run(h5_files)

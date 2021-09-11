@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import h5py
 import numpy
 from iotbx.detectors import ImageFactory
@@ -13,10 +15,10 @@ CBF_BYTE_OFFSET= 0x0070
 def run(img_in):
     im = ImageFactory(img_in)
     im.read()
-    print dir(im)
-    print im.size2, im.size1
+    print(dir(im))
+    print(im.size2, im.size1)
     data = numpy.array(im.linearintdata, dtype=numpy.uint16).reshape(im.size2, im.size1)
-    print data, data.dtype
+    print(data, data.dtype)
     
     prefix = os.path.basename(img_in)
     of = h5py.File("%s_byteoffset.h5"%prefix, "w")
