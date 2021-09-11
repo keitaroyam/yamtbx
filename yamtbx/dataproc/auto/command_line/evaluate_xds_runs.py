@@ -8,6 +8,8 @@ This software is released under the new BSD License; see LICENSE.
 """
 Just do an evaluation part of automatic processing.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 
@@ -40,14 +42,14 @@ def evaluate_run(root):
 
 def run(params):
     xds_dirs = []
-    print "Found xds directories:"
+    print("Found xds directories:")
     for root, dirnames, filenames in os.walk(params.topdir, followlinks=True):
         if "XDS.INP" in filenames:
-            print "", os.path.relpath(root, params.topdir)
+            print("", os.path.relpath(root, params.topdir))
             xds_dirs.append(root)
 
-    print
-    print "Start running.."
+    print()
+    print("Start running..")
 
     npar = util.get_number_of_processors() if params.nproc is None else params.nproc
 

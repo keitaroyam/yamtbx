@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 from libtbx.utils import multi_out
 from yamtbx.dataproc.bl_logfiles import BssJobLog
@@ -11,7 +13,7 @@ from yamtbx.dataproc import dataset
 from yamtbx.dataproc.command_line import spot_finder_gui
 from yamtbx.dataproc.command_line import spot_finder_generic
 import os
-import cPickle as pickle
+import pickle
 import traceback
 
 master_params_str = """
@@ -29,7 +31,7 @@ help = False
 
 def check_files_exist(template, n_images, datadir, check_compressed=True):
     filenames = template_to_filenames(os.path.basename(template), 1, n_images)
-    filenames = map(lambda s: os.path.join(datadir, s), filenames)
+    filenames = [os.path.join(datadir, s) for s in filenames]
     found = 0
     for f in filenames:
         if os.path.isfile(f):
@@ -90,9 +92,9 @@ def run(params, topdirs):
     logobjects = []
 
     for topdir in topdirs:
-        print >>out, "Looking into %s\n" % topdir
+        print("Looking into %s\n" % topdir, file=out)
         for root, dirnames, filenames in os.walk(topdir, followlinks=True):
-            logs = filter(lambda x: x.endswith(".log"), filenames)
+            logs = [x for x in filenames if x.endswith(".log")]
             for log in logs:
                 log = os.path.join(root, log)
 
@@ -101,13 +103,13 @@ def run(params, topdirs):
                         try:
                             logobj = LogClass[logtype](log)
                         except:
-                            print >>out, traceback.format_exc()
-                            print >>out, "\nException raised when parsing %s\n"%log
+                            print(traceback.format_exc(), file=out)
+                            print("\nException raised when parsing %s\n"%log, file=out)
                             raise
 
-                        logobj.jobs = filter(lambda x: x.job_mode != "XAFS", logobj.jobs)
+                        logobj.jobs = [x for x in logobj.jobs if x.job_mode != "XAFS"]
                         if len(logobj.jobs) > 0:
-                            print >>out, "Found job log:", log
+                            print("Found job log:", log, file=out)
                             spots = []
                             for job in logobj.jobs:
                                 if params.find_spots:
@@ -126,12 +128,12 @@ def run(params, topdirs):
                     #except:
                     #    pass
 
-    print >>out
+    print(file=out)
 
     logobjects.sort(key=lambda x:x[0])
 
     for log, logobj, spots in logobjects:
-        print log
+        print(log)
         for job, spt in zip(logobj.jobs, spots):
             jobtype = "?"
             if job.advanced_centering == {} or test_gonio_coords_equal(job.advanced_centering.get("centers",[])):
@@ -141,7 +143,7 @@ def run(params, topdirs):
             elif job.advanced_centering.get("mode", "") == "multiple_centering":
                 jobtype = "MultiCen"
             else:
-                print >>out, "WARNING:: WHY REACH HERE?", job.advanced_centering
+                print("WARNING:: WHY REACH HERE?", job.advanced_centering, file=out)
                 
             osc_range = job.osc_end - job.osc_start
             #nfound = check_files_exist(job.filename, job.n_images, os.path.dirname(log))
@@ -149,17 +151,17 @@ def run(params, topdirs):
                                                                  datadir=os.path.dirname(log),
                                                                  check_compressed=True))
 
-            print >>out, " %s osc_step=%6.3f osc_range=%5.1f found=%d/%d %s beam_size=%s" % (job.beamline, job.osc_step, osc_range,
+            print(" %s osc_step=%6.3f osc_range=%5.1f found=%d/%d %s beam_size=%s" % (job.beamline, job.osc_step, osc_range,
                                                    nfound, job.n_images, jobtype,
-                                                   "x".join(map(lambda x:"%.1f"%x,job.beam_size)))
+                                                   "x".join(["%.1f"%x for x in job.beam_size])), file=out)
             if params.find_spots:
                 n_spots = [stat.spots.get_n_spots("hi_pass_resolution_spots") for idx, f, stat in spt if stat is not None]
-                gt20 = len(filter(lambda x: x>=20, n_spots))
-                print >>out, " spots < 5A: %d..%d (>=20 spots: %d frames)" % (min(n_spots), max(n_spots), gt20)
+                gt20 = len([x for x in n_spots if x>=20])
+                print(" spots < 5A: %d..%d (>=20 spots: %d frames)" % (min(n_spots), max(n_spots), gt20), file=out)
 
-        print >>out
+        print(file=out)
 
-    pickle.dump(logobjects, open(params.pklout, "w"), -1)
+    pickle.dump(logobjects, open(params.pklout, "wb"), -1)
 # run()
 
 if __name__ == "__main__":
@@ -174,17 +176,17 @@ if __name__ == "__main__":
     if "-h" in args: params.help = True
 
     if params.help:
-        print "Parameter syntax:\n"
+        print("Parameter syntax:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ")
-        print
-        print "Usage: find_datasets.py [data-root-dir/ | directory-list-file] [find_spots=true]"
+        print()
+        print("Usage: find_datasets.py [data-root-dir/ | directory-list-file] [find_spots=true]")
         quit()
 
     for arg in args:
         if os.path.isdir(arg) and topdirs == []:
             topdirs.append(arg)
         if os.path.isfile(arg):
-            topdirs.extend(filter(lambda x: os.path.isdir(x), map(lambda x: x.strip(), open(arg))))
+            topdirs.extend([x for x in [x.strip() for x in open(arg)] if os.path.isdir(x)])
 
     if topdirs == []:
         topdirs = [os.getcwd()]
@@ -194,6 +196,6 @@ if __name__ == "__main__":
 
     run(params, topdirs)
 
-    print
-    print "Want to prepare xds runs?"
-    print "prep_xds_runs.py %s [anomalous=true]" % params.pklout
+    print()
+    print("Want to prepare xds runs?")
+    print("prep_xds_runs.py %s [anomalous=true]" % params.pklout)
