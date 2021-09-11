@@ -8,6 +8,8 @@ From client:
 wget -O - http://ramchan:8080/start/$(id -u)/$(id -g) 2>/dev/null
 wget -O - http://ramchan:8080/stop 2>/dev/null
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import daemon.runner
 import lockfile
@@ -26,10 +28,10 @@ PID_FILE = "/var/run/shikaeiger_sh.pid"
 def get_all_children(pid, ret):
     try:
         children = psutil.Process(pid).children()
-    except Exception, e:
-        print "error in getting children of pid %s" % pid
+    except Exception as e:
+        print("error in getting children of pid %s" % pid)
         return
-    ret.extend(map(lambda x: x.pid, children))
+    ret.extend([x.pid for x in children])
     for cp in children:
         get_all_children(cp.pid, ret)
 # get_all_children()
@@ -44,28 +46,28 @@ def change_user(uid, gid):
     os.environ["LOGNAME"] = pw.pw_name
 # set_uidgid()
 
-class start_program:
+class start_program(object):
     def GET(self, uid, gid):
         web.header("Content-type","text/plain")
-        uid, gid = map(int, (uid, gid))
+        uid, gid = list(map(int, (uid, gid)))
 
         # Security
         if uid < 500 or gid < 500:
-            print "Invalid UID (%d) or GID (%d)" % (uid, gid)
+            print("Invalid UID (%d) or GID (%d)" % (uid, gid))
             yield "Invalid UID (%d) or GID (%d)\n" % (uid, gid)
             return
 
         try:
             pwd.getpwuid(uid)
         except KeyError:
-            print "UID (%d) does not exist" % (uid,)
+            print("UID (%d) does not exist" % (uid,))
             yield "UID (%d) does not exist\n" % (uid,)
             return
 
         for k in stop_program().GET():
-            print k
+            print(k)
             yield k
-        print "Starting program with %d/%d (now= %s)" % (uid, gid, time.ctime())
+        print("Starting program with %d/%d (now= %s)" % (uid, gid, time.ctime()))
         yield "Starting program with %d/%d\n" % (uid, gid)
         #p = subprocess.Popen(EXEC_SH, shell=True,
         #                     preexec_fn=lambda: change_user(uid,gid)) # This fails when running as daemon
@@ -88,7 +90,7 @@ class start_program:
     # GET()
 # class start_program
 
-class stop_program:
+class stop_program(object):
     def GET(self, from_web=True):
         if from_web: web.header("Content-type","text/plain")
         yield "Stop detected\n"
@@ -97,21 +99,21 @@ class stop_program:
             return
         
         pid = int(open(PID_FILE).read())
-        print "Killing children of %d (now= %s)" % (pid, time.ctime())
+        print("Killing children of %d (now= %s)" % (pid, time.ctime()))
         yield "Killing children of %d\n" % pid
 
         # Check process exists
         try: os.kill(pid, 0)
         except OSError:
-            print "PID %d does not exist" % pid
+            print("PID %d does not exist" % pid)
             yield "PID %d does not exist\n" % pid
             return
 
         # Check process name
         proc = psutil.Process(pid)
-        print "  proc name of %d = '%s' (user: %s)" % (pid, proc.name(), proc.username())
+        print("  proc name of %d = '%s' (user: %s)" % (pid, proc.name(), proc.username()))
         if proc.name() != "start_shika.sh":
-            print "  Not start_shika.sh! Quit."
+            print("  Not start_shika.sh! Quit.")
             return
         # Kill all children
         children = [pid]
@@ -119,19 +121,19 @@ class stop_program:
         for p in reversed(children):
             try:
                 proc = psutil.Process(p)
-                print "  killing %d (name= %s, user= %s, ctime= %s)" % (p, proc.name(), proc.username(), time.ctime(proc.create_time()))
+                print("  killing %d (name= %s, user= %s, ctime= %s)" % (p, proc.name(), proc.username(), time.ctime(proc.create_time())))
             except psutil.NoSuchProcess: continue
             try: os.kill(p, signal.SIGKILL)
-            except Exception, e: print "    Error in killing %s: %s" % (p, e.message)
+            except Exception as e: print("    Error in killing %s: %s" % (p, e.message))
         try: os.kill(pid, signal.SIGKILL)
-        except Exception, e: print "    Error in killing %s: %s" % (pid, e.message)
+        except Exception as e: print("    Error in killing %s: %s" % (pid, e.message))
 
-        print "All child processes killed (now= %s)" % time.ctime()
+        print("All child processes killed (now= %s)" % time.ctime())
         yield "All child processes killed\n"
     # GET()
 # class stop_program
 
-class App:
+class App(object):
     # Reference: http://www.gavinj.net/2012/06/building-python-daemon-process.html
     def __init__(self):
         self.stdin_path = '/dev/null'
@@ -151,9 +153,9 @@ class App:
 # class App
 
 def terminate_daemon(signum, frame):
-    print "Signal:", signum, frame
+    print("Signal:", signum, frame)
     try:
-        for k in stop_program().GET(from_web=False): print k
+        for k in stop_program().GET(from_web=False): print(k)
     finally:
         sys.exit()
 # terminate_daemon()

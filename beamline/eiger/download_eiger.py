@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import eigerclient
 import h5py
 import bitshuffle.h5
@@ -6,7 +8,7 @@ import time
 import glob
 import os
 import shutil
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import subprocess
 import traceback
 import re
@@ -19,7 +21,7 @@ from yamtbx.util import get_temp_local_dir
 
 now = lambda : time.strftime("%Y-%m-%d %H:%M:%S")
 
-class ReduceMaster:
+class ReduceMaster(object):
     def __init__(self, h5):
         self.h = h5
     # __init__()
@@ -28,11 +30,11 @@ class ReduceMaster:
         assert set(kinds).issubset(("flatfield","pixel_mask","trimbit"))
 
         detSp = self.h["/entry/instrument/detector/detectorSpecific"]
-        for k in detSp.keys():
+        for k in list(detSp.keys()):
             if k.startswith("detectorModule_"):
                 for kk in kinds:
                     if kk not in detSp[k]: continue
-                    print "  Removing", k+"/"+kk
+                    print("  Removing", k+"/"+kk)
                     del detSp[k][kk]
     # remove_redundant()
 
@@ -49,7 +51,7 @@ class ReduceMaster:
         self.h.visititems(self.find_large_dataset_visitor)
 
         for path in self.large_datasets:
-            print "  Compressing %s (size=%d)" % (path, self.h[path].size)
+            print("  Compressing %s (size=%d)" % (path, self.h[path].size))
             data = self.h[path][:]
             del self.h[path]
             
@@ -75,7 +77,7 @@ class ReduceMaster:
 # class ReduceMaster
 
 def put_reversephi_info(h5):
-    print "  Putting reverse-phi info"
+    print("  Putting reverse-phi info")
 
     if "/entry/sample/depends_on" not in h5:
         h5["/entry/sample/depends_on"] = "/entry/sample/transformations/omega"
@@ -100,7 +102,7 @@ def put_reversephi_info(h5):
 # put_reversephi_info()
 
 def fix_data_link(h5, bssid):
-    keys = h5["/entry/data"].keys()
+    keys = list(h5["/entry/data"].keys())
     filenames = {}
     for k in keys:
         filenames[k] = h5["/entry/data"].get(k, getlink=True).filename
@@ -122,27 +124,27 @@ def fix_omega(h5, omega_offset_by_trigger=None):
     omega_increment = h5["/entry/sample/goniometer/omega_increment"].value
     if omega_increment == 0: return
 
-    print "  Need to fix omega values: omega_offset_by_trigger=%s" % omega_offset_by_trigger
+    print("  Need to fix omega values: omega_offset_by_trigger=%s" % omega_offset_by_trigger)
 
     omega = h5["/entry/sample/goniometer/omega"]
     omega_end = h5["/entry/sample/goniometer/omega_end"]
     omega_range_total = h5["/entry/sample/goniometer/omega_range_total"]
 
     if len(omega) != ntrigger * nimages:
-        print "WARNING: len(omega) = %d != ntrigger*nimages = %d*%d" % (len(omega), ntrigger, nimages)
+        print("WARNING: len(omega) = %d != ntrigger*nimages = %d*%d" % (len(omega), ntrigger, nimages))
 
-    print "   Original omega=", omega[:]
+    print("   Original omega=", omega[:])
 
     if omega_offset_by_trigger is None:
-        for i in xrange(1, ntrigger):
+        for i in range(1, ntrigger):
             omega[i*nimages:(i+1)*nimages] = omega[:nimages]
             omega_end[i*nimages:(i+1)*nimages] = omega_end[:nimages]
     else:
-        for i in xrange(1, ntrigger):
+        for i in range(1, ntrigger):
             omega[i*nimages:(i+1)*nimages] += omega_offset_by_trigger*i
             omega_end[i*nimages:(i+1)*nimages] += omega_offset_by_trigger*i
 
-    print "   Modified omega=", omega[:]
+    print("   Modified omega=", omega[:])
 
     # omega_range_total[()] =  # Leave it.
 # fix_omega()
@@ -158,7 +160,7 @@ def move_original_files(prefix, wdir):
 
     bdir = os.path.join(wdir, "OVERWRITTEN_%s"%time.strftime("%y%m%d-%H%M%S"))
     os.mkdir(bdir)
-    print "Moving files with the same prefix to %s" % bdir
+    print("Moving files with the same prefix to %s" % bdir)
     for f in files:
         os.rename(f, os.path.join(bdir, os.path.basename(f)))
 # move_original_files()
@@ -167,27 +169,27 @@ def check_files(e, prefix, bssid):
     files = []
 
     try: files = e.fileWriterFiles()
-    except: print "could not get file list"
+    except: print("could not get file list")
 
     try:
         total_bytes = 0
         startt=time.time()
         for f in files:
-            u = urllib.urlopen("http://%s/data/%s" % (e._host, f))
+            u = urllib.request.urlopen("http://%s/data/%s" % (e._host, f))
             total_bytes += int(u.info().getheaders("Content-Length")[0])
             u.close()
 
-        print now(), "On server: %d files %d bytes (%.3f sec)" % (len(files), total_bytes, time.time()-startt)
+        print(now(), "On server: %d files %d bytes (%.3f sec)" % (len(files), total_bytes, time.time()-startt))
     except:
         pass
     pre = bssid + prefix if bssid else prefix
 
-    files = filter(lambda x: re.search("^"+re.escape(pre)+"_master\.h5$", x) or re.search("^"+re.escape(pre)+"_data_[0-9]+\.h5$", x), files)
+    files = [x for x in files if re.search("^"+re.escape(pre)+"_master\.h5$", x) or re.search("^"+re.escape(pre)+"_data_[0-9]+\.h5$", x)]
     return files
 # check_files()
 
 def modify_master(tmp, trg, bssid, omega_offset_by_trigger=None):
-    print " Modifying master.."
+    print(" Modifying master..")
     h5 = h5py.File(tmp, "a")
 
     try:
@@ -201,19 +203,19 @@ def modify_master(tmp, trg, bssid, omega_offset_by_trigger=None):
         # Compress large data with bslz4 for pixel_mask and gzip+shuf for others (for compatibility with Neggia plugin and autoPROC)
         redmas.compress_large_datasets("bslz4_and_gzipshuf")
     except:
-        print traceback.format_exc()
+        print(traceback.format_exc())
 
     try:
         # Fix omega values if multi
         fix_omega(h5, omega_offset_by_trigger)
     except:
-        print traceback.format_exc()
+        print(traceback.format_exc())
 
     # Put reverse-phi info and fix the links to data.h5
     try:
         put_reversephi_info(h5)
     except:
-        print traceback.format_exc()
+        print(traceback.format_exc())
 
     if bssid: fix_data_link(h5, bssid)
 
@@ -246,41 +248,41 @@ def download_files(e, files, wdir, bssid, tmpdir=None, omega_offset_by_trigger=N
             trg = os.path.join(wdir, f[len(bssid):])
         
         dl_failed = False
-        for i in xrange(10):
+        for i in range(10):
             dl_failed = False
-            print now(), " donwloading %s (%dth try).." % (f, i+1)
+            print(now(), " donwloading %s (%dth try).." % (f, i+1))
             startt = time.time()
             try:
-                u = urllib.urlopen(src)
+                u = urllib.request.urlopen(src)
                 file_bytes = u.info().getheaders("Content-Length")[0]
                 u.close()
 
-                print now(), "  file size on server %s = %s" % (f, file_bytes)
+                print(now(), "  file size on server %s = %s" % (f, file_bytes))
                 tmpd = get_temp_local_dir("eigerdl", min_bytes=int(file_bytes), additional_tmpd=wdir)
                 if tmpd is None:
-                    print now(), "  ERROR: no space available to download this file!"
+                    print(now(), "  ERROR: no space available to download this file!")
                     dl_failed = True
                     break
-                print now(), "  to %s" % tmpd
+                print(now(), "  to %s" % tmpd)
                 tmp = os.path.join(tmpd, f)
-                urllib.urlretrieve(src, tmp)
+                urllib.request.urlretrieve(src, tmp)
             except:
-                print traceback.format_exc()
+                print(traceback.format_exc())
                 dl_failed = True # if success in last trial, dl_failed==False
                 
 
             eltime = time.time() - startt
 
             if tmp and os.path.isfile(tmp):
-                print now(), "  done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(tmp)/1024/eltime)
+                print(now(), "  done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(tmp)/1024/eltime))
                 break
-            print 
+            print() 
 
             # retry if downloading failed
             time.sleep(1)
 
         if dl_failed:
-            print now(), "  Download failed. Keeping on server: %s" % src
+            print(now(), "  Download failed. Keeping on server: %s" % src)
             failed_files.append(f)
 
         if not tmp or not os.path.isfile(tmp): continue
@@ -292,15 +294,15 @@ def download_files(e, files, wdir, bssid, tmpdir=None, omega_offset_by_trigger=N
                 startt = time.time()
                 safe_copy(tmp+"-fix.h5", trg, move=True)
                 eltime = time.time() - startt
-                print now(), "  local_copy done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(trg)/1024/eltime)
+                print(now(), "  local_copy done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(trg)/1024/eltime))
             except:
-                print traceback.format_exc()
+                print(traceback.format_exc())
                 if os.path.isfile(tmp):
                     if tmpdir: safe_copy(tmp, os.path.join(tmpdir, os.path.basename(trg)))
                     startt = time.time()
                     safe_copy(tmp, trg, move=True)
                     eltime = time.time() - startt
-                    print now(), "  local_copy done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(trg)/1024/eltime)
+                    print(now(), "  local_copy done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(trg)/1024/eltime))
 
             if os.path.isfile(tmp): os.remove(tmp)
         else:
@@ -309,10 +311,10 @@ def download_files(e, files, wdir, bssid, tmpdir=None, omega_offset_by_trigger=N
                 startt = time.time()
                 safe_copy(tmp, trg, move=True)
                 eltime = time.time() - startt
-                print now(), "  local_copy done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(trg)/1024/eltime)
+                print(now(), "  local_copy done in %.2f sec. %.3f KB/s" % (eltime, os.path.getsize(trg)/1024/eltime))
             except:
                 dl_failed = True
-                print now(), "  local_copy failed. Keeping on server: %s" % src
+                print(now(), "  local_copy failed. Keeping on server: %s" % src)
                 failed_files.append(f)
 
         # delete from server
@@ -329,21 +331,21 @@ def check_all_files_done(prefix, wdir):
 
     master = os.path.join(wdir, "%s_master.h5" % prefix)
     if not os.path.isfile(master):
-        print " master file not exists"
+        print(" master file not exists")
         return [os.path.basename(master)]
 
     files = [master]
 
     h5 = h5py.File(master, "r")
-    for k in h5["/entry/data"].keys():
+    for k in list(h5["/entry/data"].keys()):
         dataf = os.path.join(wdir, "%s_%s.h5" % (prefix, str(k)))
         files.append(dataf)
         if not os.path.isfile(dataf):
-            print " data file %s not exists" % os.path.basename(dataf)
+            print(" data file %s not exists" % os.path.basename(dataf))
             missing_files.append(os.path.basename(dataf))
 
     if not missing_files:
-        print " all files exist:", " ".join(map(lambda x: os.path.basename(x), files))
+        print(" all files exist:", " ".join([os.path.basename(x) for x in files]))
 
     return missing_files
 # check_all_files_done()
@@ -351,13 +353,13 @@ def check_all_files_done(prefix, wdir):
 def run(prefix, wdir, bssid, jobmode, opts):
     e = eigerclient.DEigerClient(host=opts.eiger_host)
 
-    print "#####################################"
-    print "Download %s_* to %s (hash %s jobmode %s)" % (prefix, wdir, bssid, jobmode)
-    print "--hit-extract=%s --omega-offset-by-trigger=%s" % (opts.hit_extract, opts.omega_offset_by_trigger)
-    print "#####################################"
+    print("#####################################")
+    print("Download %s_* to %s (hash %s jobmode %s)" % (prefix, wdir, bssid, jobmode))
+    print("--hit-extract=%s --omega-offset-by-trigger=%s" % (opts.hit_extract, opts.omega_offset_by_trigger))
+    print("#####################################")
 
     try: move_original_files(prefix, wdir) # FIXME!! (think if this is really ok)
-    except: print traceback.format_exc()
+    except: print(traceback.format_exc())
     
     last_dl_time = time.time()
     timeout = 60*60 if bssid else 60*10 # in seconds
@@ -371,27 +373,27 @@ def run(prefix, wdir, bssid, jobmode, opts):
     failed_files = []
 
     while True:
-        print now(), "In %dth trial.." % (i+1)
+        print(now(), "In %dth trial.." % (i+1))
         files = check_files(e, prefix, bssid)
-        files = filter(lambda x: x not in failed_files, files)
+        files = [x for x in files if x not in failed_files]
 
         if files:
             failed_files.extend(download_files(e, files, wdir, bssid, tmpdir, opts.omega_offset_by_trigger))
             last_dl_time = time.time()
         elif time.time() - last_dl_time > timeout:
-            print now(), "Download timeout!"
+            print(now(), "Download timeout!")
             sys.exit(1)
 
         sys.stdout.flush()
             
         missing_files = check_all_files_done(prefix, wdir)
-        if bssid: missing_files = map(lambda x: bssid+x, missing_files)
+        if bssid: missing_files = [bssid+x for x in missing_files]
 
         if not missing_files:
-            print now(), "Download %s to %s Success!" % (prefix, wdir)
+            print(now(), "Download %s to %s Success!" % (prefix, wdir))
 
             if opts.hit_extract and jobmode=="4":
-                print "STARTING HIT EXTRACT"
+                print("STARTING HIT EXTRACT")
                 os.stat_float_times(False)
                 master_h5 = os.path.join(wdir, "%s_master.h5" % prefix)
                 ctime_master = os.path.getctime(master_h5)
@@ -403,18 +405,18 @@ def run(prefix, wdir, bssid, jobmode, opts):
                                                                                       tmpdir,
                                                                                       dbfile),
                             "/blconfig/local_bss/yam/qsub_hit_extract_online.sh"]
-                    print " ".join(args)
+                    print(" ".join(args))
                     p = subprocess.Popen(" ".join(args), shell=True, cwd=wdir, stdout=subprocess.PIPE)
                     p.wait()
-                    print p.stdout.read()
+                    print(p.stdout.read())
                     p = subprocess.Popen("qstat", shell=True, cwd=wdir, stdout=subprocess.PIPE)
                     p.wait()
-                    print p.stdout.read()
+                    print(p.stdout.read())
                 else:
                     args = ["ssh", opts.ssh_host, """\
 "cd '%s'; env ctime_master=%d master_h5='%s' tmpdir='%s' dbfile='%s' bash /oys/xtal/yamtbx/bl32xu/eiger/qsub_hit_extract_online.sh" > hitextract_%s.log 2>&1 & \
 """ % (wdir, ctime_master, master_h5, tmpdir, dbfile, prefix)]
-                    print " ".join(args)
+                    print(" ".join(args))
                     p = subprocess.Popen(" ".join(args), shell=True, cwd=wdir) # as background job
 
                 """
@@ -429,8 +431,8 @@ def run(prefix, wdir, bssid, jobmode, opts):
                 """
             sys.exit()
         elif set(missing_files).issubset(set(failed_files)):
-            print now(), "Error occurred during downloading following files. Check the logfile!"
-            for f in failed_files: print "  %s" % f
+            print(now(), "Error occurred during downloading following files. Check the logfile!")
+            for f in failed_files: print("  %s" % f)
             sys.exit(1)
 
 
@@ -438,7 +440,7 @@ def run(prefix, wdir, bssid, jobmode, opts):
             time.sleep(3)
         i += 1
 
-    print now(), "Download Failed!!!!!"
+    print(now(), "Download Failed!!!!!")
     sys.exit(1)
 # run()
 

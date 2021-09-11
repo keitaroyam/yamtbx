@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import wx
 import wx.lib.newevent
@@ -32,12 +34,12 @@ EventSyncDone, EVT_SYNC_DONE = wx.lib.newevent.NewEvent()
 def get_mounted_dirs():
     # XXX Linux specific
     ret, out, err = util.call("df")
-    dirs = map(lambda x: x.split()[-1], out.splitlines()[1:])
-    dirs = filter(lambda x: x.startswith("/media/"), dirs)
+    dirs = [x.split()[-1] for x in out.splitlines()[1:]]
+    dirs = [x for x in dirs if x.startswith("/media/")]
     return dirs
 # get_mounted_dirs()
 
-class SyncOptions:
+class SyncOptions(object):
     def __init__(self, sdir=None, ddir=None, exclude_dirs=[], exclude_files=[],
                  copy_shika_results=True, copy_scan_data=True, copy_hits=True):
         adopt_init_args(self, locals())
@@ -58,7 +60,7 @@ class SyncOptions:
 
 # class SyncOptions
 
-class DataSyncThread:
+class DataSyncThread(object):
     def __init__(self, parent):
         self.parent = parent
         self.interval = 10
@@ -145,7 +147,7 @@ class DataSyncThread:
             if self.interval < 1:
                 time.sleep(self.interval)
             else:
-                for i in xrange(int(self.interval/.5)):
+                for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
 
@@ -171,9 +173,8 @@ class DataSyncThread:
         #self.log_out.write("debug:: checking logs in %s\n" % wdir)
         #self.log_out.flush()
 
-        logfiles = filter(lambda x: x.endswith(".log"), map(lambda x: os.path.join(wdir, x), files))
-        logfiles_id = map(lambda x: (os.path.basename(x), os.path.getmtime(x), os.path.getsize(x)),
-                          sorted(logfiles))
+        logfiles = [x for x in [os.path.join(wdir, x) for x in files] if x.endswith(".log")]
+        logfiles_id = [(os.path.basename(x), os.path.getmtime(x), os.path.getsize(x)) for x in sorted(logfiles)]
 
         if wdir in self._bsslog_cache and self._bsslog_cache[wdir][0] == logfiles_id:
             #print "Using cached", self._bsslog_cache[wdir][1]
@@ -192,19 +193,19 @@ class DataSyncThread:
                         prefix = scan.get_prefix()[:-1] # ends with "_"
                         tmp.setdefault(prefix, []).append(("scan", scan.date.toordinal()))
                 except:
-                    print traceback.format_exc()
+                    print(traceback.format_exc())
                     continue
             else:
                 try:
                     jlog = bl_logfiles.BssJobLog(logf)
                     jlog.annotate_overwritten_images(remove=True)
-                    jobs = filter(lambda x: x.job_mode.lower() not in ("xafs", "raster scan"), jlog.jobs)
+                    jobs = [x for x in jlog.jobs if x.job_mode.lower() not in ("xafs", "raster scan")]
                     for job in jlog.jobs:
                         t = job.scans[0].datetime.toordinal() if job.scans else -1
                         # job.prefix does not include "_"
                         tmp.setdefault(job.prefix, []).append(("data", t))
                 except:
-                    print traceback.format_exc()
+                    print(traceback.format_exc())
                     continue
 
         for p in tmp:
@@ -228,7 +229,7 @@ class DataSyncThread:
 
         if self.opts.exclude_dirs:
             for dname in dirs:
-                if any(map(lambda x: fnmatch.fnmatch(dname, x), self.opts.exclude_dirs)):
+                if any([fnmatch.fnmatch(dname, x) for x in self.opts.exclude_dirs]):
                     return True
 
         if not self.opts.copy_shika_results and "_spotfinder" in dirs:
@@ -243,7 +244,7 @@ class DataSyncThread:
         """
         if self.opts.exclude_files:
             fbase = os.path.basename(f)
-            if any(map(lambda x: fnmatch.fnmatch(fbase, x), self.opts.exclude_files)):
+            if any([fnmatch.fnmatch(fbase, x) for x in self.opts.exclude_files]):
                 return True
 
         # If non-h5 file, do not skip (unless matched with user-specified pattern)
@@ -294,7 +295,7 @@ class DataSyncThread:
         mtime_size = os.path.getmtime(f_src), os.path.getsize(f_src)
         mtime_size_saved = os.path.getmtime(f_dst), os.path.getsize(f_dst)
 
-        print "debug::", f_dst, mtime_size[1] - mtime_size_saved[1], mtime_size[0]-mtime_size_saved[0]
+        print("debug::", f_dst, mtime_size[1] - mtime_size_saved[1], mtime_size[0]-mtime_size_saved[0])
         if mtime_size[1] == mtime_size_saved[1] and abs(mtime_size[0]-mtime_size_saved[0]) < time_tol:
             return False
 
@@ -596,13 +597,13 @@ class MainFrame(wx.Frame):
             max_lines = 100000
             curr_lines = self.txtLog.GetNumberOfLines()
             if curr_lines > max_lines:
-                lls = map(lambda x: self.txtLog.GetLineLength(x), xrange(curr_lines-3*max_lines//2))
+                lls = [self.txtLog.GetLineLength(x) for x in range(curr_lines-3*max_lines//2)]
                 self.txtLog.Remove(0, sum(lls)+len(lls))
                 self.txtLog.SetInsertionPointEnd()
 
             self.txtLog.AppendText(append_str)
 
-            tmp = filter(lambda x: x.endswith("\n") and x.strip(), append_str.splitlines(True))
+            tmp = [x for x in append_str.splitlines(True) if x.endswith("\n") and x.strip()]
             if tmp: self.SetStatusText(tmp[-1].strip().replace("# ", ""))
 
     # on_log_update_timer()
@@ -631,7 +632,7 @@ class MainFrame(wx.Frame):
     def btnUnmount_click(self, ev):
         def df(d):
             ret, out, err = util.call("df", '"%s"'%d) # XXX Linux specific?
-            out_lines = filter(lambda x: x, map(lambda x: x.strip(), out.splitlines()))
+            out_lines = [x for x in [x.strip() for x in out.splitlines()] if x]
             if len(out_lines) < 2: return None
             sp = out_lines[1].split()
             if not sp: return None
@@ -734,8 +735,8 @@ class MainFrame(wx.Frame):
 
         return SyncOptions(sdir=sdir,
                            ddir=ddir,
-                           exclude_dirs=filter(lambda x:x, self.txtExcDirs.GetValue().splitlines()),
-                           exclude_files=filter(lambda x:x, self.txtExcFiles.GetValue().splitlines()),
+                           exclude_dirs=[x for x in self.txtExcDirs.GetValue().splitlines() if x],
+                           exclude_files=[x for x in self.txtExcFiles.GetValue().splitlines() if x],
                            copy_shika_results=self.cbCopyShikaResults.GetValue(),
                            copy_scan_data=self.cbCopyScanOrg.GetValue(),
                            copy_hits=self.cbCopyScanHit.GetValue())
@@ -793,7 +794,7 @@ class MainFrame(wx.Frame):
     def on_sync_done(self, ev):
         max_rows = 10000
         if self.lstSummary.GetItemCount() > max_rows: # just in case
-            for i in xrange(self.lstSummary.GetItemCount()-max_rows):
+            for i in range(self.lstSummary.GetItemCount()-max_rows):
                 self.lstSummary.DeleteItem(0)
 
         n_copied = len(ev.files_copied)

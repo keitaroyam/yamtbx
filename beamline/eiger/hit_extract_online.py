@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.util import get_temp_local_dir
 from yamtbx.util import safe_copy
 from yamtbx.dataproc import eiger
@@ -13,20 +15,20 @@ import glob
 
 def get_nspots(dbfile, prefix): # prefix must include _
     re_file = re.compile(re.escape(prefix)+"[0-9]+\..{1,3}$")
-    print prefix
+    print(prefix)
 
     con = sqlite3.connect(dbfile, timeout=10)
     cur = con.cursor()
 
-    for itrial in xrange(60):
+    for itrial in range(60):
         try:
             c = con.execute("select imgf,nspot from stats")
             file_spots = c.fetchall()
             #print file_spots
-            return filter(lambda x: re_file.search(str(x[0])), file_spots)
+            return [x for x in file_spots if re_file.search(str(x[0]))]
         except sqlite3.DatabaseError:
-            print traceback.format_exc()
-            print "DB failed. retrying (%d)" % itrial
+            print(traceback.format_exc())
+            print("DB failed. retrying (%d)" % itrial)
             time.sleep(1)
             continue
     return []
@@ -38,34 +40,34 @@ def create_hitsonly_h5(master_h5, dbfile, hits_h5, spots_min):
     prefix = os.path.basename(master_h5)[:-len("master.h5")]
 
     n_images = XIO.Image(master_h5).header["Nimages"]
-    print " %d images in %s" % (n_images, master_h5)
+    print(" %d images in %s" % (n_images, master_h5))
 
     flag_ok = False
-    for i in xrange(100):
+    for i in range(100):
         file_spots = get_nspots(dbfile, prefix)
-        print "%6d spot-finding results out of %6d images" % (len(file_spots), n_images)
+        print("%6d spot-finding results out of %6d images" % (len(file_spots), n_images))
         if len(file_spots) >= n_images:
             flag_ok = True
             break
         time.sleep(6)
 
     if not flag_ok:
-        print "ERROR: Timeout!"
+        print("ERROR: Timeout!")
         return
 
-    hits = filter(lambda x: x[1]>=spots_min, file_spots)
+    hits = [x for x in file_spots if x[1]>=spots_min]
 
-    print "There are %6d hits (>= %d spots) out of %6d images" % (len(hits), spots_min, n_images)
+    print("There are %6d hits (>= %d spots) out of %6d images" % (len(hits), spots_min, n_images))
 
     shutil.copyfile(master_h5, hits_h5)
 
     h = h5py.File(hits_h5, "a")
 
-    for k in h["/entry/data"].keys():
+    for k in list(h["/entry/data"].keys()):
         del h["/entry/data"][k]
 
     for name, nsp in sorted(hits):
-        print " hit: %s %d" %(name, nsp)
+        print(" hit: %s %d" %(name, nsp))
         frameno = int(os.path.splitext(name[len(prefix):])[0])
         data = eiger.extract_data(master_h5, frameno, return_raw=True)
         grpname = "%s%.6d"%(prefix, frameno)
@@ -75,18 +77,18 @@ def create_hitsonly_h5(master_h5, dbfile, hits_h5, spots_min):
             eiger.compress_h5data(h, "/entry/data/%s/data"%grpname, data, chunks=None, compression="bslz4")
             rootgrp["%s/data"%grpname].attrs["n_spots"] = nsp
         else:
-            print "  error: data not found (%s)" % name
+            print("  error: data not found (%s)" % name)
 
     h.close()
 
-    org_files = filter(lambda x: os.path.exists(x), eiger.get_masterh5_related_filenames(master_h5))
-    org_size = sum(map(lambda x: os.path.getsize(x), org_files))/1024.0**2
+    org_files = [x for x in eiger.get_masterh5_related_filenames(master_h5) if os.path.exists(x)]
+    org_size = sum([os.path.getsize(x) for x in org_files])/1024.0**2
     new_size = os.path.getsize(hits_h5)/1024.0**2
 
     eltime = time.time() - start_time
-    print "SIZE: %.2f MB (%d) to %.2f MB (saved %.2f MB; %.1f%%) took %.2f sec" % (org_size, len(org_files),
+    print("SIZE: %.2f MB (%d) to %.2f MB (saved %.2f MB; %.1f%%) took %.2f sec" % (org_size, len(org_files),
                                                                                    new_size, org_size-new_size,
-                                                                                   new_size/org_size*100., eltime)
+                                                                                   new_size/org_size*100., eltime))
 
     # TODO if original file moved to OVERWRITTEN_, then discard this onlyhits.h5 file!!
     #      Because hit-finding results may be contaminated, and onlyhits.h5 may be no use!
@@ -115,13 +117,13 @@ def run(master_h5, master_h5_ctime, dbfile, tmpdir=None, spots_min=3, remove_fil
         # If tmpdir given, just use there; otherwise create new one.
         if not tmpdir: tmpdir = get_temp_local_dir("hitsonly", min_gb=1)
         hits_h5 = os.path.join(tmpdir, prefix+"onlyhits.h5")
-        print "tmpdir is %s" %tmpdir
+        print("tmpdir is %s" %tmpdir)
         create_hitsonly_h5(master_h5_in_tmp, dbfile, hits_h5, spots_min)
 
         if not os.path.isfile(hits_h5):
             raise Exception("Generation of %s failed" % hits_h5)
 
-        print "ctime_master_h5 =", os.path.getctime(master_h5)
+        print("ctime_master_h5 =", os.path.getctime(master_h5))
         if os.path.getctime(master_h5) != master_h5_ctime:
             raise Exception("Master h5 file (%s, %d) is changed! Discarding this hitsonly h5" % (master_h5, master_h5_ctime))
 
@@ -131,8 +133,8 @@ def run(master_h5, master_h5_ctime, dbfile, tmpdir=None, spots_min=3, remove_fil
     finally:
         files_in_tmp = glob.glob(os.path.join(tmpdir, "*"))
         if files_in_tmp:
-            print "Removing %d files in tmpdir:" % len(files_in_tmp)
-            for f in files_in_tmp: print " %s" % f
+            print("Removing %d files in tmpdir:" % len(files_in_tmp))
+            for f in files_in_tmp: print(" %s" % f)
 
         shutil.rmtree(tmpdir)
 
@@ -159,7 +161,7 @@ if __name__ == "__main__":
 
     if opts.tmpdir=="None": opts.tmpdir = None
 
-    print "Command args:"
-    print "  %s %s --min-spots=%s --ctime-master=%s --tmpdir=%s" %(master_h5, dbfile, opts.spots_min, opts.ctime_master, opts.tmpdir)
+    print("Command args:")
+    print("  %s %s --min-spots=%s --ctime-master=%s --tmpdir=%s" %(master_h5, dbfile, opts.spots_min, opts.ctime_master, opts.tmpdir))
 
     run(master_h5, master_h5_ctime, dbfile, tmpdir=opts.tmpdir, spots_min=opts.spots_min)
