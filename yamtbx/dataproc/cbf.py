@@ -15,7 +15,7 @@ def load_cbf_as_numpy(filein, quiet=True):
     if not quiet:
         print("reading", filein, "as cbf")
     h = pycbf.cbf_handle_struct()
-    h.read_file(filein, pycbf.MSG_DIGEST)
+    h.read_file(filein.encode("utf-8"), pycbf.MSG_DIGEST)
     ndimfast, ndimslow = h.get_image_size_fs(0)
     arr = numpy.fromstring(h.get_image_fs_as_string(0, 4, 1, ndimfast, ndimslow), dtype=numpy.int32)
     return arr, ndimfast, ndimslow
@@ -47,13 +47,13 @@ def load_cbf_as_flex(filein): # This can also read XDS special cbf
 
 def load_xds_special(cbfin):
     h = pycbf.cbf_handle_struct()
-    h.read_file(cbfin, pycbf.MSG_DIGEST)
-    h.require_category("array_data")
-    h.find_column("header_contents")
+    h.read_file(cbfin.encode("utf-8"), pycbf.MSG_DIGEST)
+    h.require_category(b"array_data")
+    h.find_column(b"header_contents")
     header = h.get_value()
 
     M = cbf_binary_adaptor(cbfin)
-    data = M.uncompress_implementation("buffer_based").uncompress_data()
+    data = M.uncompress_implementation(b"buffer_based").uncompress_data()
     #print "slow, fast=", M.dim_slow(), M.dim_fast() # can be obtained after getting data
     return header, data, M.dim_slow(), M.dim_fast()
 # load_xds_special()
@@ -98,12 +98,12 @@ def get_pilatus_header(cbfin):
         junk, tmpf = tempfile.mkstemp()
         os.close(junk)
         open(tmpf, "wb").write(bz2.BZ2File(cbfin).read())
-        h.read_file(tmpf, pycbf.MSG_DIGEST)
+        h.read_file(tmpf.encode("utf-8"), pycbf.MSG_DIGEST)
         os.remove(tmpf)
     else:
-        h.read_file(cbfin, pycbf.MSG_DIGEST)
-    h.require_category("array_data")
-    h.find_column("header_contents")
+        h.read_file(cbfin.encode("utf-8"), pycbf.MSG_DIGEST)
+    h.require_category(b"array_data")
+    h.find_column(b"header_contents")
     header = h.get_value()
     return header
 # get_pilatus_header()
