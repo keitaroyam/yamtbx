@@ -4,14 +4,14 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import unicode_literals
 
 """
 NOTE on unit cell constraints determination:
   XDS doesn't handle "real" rhombohedral space group (right?).
   So, No need to support R3 or R32. They are handled as H3 or H32, maybe.
 """
-from __future__ import division
-from __future__ import unicode_literals
 
 import math
 import numpy
