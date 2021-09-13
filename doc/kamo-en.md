@@ -42,7 +42,6 @@ This manual is for 2018-02-22.
             * [Where is the data for structural refinement?](#where-is-the-data-for-structural-refinement)
       * [How can I use KAMO at home?](#how-can-i-use-kamo-at-home)
          * [Installation](#installation)
-               * [Troubleshooting tips](#troubleshooting-tips)
          * [How to update KAMO](#how-to-update-kamo)
          * [Launch](#launch)
       * [For online use at non-SPring-8 site](#for-online-use-at-non-spring-8-site)
