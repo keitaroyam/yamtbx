@@ -251,7 +251,7 @@ def mtzdmp(filename):
     #to8_3filename(os.path.normpath(filename))
     
     p = subprocess.Popen( cmd, shell=True, cwd=os.getcwd(), stdin=subprocess.PIPE,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT )
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
                          # close_fds=True )
     
     #p.stdin.write("HEAD\nGO\n")

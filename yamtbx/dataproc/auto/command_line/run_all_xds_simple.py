@@ -198,7 +198,7 @@ def run_xds(wdir, comm="xds_par", show_progress=True):
                     mean_mosaicity = sum(mosaicity_sofar)/len(mosaicity_sofar)
                     sys.stdout.write(" (mosaicity so far: mean=%.2f)" % mean_mosaicity)
     else:
-        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE, env=env)
+        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE, env=env, universal_newlines=True)
         p.wait()
 # run_xds()
 

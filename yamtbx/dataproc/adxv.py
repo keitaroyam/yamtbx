@@ -39,7 +39,7 @@ class Adxv(object):
             self.adxv_port = sock_test.getsockname()[1]
             sock_test.close()
             # start adxv
-            self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd)
+            self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd, universal_newlines=True)
 
             for i in range(10): # try for 5 seconds.
                 try: 

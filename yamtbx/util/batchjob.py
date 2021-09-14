@@ -75,7 +75,7 @@ class LocalThread(threading.Thread):
         p = subprocess.Popen(os.path.join(".", j.script_name), shell=True, cwd=j.wdir,
                              stdout=open(os.path.join(j.wdir, j.script_name + ".out"), "w"),
                              stderr=open(os.path.join(j.wdir, j.script_name + ".err"), "w"),
-                             )
+                             universal_newlines=True)
         return p
     # start_job()
     
@@ -170,7 +170,7 @@ class SGE(JobManager):
             cmd = "qsub -j y %s" % script_name
 
         p = subprocess.Popen(cmd, shell=True, cwd=wdir, 
-                             stdout=subprocess.PIPE)
+                             stdout=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
         
@@ -206,7 +206,7 @@ class SGE(JobManager):
     def qstat(self, job_id):
         cmd = "qstat -j %s" % job_id
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
 
@@ -235,7 +235,7 @@ class SGE(JobManager):
     def qdel(self, job_id):
         cmd = "qdel %s" % job_id
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
 

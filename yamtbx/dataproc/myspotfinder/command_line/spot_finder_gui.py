@@ -2792,7 +2792,7 @@ class MainFrame(wx.Frame):
             sock_test.close()
             # start adxv
             self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True,
-                                              cwd=os.path.dirname(imgfile))
+                                              cwd=os.path.dirname(imgfile), universal_newlines=True)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
