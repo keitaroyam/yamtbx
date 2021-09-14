@@ -842,9 +842,14 @@ run_dials_auto.run_dials_sequence(**pickle.load(open("args.pkl", "rb")))
                     ret["sg"] = xp.space_group_str()
 
             if os.path.isfile(stats_pkl):
-                sio = io.StringIO()
-                pickle.load(open(stats_pkl, "rb"))["stats"].show(out=sio, header=False)
-                lines = sio.getvalue().replace("<","&lt;").replace(">","&gt;").splitlines()
+                tmp = pickle.load(open(stats_pkl, "rb"))
+                if "stats" in tmp:
+                    sio = io.StringIO()
+                    tmp["stats"].show(out=sio, header=False)
+                    stats_str = sio.getvalue()
+                else:
+                    stats_str = tmp["stats_str"]
+                lines = stats_str.replace("<","&lt;").replace(">","&gt;").splitlines()
                 i_table_begin = [x for x in enumerate(lines) if "Statistics by resolution bin:" in x[1]]
                 if len(i_table_begin) == 1:
                     ret["table_html"] = "\n".join(lines[i_table_begin[0][0]+1:])

@@ -439,9 +439,14 @@ var chart2 = AmCharts.makeChart("chartdiv_integrate_rotxyz", {
         html += "<h3>ISa</h3>\n<pre>%s</pre>\n" % lp.snippets.get("ISa","")
         html += "<h3>Statistics of all data</h3>\n"
         if os.path.isfile(stats_pkl):
-            sio = io.StringIO()
-            pickle.load(open(stats_pkl, "rb"))["stats"].show(out=sio, header=False)
-            html += "<pre>%s</pre>\n" % sio.getvalue().replace("<","&lt;").replace(">","&gt;")
+            tmp = pickle.load(open(stats_pkl, "rb"))
+            if "stats" in tmp:
+                sio = io.StringIO()
+                tmp["stats"].show(out=sio, header=False)
+                stats_str = sio.getvalue()
+            else:
+                stats_str = tmp["stats_str"]
+            html += "<pre>%s</pre>\n" % stats_str.replace("<","&lt;").replace(">","&gt;")
         else:
             html += "<pre>%s</pre>\n" % lp.snippets.get("table1","")
 

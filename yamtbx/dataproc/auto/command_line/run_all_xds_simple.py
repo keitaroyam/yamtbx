@@ -17,6 +17,7 @@ import pickle
 import time
 import glob
 import numpy
+import io
 
 from yamtbx.command_line import kamo_test_installation
 from yamtbx.dataproc.xds import get_xdsinp_keyword, modify_xdsinp, optimal_delphi_by_nproc, make_backup, revert_files, remove_backups
@@ -163,7 +164,9 @@ def calc_merging_stats(xac_file, cut_resolution=True):
         print(e.message, file=logout)
         return
 
-    ret = dict(cutoff=d_min, cutoffs=cutoffs, stats=stats)
+    sio = io.StringIO()
+    stats.show(out=sio, header=False)
+    ret = dict(stats_str=sio.getvalue())
     pickle.dump(ret, open(pklout, "wb"))
     return d_min, cutoffs, stats
 # calc_merging_stats()
