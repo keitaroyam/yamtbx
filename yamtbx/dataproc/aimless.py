@@ -167,7 +167,7 @@ cd %s
 yamtbx.dev.python - << +
 import pickle
 from yamtbx.dataproc.aimless import _calc_cchalf_by_removing_worker_1
-params = pickle.load(open("%s/tmp.pkl"))
+params = pickle.load(open("%s/tmp.pkl", "rb"))
 params["tmpdir"] = "%s"
 params["iex"] = %d
 _calc_cchalf_by_removing_worker_1(**params)

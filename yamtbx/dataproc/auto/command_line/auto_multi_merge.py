@@ -481,14 +481,14 @@ def run(params):
             pickle.dump(dict(workdir=workdir, topdirs=samples[k][0],
                              cell_method=params2.cell_method, ref_array=ref_array, ref_sym=ref_sym,
                              merge_params=params2.merge, rescut_params=params2.rescut, filter_params=params2.filtering),
-                        open(os.path.join(workdir, "kwargs.pkl"), "w"), -1)
+                        open(os.path.join(workdir, "kwargs.pkl"), "wb"), -1)
             job = batchjob.Job(workdir, shname, nproc=params2.batch.nproc_each)
             job.write_script("""\
 cd "%s" || exit 1
 "%s" -c '\
 import pickle; \
 from yamtbx.dataproc.auto.command_line.auto_multi_merge import auto_merge; \
-kwargs = pickle.load(open("kwargs.pkl")); \
+kwargs = pickle.load(open("kwargs.pkl", "rb")); \
 auto_merge(**kwargs); \
 '
 """ % (os.path.abspath(workdir), sys.executable))

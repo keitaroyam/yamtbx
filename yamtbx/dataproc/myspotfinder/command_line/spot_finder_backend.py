@@ -859,7 +859,7 @@ class ResultsManager(object):
                                 canvas, ninc, _ = canvas_data[(prefix, idx)]
                             elif os.path.isfile(tmpfile):
                                 shikalog.debug("loading thumbnail data from %s" % tmpfile)
-                                canvas, ninc, _ = pickle.load(open(tmpfile))
+                                canvas, ninc, _ = pickle.load(open(tmpfile, "rb"))
                             else:
                                 canvas, ninc = Image.new("RGB", (thumbw*10, thumbw*10), (0, 0, 0)), 0
                                 
@@ -922,7 +922,7 @@ class ResultsManager(object):
                             if os.path.isfile(tmpfile): os.remove(tmpfile)
                         else:
                             shikalog.info("saving thumbnail data to %s" % tmpfile)
-                            pickle.dump(canvas_data[(prefix, idx)], open(tmpfile, "w"), -1)
+                            pickle.dump(canvas_data[(prefix, idx)], open(tmpfile, "wb"), -1)
                             
                     while True:
                         try: con.commit()

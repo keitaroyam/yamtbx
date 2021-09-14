@@ -691,16 +691,16 @@ def run(params):
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             if not os.path.exists(workdir): os.makedirs(workdir)
             shname = "merge_%s.sh" % os.path.relpath(workdir, params.workdir)
-            pickle.dump((params, os.path.abspath(workdir), xds_files, cells, space_group), open(os.path.join(workdir, "args.pkl"), "w"), -1)
+            pickle.dump((params, os.path.abspath(workdir), xds_files, cells, space_group), open(os.path.join(workdir, "args.pkl"), "wb"), -1)
             job = batchjob.Job(workdir, shname, nproc=params.batch.nproc_each)
             job.write_script("""\
 cd "%s" || exit 1
 "%s" -c '\
 import pickle; \
 from yamtbx.dataproc.auto.command_line.multi_merge import merge_datasets; \
-args = pickle.load(open("args.pkl")); \
+args = pickle.load(open("args.pkl", "rb")); \
 ret = merge_datasets(*args); \
-pickle.dump(ret, open("result.pkl","w")); \
+pickle.dump(ret, open("result.pkl","wb")); \
 '
 """ % (os.path.abspath(workdir), sys.executable))
             batchjobs.submit(job)
@@ -709,7 +709,7 @@ pickle.dump(ret, open("result.pkl","w")); \
         batchjobs.wait_all(jobs)
         for workdir, xds_files, LCV, aLCV, clh in data_for_merge:
             try:
-                results = pickle.load(open(os.path.join(workdir, "result.pkl")))
+                results = pickle.load(open(os.path.join(workdir, "result.pkl"), "rb"))
             except:
                 print("Error in unpickling result in %s" % workdir, file=out)
                 print(traceback.format_exc(), file=out)
