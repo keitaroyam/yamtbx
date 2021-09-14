@@ -361,7 +361,7 @@ class Image(object):
             interpreterClass = importName("plugins.%s_interpreter" % \
                                        self.type, "Interpreter")
         if not interpreterClass:
-            raise XIOError("Can't import %s interperter" % (self.type))
+            raise XIOError("Can't import %s interpreter" % (self.type))
 
         # Rules are serial number (or other identifier) based rules
         # To be added
