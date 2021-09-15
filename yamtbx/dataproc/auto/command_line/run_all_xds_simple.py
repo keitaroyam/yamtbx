@@ -178,12 +178,13 @@ def run_xds(wdir, comm="xds_par", show_progress=True):
         env = os.environ.copy()
         env["PATH"] = env["SGE_O_PATH"] + ":" + env["PATH"]
 
+    log_raw = open(os.path.join(wdir, "xds_raw_output.log"), "a")
     if show_progress:
-        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE, env=env, universal_newlines=True)
+        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, universal_newlines=True)
         read_mosaicity_flag = False
         mosaicity_sofar = []
         for l in iter(p.stdout.readline,''):
-            #print l
+            log_raw.write(l)
             r = re_running_job.search(l)
             if r:
                 sys.stdout.write("\r\x1b[K Running %s " % r.group(1))
@@ -201,7 +202,7 @@ def run_xds(wdir, comm="xds_par", show_progress=True):
                     mean_mosaicity = sum(mosaicity_sofar)/len(mosaicity_sofar)
                     sys.stdout.write(" (mosaicity so far: mean=%.2f)" % mean_mosaicity)
     else:
-        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE, env=env, universal_newlines=True)
+        p = subprocess.Popen(comm, cwd=wdir, stdout=log_raw, stderr=log_raw, env=env, universal_newlines=True)
         p.wait()
 # run_xds()
 
