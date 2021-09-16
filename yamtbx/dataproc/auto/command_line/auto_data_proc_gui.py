@@ -1974,7 +1974,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         try:
             batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
         except batchjob.SgeError as e:
-            mylog.error(e.message)
+            mylog.error(str(e))
             mylog.error("SGE not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")
             return
     elif config.params.batch.engine == "sh":

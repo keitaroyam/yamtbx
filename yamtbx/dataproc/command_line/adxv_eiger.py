@@ -287,8 +287,8 @@ class MainFrame(wx.Frame):
             self.adxv.open_hdf5(self.h5file, frameno, tmpdir=tmpdir,
                                 raise_window=raise_window,
                                 binning=int(self.txtBin.GetValue()))
-        except RuntimeError as re:
-            self.txtInfo.SetValue("Error! %s\n\n%s" % (re.message, self.txtInfo.GetValue()))
+        except RuntimeError as e:
+            self.txtInfo.SetValue("Error! %s\n\n%s" % (str(e), self.txtInfo.GetValue()))
         except:
             self.txtInfo.SetValue(traceback.format_exc() + "\n\n" + self.txtInfo.GetValue())
         finally:

@@ -98,7 +98,7 @@ def calc_merging_stats(hklin, cut_resolution=True):
         if cut_resolution and cutoffs.i_over_sigma_cut is not None:
             d_min = cutoffs.i_over_sigma_cut
     except Sorry as e:
-        print(e.message, file=logout)
+        print(str(e), file=logout)
 
     print("", file=logout)
     print("Merging statistics", file=logout)
@@ -113,7 +113,7 @@ def calc_merging_stats(hklin, cut_resolution=True):
                                                             log=logout)
         stats.show(out=logout)
     except (Sorry, RuntimeError) as e:
-        print(e.message, file=logout)
+        print(str(e), file=logout)
         return {}
 
     #ret = dict(cutoff=d_min, cutoffs=cutoffs, stats=stats)

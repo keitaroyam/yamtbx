@@ -116,7 +116,7 @@ class CCClustering(object):
                     self.arrays[f] = arr.customized_copy(data=arr.data()/normaliser.normalizer_for_miller_array,
                                                          sigmas=arr.sigmas()/normaliser.normalizer_for_miller_array)
                 except Exception as e:
-                    failed.setdefault(e.message, []).append(f)
+                    failed.setdefault(str(e), []).append(f)
 
             if failed:
                 msg = ""

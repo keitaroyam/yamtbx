@@ -124,9 +124,9 @@ class stop_program(object):
                 print("  killing %d (name= %s, user= %s, ctime= %s)" % (p, proc.name(), proc.username(), time.ctime(proc.create_time())))
             except psutil.NoSuchProcess: continue
             try: os.kill(p, signal.SIGKILL)
-            except Exception as e: print("    Error in killing %s: %s" % (p, e.message))
+            except Exception as e: print("    Error in killing %s: %s" % (p, str(e)))
         try: os.kill(pid, signal.SIGKILL)
-        except Exception as e: print("    Error in killing %s: %s" % (pid, e.message))
+        except Exception as e: print("    Error in killing %s: %s" % (pid, str(e)))
 
         print("All child processes killed (now= %s)" % time.ctime())
         yield "All child processes killed\n"

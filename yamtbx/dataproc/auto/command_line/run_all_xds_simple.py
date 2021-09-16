@@ -144,7 +144,7 @@ def calc_merging_stats(xac_file, cut_resolution=True):
         if cutoffs.cc_one_half_cut != float("inf") and cut_resolution:
             d_min = cutoffs.cc_one_half_cut
     except Sorry as e:
-        print(e.message, file=logout)
+        print(str(e), file=logout)
 
     print("", file=logout)
     print("Merging statistics", file=logout)
@@ -161,7 +161,7 @@ def calc_merging_stats(xac_file, cut_resolution=True):
                                                             log=logout)
         stats.show(out=logout)
     except (Sorry, RuntimeError) as e:
-        print(e.message, file=logout)
+        print(str(e), file=logout)
         return
 
     sio = io.StringIO()

@@ -628,7 +628,7 @@ class ConfigManager(object):
             if len(alldef) > 0:
                 return "Unknown parameters: " + ", ".join([x.path for x in alldef])
         except RuntimeError as e:
-            return e.message
+            return str(e)
         return ""
     # check_phil_valid()
 

@@ -478,7 +478,7 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
                 pickle.dump(inhkl, open(f+".pkl", "wb"), -1)
 
     except ProcFailed as e:
-        print("Processing failed: %s" % e.message, file=decilog)
+        print("Processing failed: %s" % str(e), file=decilog)
     except:
         print("Uncaught exception:", file=decilog)
         print(traceback.format_exc(), file=decilog)
