@@ -24,7 +24,7 @@ def date_time(time_str):
 def date_seconds(time_str):
     "from tupple return seconds"
     try:
-        return time.mktime(time.strptime(time_str))
+        return time.mktime(time.strptime(time_str.decode()))
     except (ValueError, TypeError) as err:
         print("Warning:", err)
         print("... Using time.time() instead.")
@@ -42,7 +42,7 @@ def get_edge_resolution(pixel_x, width, distance, wavelength):
 
 def endian(code):
     "From str to struct convention."
-    if code == 'big_endian':
+    if code == b'big_endian':
         return '>'
     else:
         return '<'
@@ -120,8 +120,8 @@ class Interpreter(object):
 
         #_lis = raw_head[2:].split("}")[0].split(";\n")[:-1]
         #_lis = map(lambda x: x[:x.index(";")], raw_head[2:].split("}")[0].splitlines()[:-1])
-        tmp = [x for x in raw_head[raw_head.index("{")+1 : raw_head.index("}")].splitlines() if x]
-        _lis = [x.strip("; ") for x in tmp]
-        self.raw_head_dict = dict([par.split("=") for par in _lis])
-        self.raw_head_dict.update({'MESSAGE': '', 'TWOTHETA': '0'}) # Example missing
+        tmp = [x for x in raw_head[raw_head.index(b"{")+1 : raw_head.index(b"}")].splitlines() if x]
+        _lis = [x.strip(b"; ") for x in tmp]
+        self.raw_head_dict = dict([par.split(b"=") for par in _lis])
+        self.raw_head_dict.update({b'MESSAGE': '', b'TWOTHETA': '0'}) # Example missing
         return self.raw_head_dict

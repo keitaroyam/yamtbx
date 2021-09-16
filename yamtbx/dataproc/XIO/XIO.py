@@ -252,31 +252,31 @@ class Image(object):
         martest1 = (m1 == t1 or m1 == t2 or m2 == t1 or m2 == t2)
 
         if (martest1 and
-            self.rawHead.count("mar research     ") and
-            self.rawHead.count("mar555")):
+            self.rawHead.count(b"mar research     ") and
+            self.rawHead.count(b"mar555")):
             self.type = "mar555"
             return self.type
 
-        elif (martest1 and self.rawHead.count("mar research     ")):
+        elif (martest1 and self.rawHead.count(b"mar research     ")):
             self.type = "mar"
             return self.type
 
         # Test to identify ADSC header
-        elif  self.rawHead[:15] == "{\nHEADER_BYTES=" and \
-                self.rawHead.count(";\nPIXEL_SIZE="):
+        elif  self.rawHead[:15] == b"{\nHEADER_BYTES=" and \
+                self.rawHead.count(b";\nPIXEL_SIZE="):
             self.type = "adsc"
             return self.type
 
         # Test to identify MSC ccd header
-        elif  self.rawHead[:15] == "{\nHEADER_BYTES=" and \
-                self.rawHead.count(";\nCCD_DETECTOR_DESCRIPTION="):
+        elif  self.rawHead[:15] == b"{\nHEADER_BYTES=" and \
+                self.rawHead.count(b";\nCCD_DETECTOR_DESCRIPTION="):
             self.type = "mscccd"
             return self.type
 
         # Test to identify MarCCD header
         elif self.rawHead[0:3] == "II*" and \
                 struct.unpack('<I', self.rawHead[1024:1028])[0] == 2 and \
-                self.rawHead[1028:1031] == "MMX" :
+                self.rawHead[1028:1031] == b"MMX" :
             self.type = "marccd"
             return self.type
 
@@ -287,18 +287,18 @@ class Image(object):
             return self.type
 
         # Test to identify miniCIF (PILATUS)
-        elif self.rawHead[0:7] == "###CBF:" and \
-                (self.rawHead.count("PILATUS") or self.rawHead.count("Eiger")):
+        elif self.rawHead[0:7] == b"###CBF:" and \
+                (self.rawHead.count(b"PILATUS") or self.rawHead.count(b"Eiger")):
             self.type = "minicbf"
             return self.type
 
         # Test to identify RAXIS header
-        elif self.rawHead[0:5] == "RAXIS":
+        elif self.rawHead[0:5] == b"RAXIS":
             self.type = "raxis"
             return self.type
 
         # Test to identify Oxford Diffraction header
-        elif "OD " == self.rawHead[:3]:
+        elif b"OD " == self.rawHead[:3]:
             self.type = "oxford"
             return self.type
 
@@ -375,6 +375,7 @@ class Image(object):
         #VERBOSE = True
         for k in list(self.interpreter.HTD.keys()):
             args, func = self.interpreter.HTD[k]
+            args = [x.encode("utf-8") for x in args]
             #self.header[k] = apply(func, map(self.RawHeadDict.get,args))
             if args[0] in self.RawHeadDict:
                 try:
