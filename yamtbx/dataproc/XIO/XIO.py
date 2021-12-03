@@ -274,7 +274,7 @@ class Image(object):
             return self.type
 
         # Test to identify MarCCD header
-        elif self.rawHead[0:3] == "II*" and \
+        elif self.rawHead[0:3] == b"II*" and \
                 struct.unpack('<I', self.rawHead[1024:1028])[0] == 2 and \
                 self.rawHead[1028:1031] == b"MMX" :
             self.type = "marccd"

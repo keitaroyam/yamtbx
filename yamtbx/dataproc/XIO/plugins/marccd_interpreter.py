@@ -19,7 +19,7 @@ import sys
 def extr_time(time_str):
     "from str return tupple"
     try:
-        return time.strptime(time_str[12:27], "%m%d%H%M%Y.%S")
+        return time.strptime(time_str[12:27].decode(), "%m%d%H%M%Y.%S")
     except ValueError as err:
         print("Warning:", err)
         print("... Using time.localtime() instead.")
@@ -47,7 +47,7 @@ AXIS_CODE = {0: "twotheta", 1:"omega", 2:"chi", 3:"kappa", 4: "phi"}
 def get_serial(comment):
     "Try to find the serial string in comments."
     for line in comment.splitlines():
-        if line.lower().count("serial"):
+        if line.lower().count(b"serial"):
             try:
                 return line.split()[-1]
             except:
@@ -232,13 +232,14 @@ class Interpreter(object):
                 print("%s ->%s<-" % (_key, read_unp[line]))
         self.raw_head_dict.update({'MESSAGE': '', 'HEADER_BYTES': 4096,
                                            'EndianType': endian_type})
+        self.raw_head_dict = dict(((k.encode("utf-8"), self.raw_head_dict[k]) for k in self.raw_head_dict))
         return self.raw_head_dict
 
 def test1():
     "Get the raw header keys from one image"
-    image = open(sys.argv[1])
+    image = open(sys.argv[1], "rb")
     raw_head = image.read(9000)
-    header = image.getRawHeadDict(raw_head)
+    header = Interpreter().getRawHeadDict(raw_head)
 
     header_keys =  [a[0] for a in HEADER_STRUCTURE]
     for k in header_keys:
