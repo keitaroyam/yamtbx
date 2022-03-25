@@ -40,6 +40,8 @@ echo finished at `date "+%Y-%m-%d %H:%M:%S"`
 
 class SgeError(Exception):
     pass
+class SlurmError(Exception):
+    pass
 
 class JobManager(object): # interface
     def __init__(self): pass
@@ -249,6 +251,112 @@ class SGE(JobManager):
 
 # class SGE
 
+class Slurm(JobManager):
+    def __init__(self):
+        JobManager.__init__(self)
+
+        sbatch_found, squeue_found = False, False
+        
+        for d in os.environ["PATH"].split(":"):
+            if os.path.isfile(os.path.join(d, "sbatch")):
+                sbatch_found = True
+            if os.path.isfile(os.path.join(d, "squeue")):
+                squeue_found = True
+
+        if not( sbatch_found and squeue_found ):
+            raise SlurmError("cannot find sbatch or squeue command under $PATH")
+                
+        self.job_id = {} # [Job: jobid]
+    # __init__()
+
+    def submit(self, j):
+        ##
+        # submit script
+        # @return jobID 
+
+        script_name = j.script_name
+        wdir = j.wdir
+
+        cmd = "sbatch -c %d %s" % (j.nproc, script_name)
+
+        p = subprocess.Popen(cmd, shell=True, cwd=wdir, 
+                             stdout=subprocess.PIPE, universal_newlines=True)
+        p.wait()
+        stdout = p.stdout.readlines()
+        
+        if p.returncode != 0:
+            raise SlurmError("sbatch failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
+                                                                            stdout))
+        
+        r = re.search(r"^Submitted batch job ([0-9]+)", stdout[0])
+        job_id = r.group(1)
+        if job_id == "":
+            raise SlurmError("cannot read job-id from sbatch result. please contact author. stdout is:\n" % stdout)
+        
+        self.job_id[j] = job_id
+        print("Job %s on %s is started. id=%s"%(j.script_name, j.wdir, job_id))
+
+    # submit()
+
+    def update_state(self, j):
+        # if job_id is unknown (waiting or finished), state won't be changed
+        if j in self.job_id:
+            status = self.qstat(self.job_id[j])
+
+            if status is None: # if sbatch failed, flagged as FINISHED?
+                j.state = STATE_FINISHED
+                self.job_id.pop(j)
+                #j.check_after_run() # j.state may be changed to FAILED
+
+            else: # if sbatch succeeded, RUNNING or WAITING.
+                j.state = STATE_RUNNING
+            
+    # update_state()
+
+    def qstat(self, job_id):
+        cmd = "squeue --job %s" % job_id
+        p = subprocess.Popen(cmd, shell=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        p.wait()
+        stdout = p.stdout.read()
+
+        if p.returncode != 0:
+            raise SlurmError("squeue failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
+                                                                              stdout))
+        """
+        example:
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+            944900       cpu  junk.sh kyamashi PD       0:00      1 (Priority)
+        """
+
+        status = {}
+
+        if job_id not in stdout:
+            print("job %s finished (squeue showed nothing)." % job_id)
+            return None
+        else:
+            return "running" # better to parse ST
+    # qstat()
+
+    def stop_all(self):
+        for i in list(self.job_id.values()):
+            self.qdel(i)
+    # stop_all()
+    
+    def qdel(self, job_id):
+        cmd = "scancel %s" % job_id
+        p = subprocess.Popen(cmd, shell=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        p.wait()
+        stdout = p.stdout.readlines()
+
+        if p.returncode != 0:
+            print("scancel %s failed."%job_id) 
+            return None
+
+    # qdel()
+
+# class Slurm
 
 class Job(object):
     ##
