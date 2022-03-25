@@ -38,6 +38,7 @@ import networkx as nx
 import traceback
 import numpy
 import pickle 
+import itertools
 
 master_params_str = """
 lstin = None
@@ -52,7 +53,7 @@ d_min = None
  .type = float
 d_max = None
  .type = float
-clustering = *no blend cc
+clustering = *no blend cc cumulative
  .type = choice(multi=False)
 program = *xscale aimless
  .type = choice(multi=False)
@@ -195,6 +196,11 @@ cc_clustering {
   .type = int
 }
 
+cumulative {
+  batch_size = 5
+    .type = int(value_min=1)
+}
+
 reference {
  data = None
   .type = path
@@ -218,7 +224,7 @@ batch {
  par_run = *deltacchalf merging
   .type = choice(multi=True)
   .help = What to run in parallel
- engine = sge *sh
+ engine = sge slurm *sh
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
@@ -414,6 +420,8 @@ def run(params):
 
     if params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)
+    elif params.batch.engine == "slurm":
+        batchjobs = batchjob.Slurm()
     elif params.batch.engine == "sh":
         batchjobs = batchjob.ExecLocal(max_parallel=params.batch.sh_max_jobs)
     else:
@@ -642,6 +650,29 @@ def run(params):
         print(file=out)
 
         try: html_report.add_clutering_result(clusters, "cc_clustering")
+        except: print(traceback.format_exc(), file=out)
+        
+    elif params.clustering == "cumulative":
+        # maybe later make a directory to write a file for expected completeness etc
+        clusters = []
+        for i in itertools.count(start=1):
+            n = params.cumulative.batch_size * i
+            if n > len(xds_ascii_files): break
+            clusters.append([i, list(range(1, n+1))])
+
+        if clusters:
+            print("With specified conditions, following %d clusters will be merged:" % len(clusters), file=out)
+        else:
+            print("\nERROR: No clusters satisfied the specified conditions for merging!", file=out)
+
+        for clno, IDs in clusters: # process largest first
+            print(" Cluster_%.4d NumDS= %4d" % (clno, len(IDs)), file=out)
+            data_for_merge.append((os.path.join(params.workdir, "cluster_%.4d"%clno),
+                                   [xds_ascii_files[x-1] for x in IDs],
+                                   float("nan"),float("nan"),float("nan")))
+        print(file=out)
+
+        try: html_report.add_clutering_result(clusters, "cumulative")
         except: print(traceback.format_exc(), file=out)
         
     else:

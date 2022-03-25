@@ -331,9 +331,11 @@ created on %(cdate)s
     # add_files()
 
     def add_clutering_result(self, clusters, method):
-        assert method in ("cc_clustering", "blend")
+        assert method in ("cc_clustering", "blend", "cumulative")
 
-        if method == "cc_clustering":
+        if method == "cumulative":
+            return
+        elif method == "cc_clustering":
             clsdat = os.path.join(self.root, "cc_clustering", "cc_cluster_summary.dat")
         else:
             clsdat = os.path.join(self.root, "blend", "blend_cluster_summary.dat")
