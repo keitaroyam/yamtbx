@@ -4,13 +4,15 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import shutil
 import traceback
 import subprocess
 import sys
 import re
-import cPickle as pickle
+import pickle
 import numpy
 import glob
 import time
@@ -165,7 +167,7 @@ def sfx_xds_inp(img_in, xdsinp, params):
     os.symlink(img_in, os.path.join(os.path.dirname(xdsinp), "data_10000.cbf"))
 
     header = cbf.get_pilatus_header(img_in)
-    sensor = filter(lambda x: "Wavelength" in x, header.splitlines())[0]
+    sensor = [x for x in header.splitlines() if "Wavelength" in x][0]
     wavelength, unit = sensor[sensor.index("Wavelength ")+len("Wavelength "):].split()
     assert unit == "A"
 
@@ -174,7 +176,7 @@ def sfx_xds_inp(img_in, xdsinp, params):
     if orgy is None: orgy = 0
 
     if params.rotation_axis is not None:
-        rotation_axis = " ".join(map(lambda x: "%.2f"%x, params.rotation_axis))
+        rotation_axis = " ".join(["%.2f"%x for x in params.rotation_axis])
     else:
         rotation_axis = "1 0 0"
 
@@ -236,7 +238,7 @@ POLARIZATION_PLANE_NORMAL=0 1 0
 # sfx_xds_inp()
 
 def remove_heavy_unuseful_files(wdir, keep_files=[]):
-    files = filter(lambda x: "data_" not in os.path.basename(x), glob.glob(os.path.join(wdir, "*.cbf")))
+    files = [x for x in glob.glob(os.path.join(wdir, "*.cbf")) if "data_" not in os.path.basename(x)]
     files += glob.glob(os.path.join(wdir, "INTEGRATE.HKL"))
 
     for f in files:
@@ -267,7 +269,7 @@ def check_cell(params, xs):
 def xds_sequence(img_in, topdir, data_root_dir, params):
     relpath = os.path.relpath(os.path.dirname(img_in), data_root_dir)
     workdir = os.path.abspath(os.path.join(topdir, relpath, os.path.splitext(os.path.basename(img_in))[0]))
-    print workdir
+    print(workdir)
     frame_num = None
 
     if not os.path.exists(img_in):
@@ -275,7 +277,7 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
             img_in, num = img_in.split("<>")
             frame_num = int(num)
             if not os.path.exists(img_in):
-                print "Error: Not found!!", img_in
+                print("Error: Not found!!", img_in)
                 return
             workdir += "_%.6d" % frame_num
             assert img_in.endswith(".h5")
@@ -298,10 +300,10 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
     decilog = open(os.path.join(tmpdir, "decision.log"), "w")
 
     try:
-        print >>decilog, "Paramters:"
+        print("Paramters:", file=decilog)
         libtbx.phil.parse(master_params_str).format(params).show(out=decilog, prefix=" ")
 
-        print >>decilog, "\nStarting at %s" % time.strftime("%Y-%m-%d %H:%M:%S")
+        print("\nStarting at %s" % time.strftime("%Y-%m-%d %H:%M:%S"), file=decilog)
 
         # Prepare XDS.INP
         if params.sfx.cheetah_mpccd:
@@ -341,8 +343,8 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
                                           ("INDEX_ERROR", "%.4f"%params.index_error),
                                           ("INDEX_MAGNITUDE", "%d"%params.index_magnitude),
                                           ("INDEX_QUALITY", "%.2f"%params.index_quality),
-                                          ("REFINE(IDXREF)", " ".join(map(lambda s: s.upper(), params.refine_idxref))),
-                                          ("REFINE(INTEGRATE)", " ".join(map(lambda s: s.upper(), params.refine_integrate))),
+                                          ("REFINE(IDXREF)", " ".join([s.upper() for s in params.refine_idxref])),
+                                          ("REFINE(INTEGRATE)", " ".join([s.upper() for s in params.refine_integrate])),
                                           ("INCLUDE_RESOLUTION_RANGE", "%.2f %.2f" % (params.d_max, params.idxref_d_min)),
                                           ("VALUE_RANGE_FOR_TRUSTED_DETECTOR_PIXELS", "%.1f %.1f" % tuple(params.value_range_for_trusted_detector_pixels)),
                                           ("INCIDENT_BEAM_DIRECTION", "%.6f %.6f %.6f" % tuple(params.incident_beam_direction))
@@ -369,10 +371,10 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
                     if reidx_op is None: flag_try_cell_hint = True
 
                 if flag_try_cell_hint:
-                    print >>decilog, " Worth trying to use prior cell for indexing."
+                    print(" Worth trying to use prior cell for indexing.", file=decilog)
                     modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
                                                       ("UNIT_CELL_CONSTANTS",
-                                                       " ".join(map(lambda x: "%.3f"%x, params.cell))),
+                                                       " ".join(["%.3f"%x for x in params.cell])),
                                                       ("SPACE_GROUP_NUMBER", "%d"%params.sgnum),
                                                       ])
                     run_xds(wdir=tmpdir, show_progress=False)
@@ -389,11 +391,11 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
                 raise ProcFailed("Incompatible cell. Indexing failed.")
 
             if not reidx_op.is_identity_op():
-                print >>decilog, "Re-idxref to match reference symmetry."
+                print("Re-idxref to match reference symmetry.", file=decilog)
                 xsxds_cb = xsxds.change_basis(reidx_op) # Really OK??
                 modify_xdsinp(xdsinp, inp_params=[("JOB", "IDXREF"),
                                                   ("SPACE_GROUP_NUMBER", "%d"%params.sgnum),
-                                                  ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x: "%.3f"%x, xsxds_cb.unit_cell().parameters())))
+                                                  ("UNIT_CELL_CONSTANTS", " ".join(["%.3f"%x for x in xsxds_cb.unit_cell().parameters()]))
                                                   ])
                 run_xds(wdir=tmpdir, show_progress=False)
 
@@ -415,7 +417,7 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
         # Determine unit cell in CORRECT
         if params.refine_correct:
             tmp = [("REFINE(CORRECT)", "ALL"),
-                   ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x: "%.3f"%x, params.cell)))]
+                   ("UNIT_CELL_CONSTANTS", " ".join(["%.3f"%x for x in params.cell]))]
         else:
             # XXX What if CELL is refined in INTEGRATE?
             xsxds = XPARM(xparm).crystal_symmetry()
@@ -425,7 +427,7 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
 
             xsxds_cb = xsxds.change_basis(reidx_op) # Really OK??
             tmp = [("REFINE(CORRECT)", ""),
-                   ("UNIT_CELL_CONSTANTS", " ".join(map(lambda x: "%.3f"%x, xsxds_cb.unit_cell().parameters())))]
+                   ("UNIT_CELL_CONSTANTS", " ".join(["%.3f"%x for x in xsxds_cb.unit_cell().parameters()]))]
 
         # PEAK-corrected INTEGRATE.HKL
         ihk = os.path.join(tmpdir, "INTEGRATE.HKL")
@@ -464,25 +466,25 @@ def xds_sequence(img_in, topdir, data_root_dir, params):
         os.remove(ihk)
 
         if params.pickle_hkl:
-            for f in filter(lambda x: os.path.isfile(x), (xac_part, xac_full)):
-                print >>decilog, "Pickling %s" % os.path.basename(f)
+            for f in [x for x in (xac_part, xac_full) if os.path.isfile(x)]:
+                print("Pickling %s" % os.path.basename(f), file=decilog)
                 x = xds_ascii.XDS_ASCII(f, log_out=decilog)
                 if params.light_pickle: x.xd, x.yd, x.zd, x.rlp, x.corr = None, None, None, None, None # To make reading faster
-                pickle.dump(x, open(f+".pkl", "w"), -1)
+                pickle.dump(x, open(f+".pkl", "wb"), -1)
         if params.pickle_hkl:
-            for f in filter(lambda x: os.path.isfile(x), (ihk_part, ihk_full)):
-                print >>decilog, "Pickling %s" % os.path.basename(f)
+            for f in [x for x in (ihk_part, ihk_full) if os.path.isfile(x)]:
+                print("Pickling %s" % os.path.basename(f), file=decilog)
                 inhkl = integrate_hkl_as_flex.reader(f, read_columns=["IOBS","SIGMA","XCAL","YCAL","RLP","PEAK","MAXC"])
-                pickle.dump(inhkl, open(f+".pkl", "w"), -1)
+                pickle.dump(inhkl, open(f+".pkl", "wb"), -1)
 
-    except ProcFailed, e:
-        print >>decilog, "Processing failed: %s" % e.message
+    except ProcFailed as e:
+        print("Processing failed: %s" % str(e), file=decilog)
     except:
-        print >>decilog, "Uncaught exception:"
-        print >>decilog, traceback.format_exc()
+        print("Uncaught exception:", file=decilog)
+        print(traceback.format_exc(), file=decilog)
     finally:
         if params.remove_heavy_unuseful_files: remove_heavy_unuseful_files(tmpdir, keep_files=params.keep_file)
-        print >>decilog, "\nFinished at %s" % time.strftime("%Y-%m-%d %H:%M:%S")
+        print("\nFinished at %s" % time.strftime("%Y-%m-%d %H:%M:%S"), file=decilog)
         decilog.close()
         if tmpdir != workdir: shutil.move(tmpdir, workdir)
 
@@ -499,8 +501,7 @@ def get_file_list(lstin):
 
 def run(params):
     input_files = get_file_list(params.lstin)
-    top_dirs = map(lambda i: os.path.join(params.topdir, "split_%.4d" % (i//params.split_num+1)),
-                   xrange(len(input_files)))
+    top_dirs = [os.path.join(params.topdir, "split_%.4d" % (i//params.split_num+1)) for i in range(len(input_files))]
 
     data_root_dir = os.path.dirname(os.path.commonprefix(input_files))
 
@@ -509,7 +510,7 @@ def run(params):
     #for arg in input_files: fun_local(arg)
 
     easy_mp.pool_map(fixed_func=fun_local,
-                     args=zip(input_files, top_dirs),
+                     args=list(zip(input_files, top_dirs)),
                      processes=params.nproc)
 # run()
 

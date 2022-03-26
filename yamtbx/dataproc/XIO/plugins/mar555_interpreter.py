@@ -1,3 +1,5 @@
+from __future__ import division
+from __future__ import unicode_literals
 
 __version__ = "0.2.1"
 __author__ = "Pierre Legrand (pierre.legrand@synchrotron-soleil.fr)"
@@ -133,7 +135,7 @@ asciiHeaderStructure = {
 'histend':('HISTOGRAM', lambda x: int(x[x.index('END')+1])),
 }
 
-class Interpreter:
+class Interpreter(object):
 
     HTD = {
     # The mar345 Header Translator Dictionary.
@@ -191,7 +193,7 @@ class Interpreter:
         
         _dic = {}
         _lis = rawHead[192:].split("END OF HEADER")[0].split("\n")[:-1]
-        for a in [a for a in map(lambda x: x.split(), _lis) if a]:
+        for a in [a for a in [x.split() for x in _lis] if a]:
             if a[0] not in _dic: _dic.update({a[0]:a[1:]})
             else: _dic[a[0]].extend(a[1:])
         

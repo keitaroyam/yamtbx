@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 from cctbx.array_family import flex
 from libtbx import easy_mp
@@ -52,8 +55,8 @@ def run(lstin, params):
 
     # Prep 
     args = []
-    for i in xrange(len(arrays)-1):
-        for j in xrange(i+1, len(arrays)):
+    for i in range(len(arrays)-1):
+        for j in range(i+1, len(arrays)):
             args.append((i,j))
            
     # Calc all CC
@@ -65,11 +68,11 @@ def run(lstin, params):
     # Make matrix
     mat = numpy.zeros(shape=(len(arrays), len(arrays)))
     for (i,j), (cc,nref) in zip(args, results):
-        print j,i,cc
+        print(j,i,cc)
         mat[j,i] = cc
     
-    open("%s.names"%params.prefix, "w").write("\n".join(map(lambda x: os.path.dirname(x[common0:]), xac_files)))
-    open("%s.matrix"%params.prefix, "w").write(" ".join(map(lambda x:"%.4f"%x, mat.flatten())))
+    open("%s.names"%params.prefix, "w").write("\n".join([os.path.dirname(x[common0:]) for x in xac_files]))
+    open("%s.matrix"%params.prefix, "w").write(" ".join(["%.4f"%x for x in mat.flatten()]))
 
     ofs = open("%s.dat"%params.prefix, "w")
     ofs.write("i j cc nref\n")
@@ -120,7 +123,7 @@ for (i in 1:length(groups))
 
 q(save="yes")
 """ % (params.prefix, len(arrays),  params.prefix, lstin))
-    print "R --vanilla < %s_ana.R" % params.prefix
+    print("R --vanilla < %s_ana.R" % params.prefix)
     
 
 # run()

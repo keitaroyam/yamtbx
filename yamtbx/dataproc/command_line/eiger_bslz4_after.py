@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import h5py
 from yamtbx.dataproc import eiger
 import numpy
@@ -27,12 +29,12 @@ def run_safe(infile, check_data=True):
     h5in = h5py.File(infile, "r")
 
     if not "/entry/data/data" in h5in:
-        print "Error: /entry/data/data not found in %s" % infile
-        print "Please give data h5 file(s)."
+        print("Error: /entry/data/data not found in %s" % infile)
+        print("Please give data h5 file(s).")
         return
 
     if is_bslz4_applied(h5in, "/entry/data/data"):
-        print "SKIPPING. Already bslz4'd: %s" % infile
+        print("SKIPPING. Already bslz4'd: %s" % infile)
         return
 
     tmpfd, outfile = tempfile.mkstemp(prefix=os.path.basename(infile), dir="/dev/shm")
@@ -56,16 +58,16 @@ def run_safe(infile, check_data=True):
         h5in = h5py.File(infile, "r")
         h5out = h5py.File(outfile, "r")
         if (h5in["/entry/data/data"][:] == h5out["/entry/data/data"][:]).all():
-            print "OK. overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.)
+            print("OK. overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.))
             shutil.move(outfile, infile)
         else:
-            print "Error! data not match: %s # %.3f sec" % (infile, eltime)
+            print("Error! data not match: %s # %.3f sec" % (infile, eltime))
     else:
-        print "Overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.)
+        print("Overwriting with compressed file: %s # %.3f sec %.2f MB -> %.2f MB (%.1f %%)" % (infile, eltime, size1, size2, size2/size1*100.))
         shutil.move(outfile, infile)
 
     if os.path.isfile(outfile):
-        print " temporary file removed: %s" % outfile
+        print(" temporary file removed: %s" % outfile)
         os.remove(outfile)
     
 # run()
@@ -75,8 +77,8 @@ def run_from_args(argv):
         try:
             run_safe(f)
         except:
-            print "Exception with %s" % f
-            print traceback.format_exc()
+            print("Exception with %s" % f)
+            print(traceback.format_exc())
 
 
 if __name__ == "__main__":

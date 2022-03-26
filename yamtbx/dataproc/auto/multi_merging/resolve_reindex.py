@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
 from yamtbx.util.xtal import format_unit_cell
 from cctbx import crystal
@@ -58,7 +61,7 @@ class ReindexResolver:
                 xac =  XDS_ASCII(f, read_data=False)
                 cells.append(xac.symm.unit_cell().parameters())
                 sgs.append(xac.symm.space_group().build_derived_reflection_intensity_group(True))
-            print set(map(lambda x: str(x.info()), sgs))
+            print(set(map(lambda x: str(x.info()), sgs)))
             assert len(set(sgs)) < 2
             avg_symm = crystal.symmetry(list(numpy.median(cells, axis=0)), space_group=sgs[0])
             op_to_p1 = avg_symm.change_of_basis_op_to_niggli_cell()
@@ -66,11 +69,11 @@ class ReindexResolver:
             self.log_out.write("  Operator to Niggli cell: %s\n" % op_to_p1.as_hkl())
             self.log_out.write("        Niggli cell: %s\n" % format_unit_cell(avg_symm.unit_cell().change_basis(op_to_p1)))
 
-        print >>self.log_out, "\nReading"
+        print("\nReading", file=self.log_out)
         cells = []
         bad_files, good_files = [], []
         for i, f in enumerate(self.xac_files):
-            print >>self.log_out, "%4d %s" % (i, f)
+            print("%4d %s" % (i, f), file=self.log_out)
             xac = XDS_ASCII(f, i_only=True)
             self.log_out.write("     d_range: %6.2f - %5.2f" % xac.i_obs().resolution_range())
             self.log_out.write(" n_ref=%6d" % xac.i_obs().size())
@@ -96,7 +99,7 @@ class ReindexResolver:
 
         assert len(self.xac_files) == len(self.arrays) == len(cells)
             
-        print >>self.log_out, ""
+        print("", file=self.log_out)
 
         self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
                                                    space_group_info=self.arrays[0].space_group_info())
@@ -129,13 +132,13 @@ class ReindexResolver:
             self.log_out.write("  Operator to Niggli cell: %s\n" % op_to_p1.as_hkl())
             self.log_out.write("        Niggli cell: %s\n" % format_unit_cell(avg_symm.unit_cell().change_basis(op_to_p1)))
 
-        print >>self.log_out, "\nReading"
+        self.log_out.write("\nReading\n")
         cells = []
         bad_files, good_files = [], []
         self.stream_valid_idxes = []
         idx = 0
         for i, f in enumerate(self.stream_files):
-            print >>self.log_out, "%4d %s" % (i, f)
+            self.log_out.write("%4d %s\n" % (i, f))
             for j, chunk in enumerate(stream_iterator(f)):
                 self.log_out.write(" %4d %s %s\n" % (j, chunk.filename, chunk.event))
                 if space_group is None:
@@ -170,7 +173,7 @@ class ReindexResolver:
 
         #assert len(self.xac_files) == len(self.arrays) == len(cells)
             
-        print >>self.log_out, ""
+        self.log_out.write("\n")
 
         self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
                                                    space_group_info=self.arrays[0].space_group_info())
@@ -183,7 +186,7 @@ class ReindexResolver:
             return
 
         unique_ops = set(self.best_operators)
-        op_count = map(lambda x: (x, self.best_operators.count(x)), unique_ops)
+        op_count = [(x, self.best_operators.count(x)) for x in unique_ops]
         op_count.sort(key=lambda x: x[1])
         log_out.write("Assigned operators:\n")
         for op, num in reversed(op_count):
@@ -203,7 +206,7 @@ class ReindexResolver:
         if cells_dat_out: cells_dat_out.write("file a b c al be ga\n")
 
         new_files = []
-        print >>self.log_out, "Writing reindexed files.."
+        print("Writing reindexed files..", file=self.log_out)
         assert len(self.xac_files) == len(self.best_operators)
         for i, (f, op) in enumerate(zip(self.xac_files, self.best_operators)):
             xac = XDS_ASCII(f, read_data=False)
@@ -211,19 +214,19 @@ class ReindexResolver:
                 new_files.append(f)
                 if cells_dat_out:
                     cell = xac.symm.unit_cell().parameters()
-                    cells_dat_out.write(f+" "+" ".join(map(lambda x:"%7.3f"%x, cell))+"\n")
+                    cells_dat_out.write(f+" "+" ".join(["%7.3f"%x for x in cell])+"\n")
 
                 continue
 
             newf = f.replace(".HKL", suffix+".HKL") if ".HKL" in f else os.path.splitext(f)[0]+suffix+".HKL"
-            print >>self.log_out, "%4d %s" % (i, newf)
+            print("%4d %s" % (i, newf), file=self.log_out)
 
             cell_tr = xac.write_reindexed(op, newf, space_group=self.arrays[0].crystal_symmetry().space_group())
             #ofs_lst.write(newf+"\n")
             new_files.append(newf)
 
             if cells_dat_out:
-                cells_dat_out.write(newf+" "+" ".join(map(lambda x:"%7.3f"%x, cell_tr.parameters()))+"\n")
+                cells_dat_out.write(newf+" "+" ".join(["%7.3f"%x for x in cell_tr.parameters()])+"\n")
 
         return new_files
     # modify_xds_ascii_files()
@@ -231,7 +234,7 @@ class ReindexResolver:
     def modify_stream_files(self, output):
         from yamtbx.dataproc.crystfel.stream import stream_iterator, stream_header
 
-        print >>self.log_out, "Writing reindexed stream.."
+        self.log_out.write("Writing reindexed stream..\n")
         assert len(self.stream_valid_idxes) == len(self.best_operators)
         ofs = open(output, "w")
         ofs.write(stream_header())
@@ -241,11 +244,11 @@ class ReindexResolver:
             for chunk in stream_iterator(f):
                 if idx in self.stream_valid_idxes:
                     op = best_ops.pop(0)
-                    print " %4d %s %s %s" % (idx, chunk.filename, chunk.event, op.as_hkl())
+                    print(" %4d %s %s %s" % (idx, chunk.filename, chunk.event, op.as_hkl()))
                     chunk.change_basis(op)
                     ofs.write(chunk.make_lines())
                 else:
-                    print " %4d %s %s skipped" % (idx, chunk.filename, chunk.event)
+                    print(" %4d %s %s skipped" % (idx, chunk.filename, chunk.event))
                 idx += 1
 
         assert not best_ops
@@ -319,9 +322,9 @@ class KabschSelectiveBreeding(ReindexResolver):
 
         if reidx_ops is None: reidx_ops = self.find_reindex_ops()
 
-        print >>self.log_out, "Reindex operators:"
-        for i, op in enumerate(reidx_ops): print >>self.log_out, " %2d: %s" % (i, op.as_hkl())
-        print >>self.log_out, ""
+        print("Reindex operators:", file=self.log_out)
+        for i, op in enumerate(reidx_ops): print(" %2d: %s" % (i, op.as_hkl()), file=self.log_out)
+        print("", file=self.log_out)
 
         reidx_ops.sort(key=lambda x: not x.is_identity_op()) # identity op to first
         self._reidx_ops = reidx_ops
@@ -330,23 +333,23 @@ class KabschSelectiveBreeding(ReindexResolver):
             # consumes much memory.. (but no much benefits)
             reindexed_arrays = [arrays]
             for op in reidx_ops[1:]:
-                reindexed_arrays.append(map(lambda x: x.customized_copy(indices=op.apply(x.indices())).map_to_asu(), arrays))
+                reindexed_arrays.append([x.customized_copy(indices=op.apply(x.indices())).map_to_asu() for x in arrays])
         else:
             reindexed_arrays = None
 
-        old_ops = map(lambda x:0, xrange(len(arrays)))
-        new_ops = map(lambda x:0, xrange(len(arrays)))
+        old_ops = [0 for x in range(len(arrays))]
+        new_ops = [0 for x in range(len(arrays))]
 
         global kabsch_selective_breeding_worker_dict
         kabsch_selective_breeding_worker_dict = dict(nproc=self.nproc, arrays=arrays,
                                                      reindexed_arrays=reindexed_arrays,
                                                      reidx_ops=reidx_ops) # constants during cycles
         pool = multiprocessing.Pool(self.nproc)
-        for ncycle in xrange(max_cycle):
+        for ncycle in range(max_cycle):
             #new_ops = copy.copy(old_ops) # doesn't matter
             self._final_cc_means = []
 
-            for i in xrange(len(arrays)):
+            for i in range(len(arrays)):
                 cc_means = []
                 a = arrays[i]
                 #ttt=time.time()
@@ -379,7 +382,7 @@ class KabschSelectiveBreeding(ReindexResolver):
                     """
                     cc_list = pool.map(kabsch_selective_breeding_worker,
                                        ((k, i, tmp, new_ops) for k in range(len(arrays))))
-                    cc_list = filter(lambda x: x is not None, cc_list)
+                    cc_list = [x for x in cc_list if x is not None]
 
                     if len(cc_list) > 0:
                         cc_means.append((j, sum(cc_list)/len(cc_list)))
@@ -387,28 +390,28 @@ class KabschSelectiveBreeding(ReindexResolver):
 
                 if cc_means:
                     max_el = max(cc_means, key=lambda x:x[1])
-                    print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_means)))
+                    print("%3d %s" % (i, " ".join(["%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]) for x in cc_means])), file=self.log_out)
                     self._final_cc_means.append(cc_means)
                     #print "%.3f sec" % (time.time()-ttt)
                     new_ops[i] = max_el[0]
                 else:
-                    print >>self.log_out, "%3d %s Error! cannot calculate CC" % (i, " ".join(map(lambda x: " %d:    nan" % x, xrange(len(reidx_ops)))))
+                    print("%3d %s Error! cannot calculate CC" % (i, " ".join([" %d:    nan" % x for x in range(len(reidx_ops))])), file=self.log_out)
                     # XXX append something to self._final_cc_means?
 
-            print >>self.log_out, "In %4d cycle" % (ncycle+1)
-            print >>self.log_out, "  old",old_ops
-            print >>self.log_out, "  new",new_ops
-            print >>self.log_out, "  number of different assignments:", len(filter(lambda x:x[0]!=x[1], zip(old_ops,new_ops)))
-            print >>self.log_out, ""
+            print("In %4d cycle" % (ncycle+1), file=self.log_out)
+            print("  old",old_ops, file=self.log_out)
+            print("  new",new_ops, file=self.log_out)
+            print("  number of different assignments:", len([x for x in zip(old_ops,new_ops) if x[0]!=x[1]]), file=self.log_out)
+            print("", file=self.log_out)
             if old_ops==new_ops:
-                self.best_operators = map(lambda x: reidx_ops[x], new_ops)
-                print >>self.log_out, "Selective breeding is finished in %d cycles" % (ncycle+1)
+                self.best_operators = [reidx_ops[x] for x in new_ops]
+                print("Selective breeding is finished in %d cycles" % (ncycle+1), file=self.log_out)
                 return
 
             old_ops = copy.copy(new_ops)
 
-        print >>self.log_out, "WARNING:: Selective breeding is not finished. max cycles reached."
-        self.best_operators = map(lambda x: reidx_ops[x], new_ops) # better than nothing..
+        print("WARNING:: Selective breeding is not finished. max cycles reached.", file=self.log_out)
+        self.best_operators = [reidx_ops[x] for x in new_ops] # better than nothing..
     # assign_operators()
 # class KabschSelectiveBreeding
 
@@ -431,12 +434,12 @@ class ReferenceBased(ReindexResolver):
 
         if reidx_ops is None: reidx_ops = self.find_reindex_ops()
 
-        print >>self.log_out, "Reindex operators:", map(lambda x: str(x.as_hkl()), reidx_ops)
-        print >>self.log_out, ""
+        print("Reindex operators:", [str(x.as_hkl()) for x in reidx_ops], file=self.log_out)
+        print("", file=self.log_out)
 
         reidx_ops.sort(key=lambda x: not x.is_identity_op()) # identity op to first
 
-        new_ops = map(lambda x:0, xrange(len(arrays)))
+        new_ops = [0 for x in range(len(arrays))]
 
         for i, a in enumerate(arrays):
             cc_list = []
@@ -450,17 +453,17 @@ class ReferenceBased(ReindexResolver):
                 if cc==cc: cc_list.append((j,cc))
 
             if len(cc_list) == 0:
-                print >>self.log_out, "%3d failed" % i
+                self.log_out.write("%3d failed\n" % i)
             else:
                 max_el = max(cc_list, key=lambda x:x[1])
-                print >>self.log_out, "%3d %s" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_list)))
+                self.log_out.write("%3d %s\n" % (i, " ".join(map(lambda x: "%s%d:% .4f" % ("*" if x[0]==max_el[0] else " ", x[0], x[1]), cc_list))))
                 new_ops[i] = max_el[0]
 
-        print >>self.log_out, "  operator:", new_ops
-        print >>self.log_out, "  number of different assignments:", len(filter(lambda x:x!=0, new_ops))
-        print >>self.log_out, ""
+        print("  operator:", new_ops, file=self.log_out)
+        print("  number of different assignments:", len([x for x in new_ops if x!=0]), file=self.log_out)
+        print("", file=self.log_out)
 
-        self.best_operators = map(lambda x: reidx_ops[x], new_ops)
+        self.best_operators = [reidx_ops[x] for x in new_ops]
     # assign_operators()
 # class ReferenceBased
 
@@ -479,8 +482,8 @@ class BrehmDiederichs(ReindexResolver):
 
         if reidx_ops is None: reidx_ops = self.find_reindex_ops()
 
-        print >>self.log_out, "Reindex operators:", map(lambda x: str(x.as_hkl()), reidx_ops)
-        print >>self.log_out, ""
+        print("Reindex operators:", [str(x.as_hkl()) for x in reidx_ops], file=self.log_out)
+        print("", file=self.log_out)
 
         reidx_ops.sort(key=lambda x: not x.is_identity_op()) # identity op to first
 
@@ -496,10 +499,10 @@ class BrehmDiederichs(ReindexResolver):
         latt_id = data.customized_copy(data=latt_id.as_double())
         result = brehm_diederichs.run(L=[data, latt_id], nproc=self.nproc, verbose=True)
 
-        self.best_operators = map(lambda x: None, xrange(len(arrays)))
+        self.best_operators = [None for x in range(len(arrays))]
         for op in result:
-            idxes = map(int, result[op])
-            print >>self.log_out, " %s num=%3d idxes= %s" %(op, len(result[op]), idxes)
+            idxes = list(map(int, result[op]))
+            print(" %s num=%3d idxes= %s" %(op, len(result[op]), idxes), file=self.log_out)
             for idx in idxes:
                 self.best_operators[idx] = sgtbx.change_of_basis_op(op)
     # assign_operators()
@@ -509,7 +512,7 @@ class BrehmDiederichs(ReindexResolver):
 if __name__ == "__main__":
     import sys
     lst = sys.argv[1]
-    xac_files = map(lambda x:x.strip(), open(lst))
+    xac_files = [x.strip() for x in open(lst)]
 
     ksb = KabschSelectiveBreeding(xac_files, log_out=sys.stdout)
 
@@ -518,15 +521,15 @@ if __name__ == "__main__":
         from cctbx import sgtbx
         import random
         debug_op = sgtbx.change_of_basis_op("k,h,l")
-        idxes = range(len(ksb.arrays))
+        idxes = list(range(len(ksb.arrays)))
         random.shuffle(idxes)
         for i in idxes[:len(ksb.arrays)//2]:
             ksb.arrays[i] = ksb.arrays[i].customized_copy(indices=debug_op.apply(ksb.arrays[i].indices()))
 
-        print "altered:", idxes
+        print("altered:", idxes)
 
     ksb.assign_operators([debug_op, sgtbx.change_of_basis_op("h,k,l")])
-    print "right?:", [i for i, x in enumerate(ksb.best_operators) if not x.is_identity_op()]
+    print("right?:", [i for i, x in enumerate(ksb.best_operators) if not x.is_identity_op()])
     #ksb.debug_write_mtz()
     #ksb.modify_xds_ascii_files()
 
@@ -534,7 +537,7 @@ if __name__ == "__main__":
 
     arrays = []
     for f in xac_files:
-        print "Reading", f
+        print("Reading", f)
         xac = XDS_ASCII(f, i_only=True)
         xac.remove_rejected()
         a = xac.i_obs().resolution_filter(d_min=3)
@@ -545,14 +548,14 @@ if __name__ == "__main__":
     cosets = reindex.reindexing_operators(symm, symm)
     reidx_ops = cosets.combined_cb_ops()
     reidx_ops.sort(key=lambda x: not x.is_identity_op())
-    print " Possible reindex operators:", map(lambda x: str(x.as_hkl()), reidx_ops)
+    print(" Possible reindex operators:", [str(x.as_hkl()) for x in reidx_ops])
 
     determined = set([0,])
-    old_ops = map(lambda x:0, xrange(len(arrays)))
+    old_ops = [0 for x in range(len(arrays))]
 
-    for ncycle in xrange(100):  # max cycle
-        new_ops = map(lambda x:0, xrange(len(arrays)))
-        for i in xrange(len(arrays)):
+    for ncycle in range(100):  # max cycle
+        new_ops = [0 for x in range(len(arrays))]
+        for i in range(len(arrays)):
             cc_list = []
             a = arrays[i]
             for j, op in enumerate(reidx_ops):
@@ -567,16 +570,16 @@ if __name__ == "__main__":
                         cc_list.append((j,cc))
             if len(cc_list) == 0: continue
             max_el = max(cc_list, key=lambda x:x[1])
-            print i, max_el, sum(map(lambda x:x[1], cc_list))/len(cc_list)
+            print(i, max_el, sum(map(lambda x:x[1], cc_list))/len(cc_list))
             new_ops[i] = max_el[0]
             #arrays[i] = a.customized_copy(indices=reidx_ops[max_el[0]].apply(a.indices())).map_to_asu()
             determined.add(i)
 
-        print "In %4d cycle" % ncycle
-        print "old",old_ops
-        print "new",new_ops
-        print "eq?", old_ops==new_ops
-        print 
+        print("In %4d cycle" % ncycle)
+        print("old",old_ops)
+        print("new",new_ops)
+        print("eq?", old_ops==new_ops)
+        print() 
         if old_ops==new_ops: break
         old_ops = new_ops
 

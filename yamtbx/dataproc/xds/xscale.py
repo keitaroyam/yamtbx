@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import shutil
 import glob
@@ -76,8 +78,8 @@ def estimate_xscale_size_require(xscale_inp):
 
     inp_files, _ = get_input_file_paths(xscale_inp)
     num_inp_files = len(inp_files)
-    inp_files = filter(lambda x: os.path.isfile(x), inp_files)
-    inp_sum_bytes = sum(map(lambda x: os.path.getsize(x), inp_files))
+    inp_files = [x for x in inp_files if os.path.isfile(x)]
+    inp_sum_bytes = sum([os.path.getsize(x) for x in inp_files])
 
     lp_bytes = lambda x: 35.97*x**2 + 2229.31*x + 79177.65 # empirical
     
@@ -98,9 +100,9 @@ def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if
     if use_tmpdir_if_available:
         tmpdir = util.get_temp_local_dir("xscale",
                                          min_bytes=estimate_xscale_size_require(xscale_inp)*1.1) # 10% safety factor
-        print "tmpdir for xscale run:", tmpdir
+        print("tmpdir for xscale run:", tmpdir)
         if tmpdir is None:
-            print "Can't get temp dir with sufficient size."
+            print("Can't get temp dir with sufficient size.")
 
     if tmpdir is not None:
         shutil.copy2(xscale_inp, tmpdir)
@@ -123,7 +125,7 @@ def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if
             assert not os.path.isfile(os.path.join(wdir, lnkf))
             filename_abs = os.path.normpath(os.path.join(inpdir, filename)) if not os.path.isabs(filename) else filename
             os.symlink(filename_abs, os.path.join(wdir, lnkf))
-            print "xscale: %s -> %s" % (lnkf, filename)
+            print("xscale: %s -> %s" % (lnkf, filename))
             count += 1
             ftable[lnkf] = filename
             l = l.replace(filename, lnkf)
@@ -175,7 +177,8 @@ def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if
         cbfouts = glob.glob(os.path.join(wdir, "*.cbf"))
         if len(cbfouts) > 0:
             xscalelp.cbf_to_dat(xscale_lp)
-            for f in cbfouts: os.remove(f)
+            for f in cbfouts:
+                os.remove(f)
 
     if aniso_analysis:
         aniso_out = open(os.path.join(wdir, "aniso.log"), "w")
@@ -197,7 +200,7 @@ def run_xscale(xscale_inp, cbf_to_dat=False, aniso_analysis=False, use_tmpdir_if
 # run_xscale()
 
 def _calc_cchalf_by_removing_worker_1(wdir, inp_head, inpfiles, iex, nproc=None):
-    print "Doing", iex
+    print("Doing", iex)
 
     tmpdir = os.path.join(wdir, "work.%.3d"%iex)
     if not os.path.exists(tmpdir): os.mkdir(tmpdir)
@@ -254,8 +257,7 @@ def calc_cchalf_by_removing(wdir, inp_head, inpfiles, with_sigma=False, stat_bin
     cchalf_list = [] # (i_ex, CC1/2, Nuniq)
 
     # Prep runs
-    tmpdirs = map(lambda x: _calc_cchalf_by_removing_worker_1(wdir, inp_head, inpfiles, x, nproc_each),
-                  xrange(len(inpfiles)))
+    tmpdirs = [_calc_cchalf_by_removing_worker_1(wdir, inp_head, inpfiles, x, nproc_each) for x in range(len(inpfiles))]
     # Run XSCALE 
     if batchjobs is not None:
         jobs = []
@@ -271,19 +273,19 @@ def calc_cchalf_by_removing(wdir, inp_head, inpfiles, with_sigma=False, stat_bin
                          args=tmpdirs,
                          processes=nproc)
     # Finish runs
-    cchalf_list = map(lambda x: _calc_cchalf_by_removing_worker_2(wdir, x[1], x[0], stat_bin), enumerate(tmpdirs))
+    cchalf_list = [_calc_cchalf_by_removing_worker_2(wdir, x[1], x[0], stat_bin) for x in enumerate(tmpdirs)]
 
     for iex, cchalf_exi, nuniq in cchalf_list:
         datout.write("%3d %s %.4f %d\n" % (iex, inpfiles[iex], cchalf_exi, nuniq))
 
     cchalf_list.sort(key=lambda x: -x[1])
-    print
-    print "# Sorted table"
+    print()
+    print("# Sorted table")
     for idx, cch, nuniq in cchalf_list:
-        print "%3d %-.4f %4d %s" % (idx, cch, nuniq, inpfiles[idx])
+        print("%3d %-.4f %4d %s" % (idx, cch, nuniq, inpfiles[idx]))
 
     # Remove unuseful (failed) data
-    cchalf_list = filter(lambda x: x[1]==x[1], cchalf_list)
+    cchalf_list = [x for x in cchalf_list if x[1]==x[1]]
 
     return cchalf_list
 # calc_delta_cchalf()
@@ -318,15 +320,14 @@ def calc_delta_cchalf(prev_lp, tmpdir, with_sigma=False, precalc_cchalf_all=None
     # Read inp and extract input files.
     # XXX What if reference file is included???
     orgkwds = xscalelp.read_control_cards(prev_lp)
-    inpfiles = map(lambda x:x[1],
-                   filter(lambda y: y[0]=="INPUT_FILE", orgkwds))
+    inpfiles = [x[1] for x in [y for y in orgkwds if y[0]=="INPUT_FILE"]]
                           
     # XXX Need to take care of xscale specific inp manner - order matters!!
 
     delta_cchalf = []
 
-    for iex in xrange(len(inpfiles)):
-        print "Doing", iex
+    for iex in range(len(inpfiles)):
+        print("Doing", iex)
         files = inpfiles[:iex] + inpfiles[iex+1:]
         ofs = open(newinp, "w")
         for k, v in orgkwds:
@@ -350,10 +351,10 @@ def calc_delta_cchalf(prev_lp, tmpdir, with_sigma=False, precalc_cchalf_all=None
         datout.write("%3d %s %.4f %.4f\n" % (iex, inpfiles[iex], cchalf_exi, cchalf_exi-cchalf_all))
 
     delta_cchalf.sort(key=lambda x: -x[1])
-    print
-    print "# Sorted table"
+    print()
+    print("# Sorted table")
     for idx, dch in delta_cchalf:
-        print "%3d %-.4f %s" % (idx, dch, inpfiles[idx])
+        print("%3d %-.4f %s" % (idx, dch, inpfiles[idx]))
 
     return delta_cchalf, cchalf_all
 # calc_delta_cchalf()
@@ -362,7 +363,7 @@ def decide_scaling_reference_based_on_bfactor(lpin, ref, return_as="index"):
     assert ref in ("bmed", "bmin", "bmax")
     assert return_as in ("index", "filename")
 
-    KBs = map(lambda x: [x[0]]+x[1], enumerate(xscalelp.get_k_b(lpin))) # list of [i, K, B, filename]
+    KBs = [[x[0]]+x[1] for x in enumerate(xscalelp.get_k_b(lpin))] # list of [i, K, B, filename]
     KBs.sort(key=lambda x: x[2])
 
     if len(KBs) == 0:

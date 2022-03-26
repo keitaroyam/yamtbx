@@ -1,5 +1,7 @@
 #!/usr/bin/env cctbx.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 from iotbx import crystal_symmetry_from_any
 from cctbx import uctbx
 from cctbx import sgtbx
@@ -24,6 +26,6 @@ if __name__ == "__main__":
         cell = uctbx.unit_cell(opts.cell)
 
     op = sgtbx.change_of_basis_op(args[1])
-    print "   Original cell:", cell
-    print "        Operator:", op
-    print "Transformed cell:", cell.change_basis(op)
+    print("   Original cell:", cell)
+    print("        Operator:", op)
+    print("Transformed cell:", cell.change_basis(op))

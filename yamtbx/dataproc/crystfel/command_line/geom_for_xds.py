@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc import crystfel
 import numpy
 
@@ -27,7 +29,7 @@ def geom_to_xdsinp_str(geom):
 
 def run(geom_in):
     geom = crystfel.geom.Geomfile(geom_in)
-    print geom_to_xdsinp_str(geom)
+    print(geom_to_xdsinp_str(geom))
 # run()
 
 if __name__ == "__main__":

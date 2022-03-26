@@ -2,6 +2,8 @@
 """
 This is simplified version of iotbx.reflection_file_editor.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, os, optparse
 import string
 import re
@@ -16,7 +18,7 @@ def get_original_array_types (mtz_file, original_labels) :
     array_types = ""
     mtz_columns = mtz_file.column_labels()
     mtz_types = mtz_file.column_types()
-    mtz_crossref = dict(zip(mtz_columns, mtz_types))
+    mtz_crossref = dict(list(zip(mtz_columns, mtz_types)))
     for label in original_labels :
         array_types += mtz_crossref[label]
     return array_types
@@ -37,7 +39,7 @@ def run(mtz, bs):
     # Open mtz
     mtz_file = iotbx.mtz.object(mtz)
     miller_arrays = mtz_file.as_miller_arrays()
-    print "Opening", mtz
+    print("Opening", mtz)
 
     for b in bs:
         mtz_out = os.path.splitext(os.path.basename(args[1]))[0] + "_b%.2f.mtz" % b
@@ -57,7 +59,7 @@ def run(mtz, bs):
 
             if ar.is_xray_data_array() or ar.is_complex_array():
                 fac = 2. if ar.is_xray_intensity_array() else 1.
-                print "Applying B=%.2f to %s" % (b*fac, ar.info())
+                print("Applying B=%.2f to %s" % (b*fac, ar.info()))
                 k = flex.exp(-ar.d_star_sq().data() * b*fac)
                 ar = ar.customized_copy(data=ar.data()*k, sigmas=ar.sigmas()*k if ar.sigmas() else None)
 
@@ -79,7 +81,7 @@ def run(mtz, bs):
 
                 try:
                     column.set_label(label)
-                except RuntimeError, e:
+                except RuntimeError as e:
                     if ("new_label is used already" in str(e)) :
                         col_names = [ col.label() for col in mtz_object.columns() ]
                         raise RuntimeError(("Duplicate column label '%s': current labels "+
@@ -90,9 +92,9 @@ def run(mtz, bs):
 
         mtz_object.write(file_name=mtz_out)
 
-        print
-        print "Writing:", mtz_out
-        print
+        print()
+        print("Writing:", mtz_out)
+        print()
 # run()
 
 if __name__ == "__main__":
@@ -102,11 +104,11 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args(sys.argv)
 
     if len(args) < 2 or opts.b is None:
-        print parser.print_help()
+        print(parser.print_help())
         quit()
 
     if not os.path.isfile(args[1]):
-        print "File not found:", args[1]
+        print("File not found:", args[1])
         quit()
 
     run(mtz=args[1], bs=opts.b)

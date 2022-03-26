@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import iotbx.phil
 import iotbx.file_reader
@@ -29,35 +31,33 @@ d_max = None
 """
 
 def run(params):
-    i_arrays = filter(lambda x:x.is_xray_intensity_array(),
-                      iotbx.file_reader.any_file(params.hklin).file_server.miller_arrays)
-    f_arrays = filter(lambda x:x.is_xray_amplitude_array(),
-                      iotbx.file_reader.any_file(params.hklin).file_server.miller_arrays)
+    i_arrays = [x for x in iotbx.file_reader.any_file(params.hklin).file_server.miller_arrays if x.is_xray_intensity_array()]
+    f_arrays = [x for x in iotbx.file_reader.any_file(params.hklin).file_server.miller_arrays if x.is_xray_amplitude_array()]
 
     # TODO Copy non-intensity arrays to new mtz!
 
     if not i_arrays and not f_arrays:
-        print "No observation data"
+        print("No observation data")
         return
 
     opts = ""
 
     if i_arrays:
         arrays = i_arrays
-        print "Intensity arrays:"
+        print("Intensity arrays:")
     else:
         arrays = f_arrays
         opts = " -amplitudes"
-        print "No intensity arrays. Using amplitude arrays instead:"
+        print("No intensity arrays. Using amplitude arrays instead:")
 
     for ar in arrays:
-        print "", ar.info().label_string()
-    print
+        print("", ar.info().label_string())
+    print()
 
     colin, colano = "", ""
 
-    ano = filter(lambda x: x.anomalous_flag(), arrays)
-    noano = filter(lambda x: not x.anomalous_flag(), arrays)
+    ano = [x for x in arrays if x.anomalous_flag()]
+    noano = [x for x in arrays if not x.anomalous_flag()]
 
     if ano:
         colano = "/*/*/[%s]" % ano[0].info().label_string().replace(",merged","")
@@ -83,7 +83,7 @@ def run(params):
 
     cmd += opts
 
-    print cmd
+    print(cmd)
 
     call(cmd=cmd,
          stdout=open(params.logout, "w")
@@ -93,7 +93,7 @@ def run(params):
         os.remove(hklin)
         log_content = open(params.logout).read()
         open(params.logout, "w").write(log_content.replace(hklin, params.hklin))
-        print "NOTE: %s was modified to show the original input file name" % params.logout 
+        print("NOTE: %s was modified to show the original input file name" % params.logout) 
         
 # run()
 
@@ -109,14 +109,14 @@ def run_from_args(argv):
 
     for arg in args:
         if not os.path.isfile(arg):
-            print "File not found: %s" % arg
+            print("File not found: %s" % arg)
             return
 
         if params.hklin is None and arg.endswith(".mtz"):
             params.hklin = arg
 
     if params.hklin is None:
-        print "Please give mtz file."
+        print("Please give mtz file.")
         return
 
     if not params.hklout: params.hklout = os.path.splitext(os.path.basename(params.hklin))[0] + "_ctruncate.mtz"

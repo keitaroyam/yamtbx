@@ -1,5 +1,7 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
-import cPickle as pickle
+import pickle
 import math
 from yamtbx.dataproc import crystfel
 import iotbx.phil
@@ -185,27 +187,27 @@ def run(params):
         elif read_flag:
             try: chunk.parse_line(l)
             except:
-                print "\nError in reading line: '%s'" % l
+                print("\nError in reading line: '%s'" % l)
                 read_flag = False
                 
     if read_flag: #  Unfinished chunk
-        print "\nWarning: unclosed chunk."
+        print("\nWarning: unclosed chunk.")
         del chunk_ranges[-1]
     
     stats["chunk_ranges"] = chunk_ranges
-    pickle.dump(stats, open(params.pklout,"w"), -1)
+    pickle.dump(stats, open(params.pklout,"wb"), -1)
 
-    print
-    print
-    print "Use sort_stream.py %s %s ioversigma-"%(params.streamin, params.pklout)
-    print "The suffix -: sort by descending order +: sort by ascending order"
+    print()
+    print()
+    print("Use sort_stream.py %s %s ioversigma-"%(params.streamin, params.pklout))
+    print("The suffix -: sort by descending order +: sort by ascending order")
 # run()
 
 if __name__ == "__main__":
     import sys
 
     if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         quit()
 
@@ -219,7 +221,7 @@ if __name__ == "__main__":
             params.streamin = arg
 
     if params.streamin is None:
-        print "Give stream file"
+        print("Give stream file")
         quit()
 
     run(params)

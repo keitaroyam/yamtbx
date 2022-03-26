@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import unicode_literals
 import numpy
 import math
 from cctbx.array_family import flex
@@ -44,10 +46,10 @@ def rotmat_to_axis_angle(R):
     #print w
     #print v
     rotaxis = None
-    for i in xrange(3):
+    for i in range(3):
         if abs(numpy.imag(w[i])) < 1e-6 and abs(numpy.real(w[i])-1) < 1e-6:
             #print "i==", i
-            rotaxis = map(numpy.real, v[:,i])
+            rotaxis = list(map(numpy.real, v[:,i]))
             break
     if rotaxis is None: raise "Rotation axis not found"
     

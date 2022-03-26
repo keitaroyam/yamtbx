@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.hkl2000.xfile import DenzoXfile
 from yamtbx.dataproc.scale_data import kBdecider, kBdecider3
 
@@ -45,23 +47,23 @@ help = False
 def run(params, xfiles):
     # read reference
     arrays = iotbx.file_reader.any_file(params.reference.file).file_server.miller_arrays
-    arrays = filter(lambda ar: ar.is_xray_data_array(), arrays)
+    arrays = [ar for ar in arrays if ar.is_xray_data_array()]
     if params.reference.label is not None:
-        arrays = filter(lambda ar: ar.info().label_string() == params.reference.label, arrays)
+        arrays = [ar for ar in arrays if ar.info().label_string() == params.reference.label]
 
     if len(arrays) != 1:
-        print "Can't decide data to use in reference file:", params.reference.file
-        print "Choose label"
-        for ar in arrays: print ar.info().label_string()
+        print("Can't decide data to use in reference file:", params.reference.file)
+        print("Choose label")
+        for ar in arrays: print(ar.info().label_string())
         return
 
     refdata = arrays[0].as_intensity_array()
     refdata = refdata.resolution_filter(d_max=params.reference.d_max, d_min=params.reference.d_min)
 
-    print "file n.common k b cc.org cc.mean cc.scaled a b c al be ga"
+    print("file n.common k b cc.org cc.mean cc.scaled a b c al be ga")
     
     for xf in xfiles:
-        print "# Reading", xf
+        print("# Reading", xf)
         try:
             xfile = DenzoXfile(xf)
         except:
@@ -79,7 +81,7 @@ def run(params, xfiles):
         n_common = tmp.size()
 
         if n_common == 0:
-            print "# No useful reflection in this file. skip."
+            print("# No useful reflection in this file. skip.")
             continue
 
         corr = flex.linear_correlation(tmp.data(), a.data())
@@ -103,8 +105,8 @@ def run(params, xfiles):
         corr = flex.linear_correlation(tmp.data(), a.data() * k*bfac)
         cc_scaled = corr.coefficient() if corr.is_well_defined() else float("nan")
 
-        print "%s %5d %.3e %.3e %.4f %.4f %.4f" % (xf, n_common, k, b, cc_org, cc_mean, cc_scaled),
-        print ("%.3f "*6)%a.unit_cell().parameters()
+        print("%s %5d %.3e %.3e %.4f %.4f %.4f" % (xf, n_common, k, b, cc_org, cc_mean, cc_scaled), end=' ')
+        print(("%.3f "*6)%a.unit_cell().parameters())
 
         if params.show_plot:
             import pylab
@@ -113,17 +115,17 @@ def run(params, xfiles):
 
             fig, ax1 = pylab.plt.subplots()
 
-            plot_x = map(lambda i: tmp.binner().bin_d_range(i)[1]**(-3), tmp.binner().range_used())
+            plot_x = [tmp.binner().bin_d_range(i)[1]**(-3) for i in tmp.binner().range_used()]
 
             #for name, ar in (("reference", tmp), ("data", a)):
-            vals = map(lambda i: flex.mean(tmp.data().select(tmp.binner().selection(i))), tmp.binner().range_used())
+            vals = [flex.mean(tmp.data().select(tmp.binner().selection(i))) for i in tmp.binner().range_used()]
             pylab.plot(plot_x, vals, label="reference")
 
             scale = flex.sum(tmp.data()*a.data()) / flex.sum(flex.pow2(a.data()))
-            print "Linear-scale=", scale
-            vals = map(lambda i: scale*flex.mean(a.data().select(tmp.binner().selection(i))), tmp.binner().range_used())
+            print("Linear-scale=", scale)
+            vals = [scale*flex.mean(a.data().select(tmp.binner().selection(i))) for i in tmp.binner().range_used()]
             pylab.plot(plot_x, vals, label="data")
-            vals = map(lambda i: flex.mean((a.data()*k*bfac).select(tmp.binner().selection(i))), tmp.binner().range_used())
+            vals = [flex.mean((a.data()*k*bfac).select(tmp.binner().selection(i))) for i in tmp.binner().range_used()]
             pylab.plot(plot_x, vals, label="data_scaled")
 
             """
@@ -160,17 +162,17 @@ if __name__ == "__main__":
     if "-h" in args: params.help = True
 
     if params.help:
-        print "Parameter syntax:\n"
+        print("Parameter syntax:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ")
-        print
-        print "Usage: calc_scales_for_xfiles.py [.x files] [lstin=xfiles.lst] reference.sca"
+        print()
+        print("Usage: calc_scales_for_xfiles.py [.x files] [lstin=xfiles.lst] reference.sca")
         quit()
 
-    reffile = filter(lambda x: x.endswith((".sca",".mtz")), args)
+    reffile = [x for x in args if x.endswith((".sca",".mtz"))]
     assert len(reffile) == 1
     params.reference.file = reffile[0]
         
-    xfiles = filter(lambda x: x.endswith(".x"), args)
+    xfiles = [x for x in args if x.endswith(".x")]
     if params.lstin is not None:
         for l in open(params.lstin):
             if "#" in l: l = l[:l.index("#")]

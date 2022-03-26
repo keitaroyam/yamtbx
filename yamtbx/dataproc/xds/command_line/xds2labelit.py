@@ -11,6 +11,9 @@ Convert XPARM.XDS information for labelit programs.
 
 Use PHENIX_TRUST_OTHER_ENV=1 to start this script.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import re, sys, os, pickle, math
 import numpy
@@ -43,7 +46,7 @@ def get_spot_convention(imagefile):
 
     beam_center_convention_from_image_object(imageobject, phil_params)
 
-    print "SPOT CONVENTION=", phil_params.spot_convention
+    print("SPOT CONVENTION=", phil_params.spot_convention)
 
     return phil_params.spot_convention
 # get_spot_convention()
@@ -63,7 +66,7 @@ class XPARM_to_labelit(XPARM):
             self.bin = 2
 
         # We must *NOT* modify qx,qy, nx,ny since it would be used later. (e.g. beam center conversion)
-        print "BINNING=", self.bin, "QX, QY, NX, NY=", self.qx*self.bin, self.qy*self.bin, self.nx//self.bin, self.ny//self.bin
+        print("BINNING=", self.bin, "QX, QY, NX, NY=", self.qx*self.bin, self.qy*self.bin, self.nx//self.bin, self.ny//self.bin)
 
     # set_bin()
 
@@ -81,7 +84,7 @@ class XPARM_to_labelit(XPARM):
         UNI_I = matrix.sqr((0,1,0,1,0,0,0,0,-1)).inverse()
         a, b, c = tuple(self.a_axis), tuple(self.b_axis), tuple(self.c_axis)
         matXDS = matrix.sqr(a+b+c)
-        print "matXDS=", matXDS[4]
+        print("matXDS=", matXDS[4])
         matRossmann = (UNI_I * matXDS.transpose()).transpose()
         orient = crystal_orientation.crystal_orientation(matRossmann, False) # reciprocal flag
 
@@ -95,7 +98,7 @@ class XPARM_to_labelit(XPARM):
         n = numpy.array((0.,0.,1.)) # FIXME. Not always true. needs cross_prod(DIRECTION_OF_DETECTOR_X-AXIS=, DIRECTION_OF_DETECTOR_Y-AXIS=)
         b = self.incident_beam
         offset = abs(self.distance) * (1./numpy.dot(b,n) * b - n)
-        print "BEAM CENTER OFFSET=", offset[0]/self.qx, offset[1]/self.qy
+        print("BEAM CENTER OFFSET=", offset[0]/self.qx, offset[1]/self.qy)
         return self.origin[1]*self.qy + offset[1], self.origin[0]*self.qx + offset[0]
     # get_labelit_xy_beam()
 
@@ -104,8 +107,8 @@ class XPARM_to_labelit(XPARM):
         e = EndStation()
         #e.set_camera_convention() always 1?
         e.set_rotation_axis(UNI_I*matrix.col(self.rotation_axis))
-        print "endstation.rot_axi=", e.rot_axi
-        print "endstation.cam_con", tuple(e.cam_con)
+        print("endstation.rot_axi=", e.rot_axi)
+        print("endstation.cam_con", tuple(e.cam_con))
         return e
     # get_endstation()
 
@@ -160,8 +163,8 @@ if __name__ == "__main__":
     G["best_integration"] = {}
     G["best_integration"]["mosaicity"] = 0.15 # FIXME? Maybe doesn't matter.
     G["best_integration"]["orient"] = xparm.get_labelit_orient()
-    print "orient:", G["best_integration"]["orient"]
-    print G
+    print("orient:", G["best_integration"]["orient"])
+    print(G)
 
 
     H = []
@@ -179,14 +182,14 @@ if __name__ == "__main__":
     h["max_angular_difference"] = 0.3 # FIXME
     h["count_GOOD"] = 239 # FIXME
     H.append(h)
-    print H
+    print(H)
 
     pickle.dump(G, open(os.path.join(wdir, "LABELIT_pickle"), "w"))
     pickle.dump(H, open(os.path.join(wdir, "LABELIT_possible"), "w"))
 
 
-    print
-    print "Run:"
-    print "labelit.precession_photo bravais_choice=1 image_range=%d,%d intensity_full_scale=512 plot_section=H,K,0 pdf_output.file=HK0_xds.pdf" % tuple(map(lambda x:int(x), inp["DATA_RANGE"].split()))
-    print "labelit.precession_photo bravais_choice=1 image_range=%d,%d intensity_full_scale=512 plot_section=0,K,L pdf_output.file=0KL_xds.pdf" % tuple(map(lambda x:int(x), inp["DATA_RANGE"].split()))
-    print "labelit.precession_photo bravais_choice=1 image_range=%d,%d intensity_full_scale=512 plot_section=H,0,L pdf_output.file=H0L_xds.pdf" % tuple(map(lambda x:int(x), inp["DATA_RANGE"].split()))
+    print()
+    print("Run:")
+    print("labelit.precession_photo bravais_choice=1 image_range=%d,%d intensity_full_scale=512 plot_section=H,K,0 pdf_output.file=HK0_xds.pdf" % tuple([int(x) for x in inp["DATA_RANGE"].split()]))
+    print("labelit.precession_photo bravais_choice=1 image_range=%d,%d intensity_full_scale=512 plot_section=0,K,L pdf_output.file=0KL_xds.pdf" % tuple([int(x) for x in inp["DATA_RANGE"].split()]))
+    print("labelit.precession_photo bravais_choice=1 image_range=%d,%d intensity_full_scale=512 plot_section=H,0,L pdf_output.file=H0L_xds.pdf" % tuple([int(x) for x in inp["DATA_RANGE"].split()]))

@@ -8,6 +8,8 @@ Symmetry: 422
    0    0    2      -3.89        -       8.33     376
 ...
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from iotbx import crystal_symmetry_from_any
 from cctbx import miller
@@ -15,15 +17,15 @@ from cctbx import crystal
 from cctbx.array_family import flex
 from libtbx.utils import Sorry
 
-class HKLfile:
+class HKLfile(object):
     def __init__(self, symm_source=None, hklin=None):
         self.symm = None
 
         if symm_source is not None:
             self.symm = crystal_symmetry_from_any.extract_from(symm_source)
             #print self.symm.space_group().is_chiral()
-            print "Symmetry from",symm_source
-            print self.symm.show_summary(prefix=" ")
+            print("Symmetry from",symm_source)
+            print(self.symm.show_summary(prefix=" "))
 
         if hklin is not None:
             self.read_file(hklin)
@@ -39,7 +41,7 @@ class HKLfile:
 
         line = fin.readline() # second line
         sym_str = line[line.find(":")+1:].strip()
-        print "HKL pointgroup:",sym_str,
+        print("HKL pointgroup:",sym_str, end=' ')
 
         anomalous_flag = None
         if sym_str == self.symm.space_group().laue_group_type():
@@ -48,7 +50,7 @@ class HKLfile:
             anomalous_flag = True
         else:
             Sorry("Incompatible symmetry: %s and %s" % (sym_str, self.symm.space_group().info()))
-        print "Anomalous:", anomalous_flag
+        print("Anomalous:", anomalous_flag)
 
         line = fin.readline() # third line
         assert "   h    k    l          I    phase   sigma(I)   nmeas" in line
@@ -59,8 +61,8 @@ class HKLfile:
                 break
 
             h,k,l,i,phase,sigi,nmeas = l.strip().split()
-            h,k,l,nmeas = map(int, (h,k,l,nmeas))
-            i,sigi = map(float, (i,sigi))
+            h,k,l,nmeas = list(map(int, (h,k,l,nmeas)))
+            i,sigi = list(map(float, (i,sigi)))
             indices.append((h,k,l))
             Is.append(i)
             sigIs.append(sigi)

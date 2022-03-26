@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import h5py
 import numpy
@@ -110,7 +112,7 @@ def run_each(f):
     dset[...] = data
 
     of.close()
-    print "Processed:", f
+    print("Processed:", f)
 # run_each()
 
 def run(opts, files):

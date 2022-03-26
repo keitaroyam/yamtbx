@@ -1,3 +1,3 @@
-import xscale
-import aimless
-import html_report
+from . import xscale
+from . import aimless
+from . import html_report

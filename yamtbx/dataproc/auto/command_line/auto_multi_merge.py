@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import libtbx.phil
 import iotbx.phil
 import iotbx.file_reader
@@ -103,18 +105,18 @@ batch {
 
 def read_sample_info(csvin, datadir=None):
     reader = csv.reader(open(csvin, "rU"))
-    header = map(lambda x: x.strip().lower(), next(reader))
-    hidxes = dict(map(lambda x:(x[1],x[0]), enumerate(header)))
+    header = [x.strip().lower() for x in next(reader)]
+    hidxes = dict([(x[1],x[0]) for x in enumerate(header)])
     puck_flag = set(["uname","puck","pin","name"]).issubset(header)
 
     ret = collections.OrderedDict()
 
     if not puck_flag and not set(["name","topdir"]).issubset(header):
-        print "Error! CSV file is invalid (header is not good)"
+        print("Error! CSV file is invalid (header is not good)")
         return ret
 
     if len(set(["space_group","unit_cell"]).intersection(header)) == 1:
-        print "Error! Both space_group and unit_cell should be specified if you have preferred cell."
+        print("Error! Both space_group and unit_cell should be specified if you have preferred cell.")
         return ret
 
     for vals in reader:
@@ -124,7 +126,7 @@ def read_sample_info(csvin, datadir=None):
             if "root_dir" in hidxes: rdir = vals[hidxes["root_dir"]].strip()
             else: rdir = datadir
 
-            if datadir is None:
+            if rdir is None:
                 raise Exception("Provide datadir= parameter or give root_dir column in csv file!")
 
             uname = vals[hidxes["uname"]].strip()
@@ -170,7 +172,7 @@ def read_sample_info(csvin, datadir=None):
 def choose_best_result(summarydat, log_out):
     wdir = os.path.dirname(summarydat)
 
-    lines = filter(lambda x: not x.startswith("#"), open(summarydat))
+    lines = [x for x in open(summarydat) if not x.startswith("#")]
     
     header = lines[0].split()
     i_cchalf = header.index("CC1/2")
@@ -195,7 +197,7 @@ def choose_best_result(summarydat, log_out):
     if not results: return None
 
     # Remove non-final runs
-    results = filter(lambda x: x[2]==max(cls_runs[x[1]]), results)
+    results = [x for x in results if x[2]==max(cls_runs[x[1]])]
 
     results.sort(key=lambda x:x[5], reverse=True)
     if len(results) > 2:
@@ -232,7 +234,7 @@ def filter_datasets(cell_and_files, params, log_out): # Not tested!!
     if "cell" in params.choice and len(cell_and_files) > 2:
         iqrc = params.cell_iqr_scale
         log_out.write("\nCell-based filtering (iqr_coeffs=%.3f):\n"%iqrc)   #Filtering: %d files were excluded.\n" % len(deleted))
-        cells = numpy.array(map(lambda x: x[0], cell_and_files.values()))
+        cells = numpy.array([x[0] for x in list(cell_and_files.values())])
         q25, q50, q75 = numpy.percentile(cells, [25, 50, 75], axis=0)
         iqr = q75-q25
         lowlim, highlim = q25 - iqrc*iqr, q75 + iqrc*iqr
@@ -243,7 +245,7 @@ def filter_datasets(cell_and_files, params, log_out): # Not tested!!
         bad_idxes = numpy.where(numpy.any(cells>highlim, axis=1) | numpy.any(cells<lowlim, axis=1))[0]
         log_out.write(" %d files were excluded.\n"%len(bad_idxes))
 
-        keys = cell_and_files.keys()
+        keys = list(cell_and_files.keys())
         for i in bad_idxes:
             deleted[keys[i]] = cell_and_files[keys[i]]
             del cell_and_files[keys[i]]
@@ -299,7 +301,7 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
     if filter_params.choice:
         cell_and_files, deleted = filter_datasets(cell_and_files, filter_params, log_out)
         with open(os.path.join(workdir, "excluded.lst"), "w") as ofs:
-            deleted_files = map(lambda x: deleted[x][1], deleted)
+            deleted_files = [deleted[x][1] for x in deleted]
             deleted_files.sort()
             ofs.write("\n".join(deleted_files)+"\n")
 
@@ -311,13 +313,13 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
 
     if len(reidx_ops) > 1:
         if ref_array and ref_array.size() > 0:
-            rb = resolve_reindex.ReferenceBased(map(lambda x: x[1], cell_and_files.values()),
+            rb = resolve_reindex.ReferenceBased([x[1] for x in list(cell_and_files.values())],
                                                 ref_array, max_delta=5,
                                                 d_min=3, min_ios=None,
                                                 nproc=1, log_out=log_out)
             rb.assign_operators()
         elif len(cell_and_files) > 1: # no need if only 1 data
-            rb = resolve_reindex.KabschSelectiveBreeding(map(lambda x: x[1], cell_and_files.values()), max_delta=5,
+            rb = resolve_reindex.KabschSelectiveBreeding([x[1] for x in list(cell_and_files.values())], max_delta=5,
                                                          d_min=3, min_ios=None,
                                                          nproc=1, log_out=log_out)
             rb.assign_operators()#max_cycle=params.max_cycles)
@@ -479,14 +481,14 @@ def run(params):
             pickle.dump(dict(workdir=workdir, topdirs=samples[k][0],
                              cell_method=params2.cell_method, ref_array=ref_array, ref_sym=ref_sym,
                              merge_params=params2.merge, rescut_params=params2.rescut, filter_params=params2.filtering),
-                        open(os.path.join(workdir, "kwargs.pkl"), "w"), -1)
+                        open(os.path.join(workdir, "kwargs.pkl"), "wb"), -1)
             job = batchjob.Job(workdir, shname, nproc=params2.batch.nproc_each)
             job.write_script("""\
 cd "%s" || exit 1
 "%s" -c '\
 import pickle; \
 from yamtbx.dataproc.auto.command_line.auto_multi_merge import auto_merge; \
-kwargs = pickle.load(open("kwargs.pkl")); \
+kwargs = pickle.load(open("kwargs.pkl", "rb")); \
 auto_merge(**kwargs); \
 '
 """ % (os.path.abspath(workdir), sys.executable))
@@ -509,11 +511,11 @@ auto_merge(**kwargs); \
 # run()
 def run_from_args(argv):
     if "-h" in argv or "--help" in argv or not argv:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(gui_phil_str).show(prefix="  ", attributes_level=1)
-        print
-        print
-        print r"""Typical usage:
+        print()
+        print()
+        print(r"""Typical usage:
 
 kamo.auto_multi_merge.dev \
   csv=automerge.csv \
@@ -544,7 +546,7 @@ root_dir,uname,puck,pin,name,anomalous,reference
 /home/hoge/zoo/_kamoproc/, user1, CPS-0000, 1, sample1, yes, xxxx.mtz
 /home/hoge/zoo/_kamoproc/, user1, CPS-0000, 2, sample1, yes, xxxx.mtz
 ...
-"""
+""")
 
         return
 
@@ -558,7 +560,7 @@ root_dir,uname,puck,pin,name,anomalous,reference
 
     for arg in args:
         if not os.path.exists(arg):
-            print "Error: Given path does not exist: %s" % arg
+            print("Error: Given path does not exist: %s" % arg)
             return
         if params.csv is None and arg.endswith(".csv"):
             params.csv = arg

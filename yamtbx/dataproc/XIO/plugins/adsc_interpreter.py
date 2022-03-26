@@ -2,6 +2,9 @@
 
 """ XIO plugin for the ADSC image format.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __version__ = "0.4.2"
 __author__ = "Pierre Legrand (pierre.legrand \at synchrotron-soleil.fr)"
@@ -21,10 +24,10 @@ def date_time(time_str):
 def date_seconds(time_str):
     "from tupple return seconds"
     try:
-        return time.mktime(time.strptime(time_str))
-    except (ValueError, TypeError), err:
-        print "Warning:", err
-        print "... Using time.time() instead."
+        return time.mktime(time.strptime(time_str.decode()))
+    except (ValueError, TypeError) as err:
+        print("Warning:", err)
+        print("... Using time.time() instead.")
         return time.time()
 
 def get_edge_resolution(pixel_x, width, distance, wavelength):
@@ -39,12 +42,12 @@ def get_edge_resolution(pixel_x, width, distance, wavelength):
 
 def endian(code):
     "From str to struct convention."
-    if code == 'big_endian':
+    if code == b'big_endian':
         return '>'
     else:
         return '<'
 
-class Interpreter:
+class Interpreter(object):
     "Dummy class, container for standard Dict and Function."
 
     HTD = {
@@ -117,8 +120,8 @@ class Interpreter:
 
         #_lis = raw_head[2:].split("}")[0].split(";\n")[:-1]
         #_lis = map(lambda x: x[:x.index(";")], raw_head[2:].split("}")[0].splitlines()[:-1])
-        tmp = filter(lambda x: x, raw_head[raw_head.index("{")+1 : raw_head.index("}")].splitlines())
-        _lis = map(lambda x: x.strip("; "), tmp)
-        self.raw_head_dict = dict([par.split("=") for par in _lis])
-        self.raw_head_dict.update({'MESSAGE': '', 'TWOTHETA': '0'}) # Example missing
+        tmp = [x for x in raw_head[raw_head.index(b"{")+1 : raw_head.index(b"}")].splitlines() if x]
+        _lis = [x.strip(b"; ") for x in tmp]
+        self.raw_head_dict = dict([par.split(b"=") for par in _lis])
+        self.raw_head_dict.update({b'MESSAGE': '', b'TWOTHETA': '0'}) # Example missing
         return self.raw_head_dict

@@ -5,6 +5,8 @@ Usage:
 
 PHENIX_TRUST_OTHER_ENV=1 phenix.python apply_sigma_cutoff_for_merged.py hoge.mtz cutoff=-2
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 master_params_str = """\
 hklin = None
@@ -51,29 +53,29 @@ if __name__ == "__main__":
     params = working_phil.extract()
 
     if params.hklin is None:
-        mtz_files = filter(lambda x:x.endswith(".mtz"), processed_args.reflection_file_names)
+        mtz_files = [x for x in processed_args.reflection_file_names if x.endswith(".mtz")]
         if len(mtz_files) != 1:
-            print "Exactly one mtz file must be given."
+            print("Exactly one mtz file must be given.")
             sys.exit(1)
         params.hklin = mtz_files[0]
 
     if params.xds_ascii is None:
-        xds_ascii_files = filter(lambda x:"XDS_ASCII" in x and not x.endswith(".mtz"), processed_args.reflection_file_names)
+        xds_ascii_files = [x for x in processed_args.reflection_file_names if "XDS_ASCII" in x and not x.endswith(".mtz")]
         if len(xds_ascii_files) > 1:
-            print "Exactly one XDS_ASCII file must be given."
+            print("Exactly one XDS_ASCII file must be given.")
             sys.exit(1)
         elif len(xds_ascii_files) == 1:
             params.xds_ascii = xds_ascii_files[0]
 
     if params.cutoff is None:
-        print "Specify cutoff value."
+        print("Specify cutoff value.")
         sys.exit(1)
 
     if params.hklout is None:
         params.hklout = os.path.splitext(os.path.basename(params.hklin))[0] + "_cut%.2f.mtz" % params.cutoff
 
     working_phil = parsed.format(python_object=params)
-    print "Parameters:"
+    print("Parameters:")
     working_phil.show(out = sys.stdout, prefix=" ")
 
 
@@ -95,22 +97,22 @@ if __name__ == "__main__":
                                  prefer_amplitudes = True)
         i_obs, f_obs = i_obs.common_sets(f_obs)
 
-    print "Using:", i_obs.info()
+    print("Using:", i_obs.info())
 
     remove_sel = i_obs.data() / i_obs.sigmas() <= params.cutoff
 
     if params.d_min is not None:
-        print "Applying resolution cutoff for remove selection", params.d_min
+        print("Applying resolution cutoff for remove selection", params.d_min)
         remove_sel &= i_obs.d_spacings().data() > params.d_min
 
     # Show by bins
     binner = i_obs.setup_binner(n_bins=20)
     for i_bin in binner.range_used():
         sel = remove_sel.select(binner.bin_indices() == i_bin)
-        print "%6.3f - %6.3f" % binner.bin_d_range(i_bin),
-        print "", sum(sel), "removed"
+        print("%6.3f - %6.3f" % binner.bin_d_range(i_bin), end=' ')
+        print("", sum(sel), "removed")
 
-    print "Totally", sum(remove_sel), "reflections are removed."
+    print("Totally", sum(remove_sel), "reflections are removed.")
 
     mtz_dataset = iotbx.mtz.object(params.hklin).\
         add_crystal("crystal", "project", i_obs.unit_cell()).\
@@ -136,23 +138,23 @@ if __name__ == "__main__":
         out = open("removed_positions.dat", "w")
         for hkl, x, y, z, i, sigi in zip(xa.indices, xa.xd, xa.yd, xa.zd, xa.iobs, xa.sigma_iobs):
             if sigi <= 0:
-                print "sigi<=0", x, y, z, i, sigi
+                print("sigi<=0", x, y, z, i, sigi)
                 continue
             if hkl in removed_indices:
-                print >>out, x, y, z, i, sigi
+                print(x, y, z, i, sigi, file=out)
 
     if params.hklref is not None:
         #from eval_Rfree_factors_with_common_reflections import get_flag
         from cctbx.array_family import flex
         calc_r = lambda f_obs, f_model: flex.sum(flex.abs(f_obs.data() - f_model.data())) / flex.sum(f_obs.data())
         hklref_arrays = iotbx.mtz.object(params.hklref).as_miller_arrays()
-        f_model = filter(lambda x:x.info().labels[0]=="F-model", hklref_arrays)[0].as_amplitude_array()
+        f_model = [x for x in hklref_arrays if x.info().labels[0]=="F-model"][0].as_amplitude_array()
         #test_flag = get_flag(hkref_arrays)
         for i_bin in binner.range_used():
             f_obs_sel = f_obs.select((binner.bin_indices() == i_bin) & remove_sel)
             f_obs_sel, f_model_sel = f_obs_sel.common_sets(f_model)
-            print "%6.3f - %6.3f" % binner.bin_d_range(i_bin),
+            print("%6.3f - %6.3f" % binner.bin_d_range(i_bin), end=' ')
             if f_obs_sel.data().size() > 0:
-                print " %4d Rcryst=%.4f" % (f_obs_sel.data().size(), calc_r(f_obs_sel, f_model_sel))
+                print(" %4d Rcryst=%.4f" % (f_obs_sel.data().size(), calc_r(f_obs_sel, f_model_sel)))
             else:
-                print " %4d Rcryst=-1" % f_obs_sel.data().size()
+                print(" %4d Rcryst=-1" % f_obs_sel.data().size())

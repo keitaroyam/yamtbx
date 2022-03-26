@@ -3,6 +3,9 @@
 """ XIO plugin for the export parameters as an XDS.INP format
     See http://xds.mpimf-heidelberg.mpg.de/html_doc/xds_prepare.html
 """
+from __future__ import division
+from __future__ import absolute_import
+from __future__ import unicode_literals
 
 __version__ = "0.4.0"
 __author__ = "Pierre Legrand (pierre.legrand@synchrotron-soleil.fr)"
@@ -12,8 +15,8 @@ __license__ = "New BSD, http://www.opensource.org/licenses/bsd-license.php"
 
 import time
 
-from pycgtypes import vec3
-from pycgtypes import mat3
+from .pycgtypes import vec3
+from .pycgtypes import mat3
 
 EX, EY, EZ = vec3(1, 0, 0), vec3(0, 1, 0), vec3(0, 0, 1)
 V3FMT = "%9.6f %9.6f %9.6f"

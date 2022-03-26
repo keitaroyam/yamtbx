@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc import crystfel
 import iotbx.phil
 from cctbx.array_family import flex
@@ -32,7 +34,7 @@ def calc_ccano(a1, a2):
     if not (a1.anomalous_flag() and a2.anomalous_flag()):
         return float("nan")
 
-    a1, a2 = map(lambda x:x.anomalous_differences(), (a1,a2))
+    a1, a2 = [x.anomalous_differences() for x in (a1,a2)]
     return calc_cc(a1, a2)
 # calc_ccano()
 
@@ -45,15 +47,15 @@ def calc_rsplit(a1, a2):
 
 
 def run(hklfiles, params):
-    arrays = map(lambda x: crystfel.hkl.HKLfile(symm_source=params.pdb, hklin=x), hklfiles)
+    arrays = [crystfel.hkl.HKLfile(symm_source=params.pdb, hklin=x) for x in hklfiles]
     for a in arrays: a.set_resolution(d_min=params.dmin, d_max=params.dmax)
     
     ofs = open(params.datout, "w")
-    ofs.write("  dmax   dmin  nref  cmpl   red1   red2 %s\n" % " ".join(map(lambda x: "%7s"%x,params.fom)))
+    ofs.write("  dmax   dmin  nref  cmpl   red1   red2 %s\n" % " ".join(["%7s"%x for x in params.fom]))
 
     a1, a2 = arrays[0].array.common_sets(arrays[1].array)
     r1, r2 = arrays[0].redundancies.common_sets(arrays[1].redundancies)
-    r1, r2 = map(lambda x: x.as_double(), (r1, r2))
+    r1, r2 = [x.as_double() for x in (r1, r2)]
 
     binner = a1.setup_binner(n_bins=params.nshells)
     
@@ -89,7 +91,7 @@ if __name__ == "__main__":
     import os
 
     if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         quit()
 
@@ -105,10 +107,10 @@ if __name__ == "__main__":
             elif params.pdb is None: params.pdb = arg
 
     if params.pdb is None:
-        print "Give pdb file"
+        print("Give pdb file")
         quit()
     if len(hklfiles) != 2:
-        print "Give two hkl files."
+        print("Give two hkl files.")
         quit()
 
     run(hklfiles, params)

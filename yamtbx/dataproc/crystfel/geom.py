@@ -3,6 +3,8 @@
 Author: Keitaro Yamashita
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import re
 import numpy
 import sys
@@ -10,7 +12,7 @@ import sys
 #float_or_1 = lambda x: 1 if x == "" else float(x)
 float_or_1 = lambda x: (1,-1)[len(x)] if x == "" or x == "-" else float(x)
 
-class Sensor:
+class Sensor(object):
     re_x = re.compile("([-0-9\.]*) *x")
     re_y = re.compile("([-+0-9\.]*) *y")
 
@@ -37,14 +39,14 @@ class Sensor:
             r_y = self.re_y.search(valstr)
             if r_x: self.fs[0] = float_or_1(r_x.group(1))
             if r_y: self.fs[1] = float_or_1(r_y.group(1))
-            if not r_x and not r_y: print "Wrong parameter value for fs:", valstr
+            if not r_x and not r_y: print("Wrong parameter value for fs:", valstr)
         elif key == "ss":
             self.ss = [0., 0.]
             r_x = self.re_x.search(valstr)
             r_y = self.re_y.search(valstr)
             if r_x: self.ss[0] = float_or_1(r_x.group(1))
             if r_y: self.ss[1] = float_or_1(r_y.group(1))
-            if not r_x and not r_y: print >>sys.stderr, "Wrong parameter value for ss:", valstr
+            if not r_x and not r_y: print("Wrong parameter value for ss:", valstr, file=sys.stderr)
         elif key == "corner_x":
             self.corner_x = float(valstr)
         elif key == "corner_y":
@@ -56,11 +58,11 @@ class Sensor:
         elif key == "coffset":
             self.coffset = float(valstr)
         else:
-            print >>sys.stderr, "Warning - Unknown paramter:", key
+            print("Warning - Unknown paramter:", key, file=sys.stderr)
     # read_info()
 # class Sensor
 
-class Geomfile:
+class Geomfile(object):
     def __init__(self, geom_in=None):
         self.clen = None
         self.res = None
@@ -76,9 +78,9 @@ class Geomfile:
             l = l.strip()
 
             if "=" in l:
-                sp = map(lambda x:x.strip(), l.split("="))
+                sp = [x.strip() for x in l.split("=")]
                 if len(sp) > 2:
-                    print "Warning: more than one = in this line. Ignored:", l
+                    print("Warning: more than one = in this line. Ignored:", l)
                     continue
 
                 lhs, rhs = sp
@@ -93,7 +95,7 @@ class Geomfile:
                 elif "/" in lhs:
                     sp = lhs.split("/")
                     if len(sp) > 2:
-                        print >>sys.stderr, "Warning: more than one / in left hand. Ignored:", l
+                        print("Warning: more than one / in left hand. Ignored:", l, file=sys.stderr)
                         continue
 
                     sid, lhs2 = sp

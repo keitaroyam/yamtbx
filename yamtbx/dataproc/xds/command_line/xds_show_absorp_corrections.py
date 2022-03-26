@@ -1,5 +1,8 @@
 #!/usr/bin/env yamtbx.python
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 master_params_str = """
 bkgpix_cbf = "BKGPIX.cbf"
  .type = path
@@ -33,7 +36,7 @@ def read_correct_lp(lpin):
             xmin, xmax, nxbin = r.groups()
             ret[:3] = float(xmin), float(xmax), int(nxbin)
         elif read_flag and "DETECTOR_SURFACE_POSITION=" in l:
-            ret[3].append(map(int, l[l.index("=")+1:].split()))
+            ret[3].append(list(map(int, l[l.index("=")+1:].split())))
         elif "CORRECTION PARAMETERS FOR THE STANDARD ERROR OF REFLECTION INTENSITIES" in l:
             break
     return ret
@@ -53,10 +56,10 @@ def read_bkgpix_cbf(cbfin, positions):
 
     dists = numpy.array((data,)*npos)
 
-    gx, gy = numpy.meshgrid(xrange(nx), xrange(ny))
+    gx, gy = numpy.meshgrid(range(nx), range(ny))
 
     for i, pos in enumerate(positions):
-        print i, pos
+        print(i, pos)
         dists[i,] = (gx-pos[0])**2 + (gy-pos[1])**2 # squared distance to each position
         
     ret = dists.argmin(axis=0) + 1
@@ -76,10 +79,10 @@ def run(params):
     datout = open("%s.dat"%params.output.prefix, "w")
     datout.write("ix xmin xmax ipos posx posy fac\n")
 
-    for ix in xrange(nxbin):
+    for ix in range(nxbin):
         x1, x2 = xmin + ix*xstep, xmin + (ix+1)*xstep
         tmp = numpy.array(det)
-        for i in xrange(len(positions)):
+        for i in range(len(positions)):
             tmp[tmp==i+1] = absorp[i,ix]
             datout.write("%2d %.2f %.2f %2d %d %d %5d\n" % (ix, x1, x2, i, positions[i][0], positions[i][1], absorp[i,ix]))
 
@@ -95,12 +98,12 @@ if __name__ == "__main__":
     import sys
 
     if "-h" in sys.argv or "--help" in sys.argv:
-        print """\
+        print("""\
 This script generates cbf files for visual inspection of absorption correction factors, which are recorded in ABSORP.cbf.
 In addition, a dat file is generated for plotting purpose etc.
 
 Parameters:
-        """
+        """)
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         quit()
 

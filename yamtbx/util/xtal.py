@@ -4,18 +4,21 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import unicode_literals
 
 """
 NOTE on unit cell constraints determination:
   XDS doesn't handle "real" rhombohedral space group (right?).
   So, No need to support R3 or R32. They are handled as H3 or H32, maybe.
 """
+
 import math
 import numpy
 import scipy.constants
 from cctbx import uctbx
 
-class CellConstraints:
+class CellConstraints(object):
     def __init__(self, space_group):
         self.cs = space_group.crystal_system()
 
@@ -44,7 +47,7 @@ class CellConstraints:
                "al" if short else "alpha",
                "be" if short else "beta",
                "ga" if short else "gamma"]
-        ret = map(lambda x: ret[x], self.free_indices)
+        ret = [ret[x] for x in self.free_indices]
         return " ".join(ret)
     # get_label_for_free_params()
 
@@ -52,7 +55,7 @@ class CellConstraints:
         if hasattr(uc, "parameters"):
             uc = uc.parameters()
             
-        return sep.join(map(lambda x: (lfmt if x<3 else afmt)%uc[x], self.free_indices))
+        return sep.join([(lfmt if x<3 else afmt)%uc[x] for x in self.free_indices])
     # format_free_params()
 # class CellConstraints
 
@@ -104,8 +107,8 @@ def format_unit_cell(uc, lfmt="%6.3f", afmt="%5.2f", sep=" "):
     if hasattr(uc, "parameters"):
         uc = uc.parameters()
 
-    lstr = sep.join(map(lambda x: lfmt%x, uc[:3]))
-    astr = sep.join(map(lambda x: afmt%x, uc[3:6]))
+    lstr = sep.join([lfmt%x for x in uc[:3]])
+    astr = sep.join([afmt%x for x in uc[3:6]])
     return lstr + sep + astr
 # format_unit_cell()
 

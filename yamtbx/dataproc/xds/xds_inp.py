@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os
 import json
@@ -11,11 +14,11 @@ from yamtbx.dataproc import XIO
 from yamtbx.dataproc import cbf
 from yamtbx.dataproc.dataset import group_img_files_template
 from yamtbx.dataproc.xds import get_xdsinp_keyword
-import cStringIO
+import io
 
 def sensor_thickness_from_minicbf(img):
     header = cbf.get_pilatus_header(img)
-    sensor = filter(lambda x: "sensor, thick" in x, header.splitlines())[0]
+    sensor = [x for x in header.splitlines() if "sensor, thick" in x][0]
     thick, unit = sensor[sensor.index("thickness ")+len("thickness "):].split()
     assert unit == "m"
 
@@ -35,8 +38,8 @@ def import_geometry(xds_inp=None, dials_json=None):
 
     if xds_inp:
         inp = get_xdsinp_keyword(xds_inp)
-        inp = filter(lambda x: x[0] in geom_kwds, inp)
-        return map(lambda x: "%s= %s"%x, inp)
+        inp = [x for x in inp if x[0] in geom_kwds]
+        return ["%s= %s"%x for x in inp]
     elif dials_json:
         import dxtbx.imageset
         from dxtbx.serialize.load import _decode_dict
@@ -54,8 +57,8 @@ def import_geometry(xds_inp=None, dials_json=None):
         sweep.set_goniometer(GoniometerFactory.from_dict(j["goniometer"][0]))
         sweep.set_scan(ScanFactory.make_scan(image_range=[1,1], exposure_times=[1], oscillation=[1,2], epochs=[0])) # dummy
         inp = get_xdsinp_keyword(inp_str=to_xds(sweep).XDS_INP())
-        inp = filter(lambda x: x[0] in geom_kwds, inp)
-        return map(lambda x: "%s= %s"%x, inp)
+        inp = [x for x in inp if x[0] in geom_kwds]
+        return ["%s= %s"%x for x in inp]
 
     return []
 # import_geometry()
@@ -76,8 +79,8 @@ def read_geometry_using_dxtbx(img_file):
     datablocks = dxtbx.datablock.DataBlockFactory.from_filenames([img_file])
     to_xds = dxtbx.serialize.xds.to_xds(datablocks[0].extract_sweeps()[0])
     inp = get_xdsinp_keyword(inp_str=to_xds.XDS_INP())
-    inp = filter(lambda x: x[0] in geom_kwds, inp)
-    return to_xds, map(lambda x: " %s= %s"%x, inp)
+    inp = [x for x in inp if x[0] in geom_kwds]
+    return to_xds, [" %s= %s"%x for x in inp]
 
 # read_geometry_using_dxtbx()
 
@@ -116,7 +119,7 @@ def generate_xds_inp(img_files, inp_dir, use_dxtbx=False, anomalous=True,
         cell_str = "50 60 70 90 90 90"
     else:
         sgnum = crystal_symmetry.space_group_info().type().number()
-        cell_str = " ".join(map(lambda x: "%.2f"%x, crystal_symmetry.unit_cell().parameters()))
+        cell_str = " ".join(["%.2f"%x for x in crystal_symmetry.unit_cell().parameters()])
 
     data_range = "%d %d" % (fstart, fend)
     if spot_range is None:
@@ -128,13 +131,13 @@ def generate_xds_inp(img_files, inp_dir, use_dxtbx=False, anomalous=True,
     elif len(spot_range) == 2:
         spot_range = "%d %d" % spot_range
     else:
-        print "Error!"
+        print("Error!")
         return
 
     friedel = "FALSE" if anomalous else "TRUE"
     is_pilatus_or_eiger = False
 
-    img_files_existed = filter(lambda x: os.path.isfile(x), img_files)
+    img_files_existed = [x for x in img_files if os.path.isfile(x)]
     if not img_files_existed: raise Exception("No actual images found.")
 
     inp_str = """\
@@ -165,7 +168,7 @@ def generate_xds_inp(img_files, inp_dir, use_dxtbx=False, anomalous=True,
         if rotation_axis is None: # automatic decision
             if "OscAxisVec" in im.header:
                 rotation_axis = im.header["OscAxisVec"]
-                print "DEBUG::rotation_axis from header:", rotation_axis
+                print("DEBUG::rotation_axis from header:", rotation_axis)
             else:
                 if im.header["ImageType"] == "raxis": rotation_axis = (0,1,0)
                 else: rotation_axis = (1,0,0)
@@ -191,13 +194,13 @@ PILATUS 2M, S/N 24-0109
 """.splitlines(), # Known detectors for reversed-phi in SPring-8: BL41XU PILATUS3 6M 60-0125, APS: 19ID PILATUS3 6M 60-0132, MX2 beamline (Brazilian Synchrotron National Laboratory - LNLS)
                                         )
                     if im.header.get("SerialNumber") in REVERSEPHI_SNs.get(im.header["ImageType"], ()):
-                        print "DEBUG:: this is reversephi of", rotation_axis
+                        print("DEBUG:: this is reversephi of", rotation_axis)
                         reverse_phi = True
 
                 if reverse_phi:
-                    rotation_axis = map(lambda x:-1*x, rotation_axis)
+                    rotation_axis = [-1*x for x in rotation_axis]
 
-        rotation_axis = " ".join(map(lambda x: "%.6f"%x, rotation_axis))
+        rotation_axis = " ".join(["%.6f"%x for x in rotation_axis])
 
         nx, ny = im.header["Width"], im.header["Height"],
         qx, qy = im.header["PixelX"], im.header["PixelY"]

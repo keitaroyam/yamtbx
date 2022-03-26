@@ -4,7 +4,6 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
-import StringIO
 import os
 import re
 from yamtbx import util
@@ -52,7 +51,7 @@ def parse_pointless_output_for_symm(output):
         elif read_flag and "Unit cell:" in l:
             r = re_cell.search(l)
             if r:
-                best_cell = map(float, r.groups())
+                best_cell = list(map(float, r.groups()))
 
     if None not in (best_symm, best_cell):
         ret["symm"] = crystal.symmetry(unit_cell=best_cell, space_group_symbol=best_symm,
@@ -87,7 +86,7 @@ def parse_pointless_output_for_runs(output):
         if "Run number:" in l:
             r = re_run.search(l)
             if r:
-                run, sbatch, ebatch = map(int, r.groups())
+                run, sbatch, ebatch = list(map(int, r.groups()))
                 ret.append((run, sbatch, ebatch))
     return ret
 # parse_pointless_output_for_runs()
@@ -107,14 +106,14 @@ class Pointless:
                 filein = "hklin %s" % os.path.basename(hklin)
                 wdir = os.path.dirname(hklin)
             else:
-                filein = "\n".join(map(lambda x: "hklin %s"%x, hklin))
+                filein = "\n".join(["hklin %s"%x for x in hklin])
                 wdir = os.path.dirname(hklin[0])
         else:
             if isinstance(xdsin, str):
                 filein = "xdsin %s" % os.path.basename(xdsin)
                 wdir = os.path.dirname(xdsin)
             else:
-                filein = "\n".join(map(lambda x: "xdsin %s"%x, xdsin))
+                filein = "\n".join(["xdsin %s"%x for x in xdsin])
                 wdir = os.path.dirname(xdsin[0])
         return filein+"\n", wdir
     # input_str()

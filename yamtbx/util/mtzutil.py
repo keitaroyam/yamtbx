@@ -4,7 +4,10 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, os, struct, math, subprocess
+from functools import reduce
 
 ##
 # MTZ COLUMN TYPES
@@ -34,7 +37,7 @@ class Error(Exception):
 
 # class Error
 
-class MtzFile:
+class MtzFile(object):
 
     def __init__(self, mtzfile):
         self._filename = mtzfile
@@ -68,13 +71,13 @@ class MtzFile:
         int_size = struct.calcsize("i")
 
         if not os.path.isfile(self._filename):
-            raise Error, "The file does not exist: %s" % self._filename
+            raise RuntimeError("The file does not exist: %s" % self._filename)
 
         try:
             mtz = open(self._filename, 'rb')
             
-            if mtz.read(4) != "MTZ ":
-                raise Error, "This file is not MTZ format: " + self._filename
+            if mtz.read(4) != b"MTZ ":
+                raise RuntimeError("This file is not MTZ format: " + self._filename)
 
             mtz.seek(8, 0)
             to_swap = doSwap(struct.unpack('4B', mtz.read(4)))
@@ -106,17 +109,17 @@ class MtzFile:
         self.datasets = {}
 
         for line in self.mtzheader:
-            if line.startswith("NDIF"):
+            if line.startswith(b"NDIF"):
                 flag_read = True
                 #self.datasets[int(line.split()[1])] = {}
                 continue
 
             if flag_read:
-                if line.startswith("END"):
+                if line.startswith(b"END"):
                     flag_read = False
                 else:
                     item = line.split()
-                    self.datasets.setdefault(int(item[1]), {})[item[0]] = " ".join(item[2:])
+                    self.datasets.setdefault(int(item[1]), {})[item[0]] = b" ".join(item[2:])
 
     # get_datasets()
 
@@ -125,11 +128,11 @@ class MtzFile:
 
         for line in self.mtzheader:
             item = line.split()
-            if item[0] == "COLUMN":
+            if item[0] == b"COLUMN":
                 col, coltype, colmin, colmax, colid = item[1:]
                 if lab == col:
                     dataset = self.datasets[int(colid)]
-                    return "/".join(("",dataset["CRYSTAL"], dataset["DATASET"], col))
+                    return b"/".join((b"",dataset[b"CRYSTAL"], dataset[b"DATASET"], col))
 
         return None
 
@@ -143,7 +146,7 @@ class MtzFile:
 
         for line in self.mtzheader:
             item = line.split()
-            if item[0] == "COLUMN":
+            if item[0] == b"COLUMN":
                 column.setdefault(item[2],[]).append(item[1])
 
         return column
@@ -153,8 +156,8 @@ class MtzFile:
     def get_column_minmax(self, col):
         for line in self.mtzheader:
             item = line.split()
-            if item[0] == "COLUMN" and item[1] == col:
-                minmax = map(lambda x:float(x), item[3:5])
+            if item[0] == b"COLUMN" and item[1] == col:
+                minmax = [float(x) for x in item[3:5]]
                 return min(minmax), max(minmax)
 
         return None, None
@@ -166,24 +169,24 @@ class MtzFile:
 
         for line in self.mtzheader:
             item = line.split()
-            if item[0] == "COLUMN" and item[1] == lab:
+            if item[0] == b"COLUMN" and item[1] == lab:
                 return int(item[5])
     # get_ndif()
 
     def get_spacegroup(self):
 
         for line in self.mtzheader:
-            if line.startswith("SYMINF"): # Number of Symmetry operations, number of primitive operations, lattice type, SG number, SG name, PG name
+            if line.startswith(b"SYMINF"): # Number of Symmetry operations, number of primitive operations, lattice type, SG number, SG name, PG name
                 sgno = line.split()[4]
-                sgname = line[line.find("'")+1:line.rfind("'")].replace("'","").strip()
+                sgname = line[line.find(b"'")+1:line.rfind(b"'")].replace(b"'",b"").strip()
                 return [ int(sgno), sgname ]
 
-        raise Error, "No spacegroup info."
+        raise Error("No spacegroup info.")
 
     # get_spacegroup()
 
     def get_z(self):
-        syminf1 = filter(lambda l: l.startswith("SYMINF"), self.mtzheader)[0]
+        syminf1 = [l for l in self.mtzheader if l.startswith("SYMINF")][0]
         return int(syminf1.split()[1])
 
     # get_z()
@@ -191,15 +194,15 @@ class MtzFile:
     def get_resolution(self):
 
         for line in self.mtzheader:
-            if line.startswith("RESO"):
-                return map(lambda x: math.sqrt(1./float(x)), line.split()[1:])
+            if line.startswith(b"RESO"):
+                return [math.sqrt(1./float(x)) for x in line.split()[1:]]
 
-        raise Error, "No resolution info."
+        raise Error("No resolution info.")
             
     # get_resolution()
 
     def get_cell(self):
-        return map(lambda x: float(x), self.get_cell_str().split())
+        return [float(x) for x in self.get_cell_str().split()]
     # get_cell()
 
     def get_dcell(self, lab):
@@ -207,14 +210,14 @@ class MtzFile:
         # lab: column name. such as FP, ..
         #
         ndif = self.get_ndif(lab)
-        dcell = self.datasets[ndif]["DCELL"]
-        return map(lambda x: float(x), dcell.split())
+        dcell = self.datasets[ndif][b"DCELL"]
+        return [float(x) for x in dcell.split()]
     # get_dcell()
 
     def get_cell_str(self):
         for line in self.mtzheader:
-            if line.startswith("CELL"):
-                return " ".join(line.split()[1:])
+            if line.startswith(b"CELL"):
+                return b" ".join(line.split()[1:])
     # get_cell_str()
 
     def make_cryst1_card(self):
@@ -237,7 +240,7 @@ class MtzFile:
         if "I" not in cols:
             return []
 
-        return filter(lambda s:"free" in s.lower(), cols["I"])
+        return [s for s in cols["I"] if "free" in s.lower()]
     # get_possible_FREE()
 
 # class mtzutil
@@ -248,7 +251,7 @@ def mtzdmp(filename):
     #to8_3filename(os.path.normpath(filename))
     
     p = subprocess.Popen( cmd, shell=True, cwd=os.getcwd(), stdin=subprocess.PIPE,
-                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT )
+                          stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
                          # close_fds=True )
     
     #p.stdin.write("HEAD\nGO\n")
@@ -265,20 +268,20 @@ def mtzdmp(filename):
 
 
 if __name__ == "__main__":
-	mtzin = sys.argv[1]
-        u = MtzFile(mtzin)
-        print "Cell parameters: ", u.get_cell()
-        print "Space group: ", u.get_spacegroup()
-        print "COLUMN: ", u.get_column()
-        print "Resolution range: ", u.get_resolution()
-        print
-        print "header="
-        print "\n".join(u.mtzheader)
-        
+    mtzin = sys.argv[1]
+    u = MtzFile(mtzin)
+    print("Cell parameters: ", u.get_cell())
+    print("Space group: ", u.get_spacegroup())
+    print("COLUMN: ", u.get_column())
+    print("Resolution range: ", u.get_resolution())
+    print()
+    print("header=")
+    print(b"\n".join(u.mtzheader))
+    
 #        print "\n".join(u.mtzheader)
 
-        for c in reduce(lambda x,y:x+y, u.get_column().values()):
-            print u.get_fullname(c)
+    for c in reduce(lambda x,y:x+y, list(u.get_column().values())):
+        print(u.get_fullname(c))
 
-        #print u.make_cryst1_card()
-        print u.datasets
+    #print u.make_cryst1_card()
+    print(u.datasets)

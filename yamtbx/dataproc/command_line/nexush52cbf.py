@@ -5,13 +5,15 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc import cbf
 import h5py
 import numpy
 import os
 
 def make_dummy_pilatus_header(h5):
-    safe_str = lambda x,y,d: x[y].value if y in x else d
+    safe_str = lambda x,y,d: x[y][()] if y in x else d
     safe_val = lambda x,y,d: x[y][0] if y in x else d
 
     try:
@@ -77,32 +79,32 @@ The bits have the following meaning:
 def run(h5in, cbf_prefix):
     f = h5py.File(h5in, "r")
     if "instrument" not in f["entry"]:
-        print "Error: This is not master h5 file."
+        print("Error: This is not master h5 file.")
         return
 
     dname = os.path.dirname(cbf_prefix)
     if dname != "" and not os.path.exists(dname):
         os.makedirs(dname)
-        print "dir created:", dname
+        print("dir created:", dname)
 
     # Analyze pixel_mask
     pixel_mask = numpy.array(f["entry"]["instrument"]["detector"]["detectorSpecific"]["pixel_mask"])
-    print "No. of unuseful pixels:"
+    print("No. of unuseful pixels:")
     for val in set(pixel_mask.flatten()):
         if val==0: continue
-        print "", get_mask_info(val), (pixel_mask==val).sum()
-    print
+        print("", get_mask_info(val), (pixel_mask==val).sum())
+    print()
 
     # Extract and write data
-    data = filter(lambda x: x.startswith("data_"), f["entry"])
+    data = [x for x in f["entry"] if x.startswith("data_")]
     count = 0
     for key in sorted(data):
-        print "Extracting", key
+        print("Extracting", key)
         im = f["entry"][key]
-        print " shape=", im.shape
-        print " dtype=", im.dtype
+        print(" shape=", im.shape)
+        print(" dtype=", im.dtype)
         nframes, height, width = im.shape
-        for i in xrange(nframes):
+        for i in range(nframes):
             count += 1
             cbfout = "%s_%.6d.cbf" % (cbf_prefix, count)
             data = im[i,].astype(numpy.int32)
@@ -110,18 +112,18 @@ def run(h5in, cbf_prefix):
             cbf.save_numpy_data_as_cbf(data.reshape(width*height), width, height, "hdf5_converted", cbfout, 
                                        pilatus_header=make_dummy_pilatus_header(f))
            
-            print " ", cbfout
-        print
+            print(" ", cbfout)
+        print()
 # run()
 
 if __name__ == "__main__":
     import sys
 
     if len(sys.argv) < 2:
-        print "Usage: %s master-h5 prefix" % os.path.basename(sys.argv[0])
-        print
-        print "for example: %s series_10_master.h5 /tmp/series10" % os.path.basename(sys.argv[0])
-        print " then writes /tmp/series10_000001.cbf, ...."
+        print("Usage: %s master-h5 prefix" % os.path.basename(sys.argv[0]))
+        print()
+        print("for example: %s series_10_master.h5 /tmp/series10" % os.path.basename(sys.argv[0]))
+        print(" then writes /tmp/series10_000001.cbf, ....")
         quit()
 
     h5in = sys.argv[1]

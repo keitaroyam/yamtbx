@@ -4,6 +4,10 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
+from builtins import range
+from builtins import object
 import socket
 import subprocess
 import time
@@ -11,7 +15,7 @@ import os
 import getpass
 import tempfile
 
-class Adxv:
+class Adxv(object):
     def __init__(self, adxv_bin=None, no_adxv_beam_center=True):
         self.adxv_bin = adxv_bin
         self.no_adxv_beam_center = no_adxv_beam_center
@@ -35,9 +39,9 @@ class Adxv:
             self.adxv_port = sock_test.getsockname()[1]
             sock_test.close()
             # start adxv
-            self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd)
+            self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True, cwd=cwd, universal_newlines=True)
 
-            for i in xrange(10): # try for 5 seconds.
+            for i in range(10): # try for 5 seconds.
                 try: 
                     self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM) # On OSX(?), need to re-create object when failed
                     self.sock.connect(("localhost", self.adxv_port))
@@ -56,7 +60,7 @@ class Adxv:
         self.start(cwd=os.path.dirname(imgfile))
 
 
-        sent = self.sock.send("load_image %s\n"%imgfile)
+        sent = self.sock.send(b"load_image %s\n"%imgfile.encode("utf-8"))
         if sent == 0:
             raise RuntimeError("adxv load failed! Close adxv and double-click again.")
 
@@ -82,9 +86,9 @@ class Adxv:
         self.spot_type_counter += 1
         sent = self.sock.send("box %d %d\n" % (box,box)) # seems ignored?
         sent = self.sock.send("define_type %d color %s radius %d\n"%(self.spot_type_counter, color, radius))
-        print sent
+        print(sent)
         if sent == 0:
-            print "define_spot failed!"
+            print("define_spot failed!")
 
         sent = self.sock.send("box 20 20\n")
         return self.spot_type_counter

@@ -4,6 +4,9 @@ Reference:
  Python Multiprocessing with ZeroMQ
  http://taotetek.net/2011/02/02/python-multiprocessing-with-zeromq/
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import iotbx.phil
 import libtbx.phil
@@ -15,14 +18,14 @@ import datetime
 import getpass
 import zmq
 import re
-import Queue
+import queue
 import collections
 #import sqlite3
-import pysqlite2.dbapi2 as sqlite3
+import sqlite3
 import threading
 import traceback
 import numpy
-import cPickle as pickle
+import pickle
 import hashlib
 from PIL import Image
 from multiprocessing import Process
@@ -97,7 +100,7 @@ def retry_until_success(f, arg=None):
     args = (arg,) if arg is not None else ()
     return util.retry_until_noexc(f, args, ntry=30, outf=shikalog.warning)
 
-class DiffScanManager:
+class DiffScanManager(object):
     def __init__(self):
         self.clear()
     # __init__()
@@ -118,7 +121,7 @@ class DiffScanManager:
     # add_dir()
 
     def update_scanlogs(self):
-        for logdir, slog in self.scanlog.items():
+        for logdir, slog in list(self.scanlog.items()):
             if os.path.isfile(slog.scanlog):
                 slog.parse()
             else:
@@ -132,7 +135,7 @@ class DiffScanManager:
             # Update 'processed files' using database
             dbfile = os.path.join(logdir, "_spotfinder", "shika.db")
 
-            for _ in xrange(10):
+            for _ in range(10):
                 try:
                     if not os.path.exists(os.path.dirname(dbfile)): os.mkdir(os.path.dirname(dbfile))
                     con = sqlite3.connect(dbfile, timeout=30)
@@ -147,11 +150,11 @@ class DiffScanManager:
             if c.fetchone() is not None:
                 #cur.execute("select filename from status")
                 retry_until_success(cur.execute, "select filename from status")
-                processed_files = map(lambda x:os.path.join(logdir, x[0]), cur.fetchall())
-                print "debug::",processed_files 
+                processed_files = [os.path.join(logdir, x[0]) for x in cur.fetchall()]
+                print("debug::",processed_files) 
                 self.found_imgs.update(processed_files)
                 # check if all images are processed
-                if len(processed_files) == sum(map(lambda x: len(x.filename_idxes), slog.scans)):
+                if len(processed_files) == sum([len(x.filename_idxes) for x in slog.scans]):
                     shikalog.info("All %d images in %s are already processed. Will not check unless diffscan.log updated"%(len(processed_files), slog.scanlog))
                     self.finished[slog.scanlog] = mtime
 
@@ -165,17 +168,17 @@ class DiffScanManager:
         ret = []
         self.update_scanlogs()
 
-        for slogdir, slog in self.scanlog.items():
+        for slogdir, slog in list(self.scanlog.items()):
             for scan in slog.scans:
-                fcs = map(lambda x: (os.path.join(slogdir, x[0]), x[1]), scan.filename_idxes)
+                fcs = [(os.path.join(slogdir, x[0]), x[1]) for x in scan.filename_idxes]
                 #print "fix=", fcs
                 #if env == "ppu": fcs_proxy = map(lambda x: (re.sub("^/isilon/users/", "/ramdisk/", x[0]), x[1]), fcs)
                 if env == "ppu": f_mod = lambda x: re.sub("^/isilon/users/", "/ramdisk/", x)
                 else: f_mod = lambda x: x
-                unproc = filter(lambda x: x[0] not in self.found_imgs and os.path.isfile(f_mod(x[0])), fcs)
-                ret.extend(map(lambda x:x+(scan,), unproc))
+                unproc = [x for x in fcs if x[0] not in self.found_imgs and os.path.isfile(f_mod(x[0]))]
+                ret.extend([x+(scan,) for x in unproc])
 
-        self.found_imgs.update(map(lambda x: x[0], ret))
+        self.found_imgs.update([x[0] for x in ret])
         return ret # (filename, idx, scan object)
     # get_unprocessed_images()
 
@@ -253,7 +256,7 @@ class DiffScanManager:
 # class DiffScanManager
 
 
-class WatchScanlogThread:
+class WatchScanlogThread(object):
     def __init__(self, queue, topdir, beamline=None, expdate="today"):
         self.queue = queue
         self.topdir = topdir
@@ -359,20 +362,20 @@ class WatchScanlogThread:
                 
         self.last_bsslog = current_bsslog
 
-        scanlogs = map(lambda x: os.path.join(x, "diffscan.log"), self._cached_dirs)
+        scanlogs = [os.path.join(x, "diffscan.log") for x in self._cached_dirs]
         uid = os.getuid()
-        scanlogs = filter(lambda x: os.path.isfile(x) and os.stat(x).st_uid==uid, scanlogs)
+        scanlogs = [x for x in scanlogs if os.path.isfile(x) and os.stat(x).st_uid==uid]
         if params.only_check_in_last_hours is not None and params.only_check_in_last_hours > 0:
             now = time.time()
             last_seconds = params.only_check_in_last_hours*60*60
-            scanlogs = filter(lambda x: (now-os.path.getmtime(x))<last_seconds, scanlogs)
+            scanlogs = [x for x in scanlogs if (now-os.path.getmtime(x))<last_seconds]
         if scanlogs: shikalog.debug("found diffscan.log in bsslog: %s" % scanlogs)
 
-        for k in self._cached_dirs.keys():
+        for k in list(self._cached_dirs.keys()):
             # clear old cache
             if time.time() - self._cached_dirs[k] > 60*5: del self._cached_dirs[k]
 
-        return map(lambda x: (x, os.path.getmtime(x)), scanlogs)
+        return [(x, os.path.getmtime(x)) for x in scanlogs]
     # find_in_bsslog()
 
     def run_inner(self, method="bsslog"):
@@ -398,7 +401,7 @@ class WatchScanlogThread:
             if self.interval < 1:
                 time.sleep(self.interval)
             else:
-                for i in xrange(int(self.interval/.5)):
+                for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
         # mysleep()
@@ -417,7 +420,7 @@ class WatchScanlogThread:
     # run()
 # class WatchScanlogThread
 
-class WatchDirThread:
+class WatchDirThread(object):
     def __init__(self, queue, pushport):
         self.interval = 5
         self.thread = None
@@ -494,7 +497,7 @@ class WatchDirThread:
             if self.interval < 1:
                 time.sleep(self.interval)
             else:
-                for i in xrange(int(self.interval/.5)):
+                for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
 
@@ -509,7 +512,7 @@ def walk_nolink(top, topdown=True, onerror=None):
     # Original /misc/oys/xtal/cctbx/snapshots/dials-v1-8-3/base/lib/python2.7/os.py
     try:
         names = os.listdir(top)
-    except os.error, err:
+    except os.error as err:
         if onerror is not None:
             onerror(err)
         return
@@ -534,7 +537,7 @@ def walk_nolink(top, topdown=True, onerror=None):
         yield top, dirs, nondirs
 # walk_nolink()
 
-class WatchRamdiskThread:
+class WatchRamdiskThread(object):
     def __init__(self, pushport, interval):
         self.interval = interval
         self.thread = None
@@ -578,7 +581,7 @@ class WatchRamdiskThread:
         itree = inotify.adapters.InotifyTree('/ramdisk',
                                              mask=inotify.constants.IN_MOVED_TO|inotify.constants.IN_CLOSE_WRITE)
         for header, type_names, path, filename in itree.event_gen(yield_nones=False):
-            print type_names, path, filename
+            print(type_names, path, filename)
             if "IN_ISDIR" in type_names: continue
             #if "IN_MOVED_TO" not in type_names: continue
             if not filename.endswith(".cbf"): continue
@@ -628,10 +631,10 @@ class WatchRamdiskThread:
         for root, dirnames, filenames in walk_nolink("/ramdisk"):
             n_dir += 1
             if os.stat(root).st_uid != uid: continue
-            cbf_files = filter(lambda x: x[0].endswith(".cbf"), filenames)
+            cbf_files = [x for x in filenames if x[0].endswith(".cbf")]
             filename_dict = dict(filenames)
-            new_files = filter(lambda x: need_process(root, x, filename_dict), cbf_files)
-            new_files = map(lambda x: os.path.join(root, x[0]), new_files)
+            new_files = [x for x in cbf_files if need_process(root, x, filename_dict)]
+            new_files = [os.path.join(root, x[0]) for x in new_files]
 
             for imgf in new_files:
                 img_isilon = re.sub("^/ramdisk/", "/isilon/users/", imgf)
@@ -657,7 +660,7 @@ class WatchRamdiskThread:
             if self.interval < 1:
                 time.sleep(self.interval)
             else:
-                for i in xrange(int(self.interval/.5)):
+                for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
 
@@ -666,7 +669,7 @@ class WatchRamdiskThread:
     # run()
 # class WatchRamdiskThread
 
-class ResultsManager:
+class ResultsManager(object):
     def __init__(self, rqueue, dbdir):
         self.thread = threading.Thread(None, self.run)
         self.thread.daemon = True
@@ -709,7 +712,7 @@ class ResultsManager:
 
             slog = bl_logfiles.BssDiffscanLog(scanlog)
             slog.remove_overwritten_scans()
-            matched = filter(lambda x: x.get_prefix()==prefix+"_", slog.scans)
+            matched = [x for x in slog.scans if x.get_prefix()==prefix+"_"]
             if matched:
                 scan_direction = matched[-1].scan_direction
                 scan_path = matched[-1].scan_path
@@ -787,7 +790,7 @@ class ResultsManager:
                     if dbfile != tmp:
                         dbfile = tmp
                         con, cur = None, None
-                        for _ in xrange(10):
+                        for _ in range(10):
                             try:
                                 con = sqlite3.connect(dbfile, timeout=30)
                                 break
@@ -807,7 +810,7 @@ class ResultsManager:
                             
                     for msg in messages[wdir]:
                         imgf = os.path.basename(str(msg["imgfile"]))
-                        spots_is = map(lambda x: x[2], msg["spots"])
+                        spots_is = [x[2] for x in msg["spots"]]
 
                         if cur is not None:
                             # 'status'
@@ -856,7 +859,7 @@ class ResultsManager:
                                 canvas, ninc, _ = canvas_data[(prefix, idx)]
                             elif os.path.isfile(tmpfile):
                                 shikalog.debug("loading thumbnail data from %s" % tmpfile)
-                                canvas, ninc, _ = pickle.load(open(tmpfile))
+                                canvas, ninc, _ = pickle.load(open(tmpfile, "rb"))
                             else:
                                 canvas, ninc = Image.new("RGB", (thumbw*10, thumbw*10), (0, 0, 0)), 0
                                 
@@ -919,7 +922,7 @@ class ResultsManager:
                             if os.path.isfile(tmpfile): os.remove(tmpfile)
                         else:
                             shikalog.info("saving thumbnail data to %s" % tmpfile)
-                            pickle.dump(canvas_data[(prefix, idx)], open(tmpfile, "w"), -1)
+                            pickle.dump(canvas_data[(prefix, idx)], open(tmpfile, "wb"), -1)
                             
                     while True:
                         try: con.commit()
@@ -955,7 +958,7 @@ def results_receiver(rqueue, pullport, results_manager):
         if "bss_job_mode" not in msg:
             last_times.append(time.time())
             if len(last_times) > 50: last_times = last_times[-50:]
-            last_times = filter(lambda x: last_times[-1]-x < 50, last_times)
+            last_times = [x for x in last_times if last_times[-1]-x < 50]
             hz = float(len(last_times))/(last_times[-1]-last_times[0]) if len(last_times)>1 else 0
             shikalog.info("%s %6.2f Hz (last %2d)" % (msg["imgfile"], hz, len(last_times)))
 
@@ -1074,7 +1077,7 @@ def worker(wrk_num, params):
 
 def run_from_args(argv):
     if "-h" in argv or "--help" in argv:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         return
 
@@ -1098,36 +1101,36 @@ def run_from_args(argv):
     if params.force_ssh_from is not None:
         shikalog.info("SSH_CONNECTION= %s" % os.environ.get("SSH_CONNECTION", ""))
         if "SSH_CONNECTION" not in os.environ:
-            print
-            print "ERROR!! Cannot get host information! SHIKA cannot start."
-            print "Please contact staff. Need to use ssh or change parameter."
-            print
+            print()
+            print("ERROR!! Cannot get host information! SHIKA cannot start.")
+            print("Please contact staff. Need to use ssh or change parameter.")
+            print()
             return
 
         ssh_from = os.environ["SSH_CONNECTION"].split()[0]
         if ssh_from != params.force_ssh_from:
-            print
-            print "ERROR!! Your host is not allowed! SHIKA cannot start here."
+            print()
+            print("ERROR!! Your host is not allowed! SHIKA cannot start here.")
             if ssh_from[:ssh_from.rindex(".")] == "10.10.126" and 162 <= int(ssh_from[ssh_from.rindex(".")+1:]) <= 170:
                 shikalog.debug("Access from Oyster computer.")
-                print "You appear to be in Oyster. Please *LOGOUT* from Oyster, and try to start SHIKA from your local computer!!"
+                print("You appear to be in Oyster. Please *LOGOUT* from Oyster, and try to start SHIKA from your local computer!!")
             else:
-                print "Please contact staff. Need to access from the allowed host."
-            print
+                print("Please contact staff. Need to access from the allowed host.")
+            print()
             return
 
     #import subprocess
     #import sys
     #pickle.dump(params, open("/tmp/params.pkl","w"),-1)
     #pp = []
-    for i in xrange(params.nproc):
+    for i in range(params.nproc):
         Process(target=worker, args=(i,params)).start()
         #p = subprocess.Popen(["%s -"%sys.executable], shell=True, stdin=subprocess.PIPE)
         #p.stdin.write("from yamtbx.dataproc.myspotfinder.command_line.spot_finder_backend import worker\nimport pickle\nworker(%d, pickle.load(open('/tmp/params.pkl')))"%i)
         #p.stdin.close()
         #pp.append(p)
 
-    rqueue = Queue.Queue()
+    rqueue = queue.Queue()
     results_manager = ResultsManager(rqueue=rqueue, dbdir=params.dbdir)
 
     if params.mode == "watch_ramdisk":
@@ -1135,7 +1138,7 @@ def run_from_args(argv):
                                              interval=params.ramdisk_walk_interval)
         ramdisk_watcher.start()
     elif params.mode != "eiger_streaming": 
-        queue = Queue.Queue()
+        queue = queue.Queue()
         scanlog_watcher = WatchScanlogThread(queue, topdir=params.topdir,
                                              beamline=params.bl, expdate=params.date)
         dir_watcher = WatchDirThread(queue, pushport=params.ports[0])

@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import wx
 import sys
@@ -18,7 +21,7 @@ import json
 import traceback
 import getpass
 import h5py
-import urllib
+import urllib.request, urllib.parse, urllib.error
 import numpy
 import wx.lib.agw.pybusyinfo
 from yamtbx.dataproc import eiger
@@ -30,9 +33,9 @@ def parse_range(s):
     if not s: return ret
     for x in s.split(","):
         if x.count("-") > 1: return None
-        tmp = map(int, x.split("-"))
+        tmp = list(map(int, x.split("-")))
         if len(tmp) == 1: ret.append(tmp[0])
-        else: ret.extend(range(tmp[0], tmp[1]+1))
+        else: ret.extend(list(range(tmp[0], tmp[1]+1)))
     return sorted(set(ret))
 # parse_range()
 
@@ -41,7 +44,7 @@ def make_range_str(frames):
     if not frames: return ""
     s = str(frames[0])
     if len(frames) == 1: return s
-    diffs = map(lambda i: frames[i]-frames[i-1], xrange(1, len(frames)))
+    diffs = [frames[i]-frames[i-1] for i in range(1, len(frames))]
     for i, d in enumerate(diffs):
         if d > 1:
             if i>0 and diffs[i-1] == 1: s += "-%d,%d"%(frames[i],frames[i+1])
@@ -59,7 +62,7 @@ class MainFrame(wx.Frame):
         self._lstTrigger_frame_request_workaround = None # dirty workaround..
         if h5in:
             if os.path.isdir(h5in):
-                h5files = filter(lambda x: x.endswith(("_master.h5", "_onlyhits.h5")), sorted(glob.glob(os.path.join(h5in, "*.h5"))))
+                h5files = [x for x in sorted(glob.glob(os.path.join(h5in, "*.h5"))) if x.endswith(("_master.h5", "_onlyhits.h5"))]
                 if h5files: self.set_h5file(h5files[0])
             else:
                 self.set_h5file(h5in)
@@ -284,8 +287,8 @@ class MainFrame(wx.Frame):
             self.adxv.open_hdf5(self.h5file, frameno, tmpdir=tmpdir,
                                 raise_window=raise_window,
                                 binning=int(self.txtBin.GetValue()))
-        except RuntimeError, re:
-            self.txtInfo.SetValue("Error! %s\n\n%s" % (re.message, self.txtInfo.GetValue()))
+        except RuntimeError as e:
+            self.txtInfo.SetValue("Error! %s\n\n%s" % (str(e), self.txtInfo.GetValue()))
         except:
             self.txtInfo.SetValue(traceback.format_exc() + "\n\n" + self.txtInfo.GetValue())
         finally:
@@ -300,9 +303,9 @@ class MainFrame(wx.Frame):
         if self.onlyhits_keys:
             frames = "/entry/data/%s/data"%self.onlyhits_keys[frames[0]-1] # No support for summation
         else:
-            if all(map(lambda x: x < 1, frames)): frames = [1]
-            if all(map(lambda x: x > self.n_images, frames)): frames = [self.n_images]
-            frames = filter(lambda x: 0 < x <= self.n_images, frames)
+            if all([x < 1 for x in frames]): frames = [1]
+            if all([x > self.n_images for x in frames]): frames = [self.n_images]
+            frames = [x for x in frames if 0 < x <= self.n_images]
             if not frames: frames = [1]
 
         self.open_hdf5(frames, raise_window=False)
@@ -363,7 +366,7 @@ class MainFrame(wx.Frame):
             frame = (trigger-1)*self.n_images_each + frame_sp
             sumframe = self.spnSumFrame.GetValue() if self.chkSum.GetValue() else 1
             max_frame = trigger*self.n_images_each
-            frames = range(frame, min(frame+sumframe-1, max_frame)+1)
+            frames = list(range(frame, min(frame+sumframe-1, max_frame)+1))
             frame_str = ("frame %d" % frame_sp) if len(frames)<2 else ("frames %d..%d" % (frame_sp, frame_sp+len(frames)-1))
             self.stShowing.SetLabel("Showing %s of trigger %d" % (frame_str, trigger))
 
@@ -495,7 +498,7 @@ class MainFrame(wx.Frame):
             return
 
         try:
-            safe_val = lambda x, k, a: x[k].value if k in x else a
+            safe_val = lambda x, k, a: x[k][()] if k in x else a
             yes_or_no = lambda x, k: ("no", "yes", "?")[safe_val(x, k, 2)]
             self.txtInfo.SetValue("""\
          Filename: %s
@@ -516,7 +519,7 @@ class MainFrame(wx.Frame):
     """ % (os.path.basename(self.h5file),
            safe_val(h5["/entry/instrument/detector"], "description", "?"), safe_val(h5["/entry/instrument/detector"], "detector_number", "?"),
            self.n_images, self.n_images_each, h["Ntrigger"],
-           h["DateStr"].replace("T", " "),
+           h["DateStr"].replace(b"T", b" "),
            h["PhiWidth"],
            h["Distance"]*1.e3,
            h["Wavelength"],
@@ -567,7 +570,7 @@ class MainFrame(wx.Frame):
             self.lstTrigger.InsertColumn(0, "Trigger")
             self.lstTrigger.InsertColumn(1, "Omega")
             omega = h5["/entry/sample/goniometer/omega"]
-            for i in xrange(h["Ntrigger"]):
+            for i in range(h["Ntrigger"]):
                 self.lstTrigger.InsertStringItem(i, "%d"%(i+1))
                 try:
                     oms = omega[i*self.n_images_each]
@@ -578,8 +581,8 @@ class MainFrame(wx.Frame):
     # read_h5file()
 
     def on_monitor_timer(self, ev):
-        print "monitoring"
-        response = urllib.urlopen("http://%s/monitor/api/%s/images/monitor" % (self.txtEigerHost.GetValue(), self.txtEigerAPIver.GetValue()))
+        print("monitoring")
+        response = urllib.request.urlopen("http://%s/monitor/api/%s/images/monitor" % (self.txtEigerHost.GetValue(), self.txtEigerAPIver.GetValue()))
         data = response.read()
         data_size = len(data)
         curlines = self.txtInfo.GetValue().splitlines()
@@ -595,7 +598,7 @@ class MainFrame(wx.Frame):
         #data = pickle.load(open("monitor.pkl"))
 
         def request(query, base="detector"):
-            r = urllib.urlopen("http://%s/%s/api/%s/%s"%(self.txtEigerHost.GetValue(), base, self.txtEigerAPIver.GetValue(), query)).read()
+            r = urllib.request.urlopen("http://%s/%s/api/%s/%s"%(self.txtEigerHost.GetValue(), base, self.txtEigerAPIver.GetValue(), query)).read()
             return json.loads(r)
 
         nx = request("config/x_pixels_in_detector")["value"]

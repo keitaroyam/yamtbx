@@ -1,7 +1,9 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import re
 
-class XtriageLogfile:
+class XtriageLogfile(object):
     def __init__(self, logfile):
         self.logfile = logfile
         self.wilson_b = float("nan")
@@ -12,7 +14,7 @@ class XtriageLogfile:
 
     def read_logfile(self):
         if not os.path.isfile(self.logfile):
-            print "Can't open file:", self.logfile
+            print("Can't open file:", self.logfile)
             return
 
         reading = ""
@@ -43,4 +45,4 @@ if __name__ == "__main__":
     import sys
 
     xlf = XtriageLogfile(sys.argv[1])
-    print xlf.wilson_b, xlf.anisotropy
+    print(xlf.wilson_b, xlf.anisotropy)

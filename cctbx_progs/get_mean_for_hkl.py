@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.file_reader
 from cctbx.array_family import flex
 import iotbx.phil
@@ -17,18 +19,18 @@ def run(mtzin, params):
     if len(arrays) == 1:
         array = arrays[0]
     else:
-        sel = filter(lambda x: x.info().label_string()==params.label, arrays)
+        sel = [x for x in arrays if x.info().label_string()==params.label]
         if len(sel) != 1:
-            print "Possible choices for label=:"
+            print("Possible choices for label=:")
             for a in arrays:
-                print " %s" % a.info().label_string()
+                print(" %s" % a.info().label_string())
             return
         else:
             array = sel[0]
 
     array = array.resolution_filter(d_min=params.d_min, d_max=params.d_max)
     
-    print flex.mean(array.data().as_double())
+    print(flex.mean(array.data().as_double()))
 
 if __name__ == "__main__":
     import sys

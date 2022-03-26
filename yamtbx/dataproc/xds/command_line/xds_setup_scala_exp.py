@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 """
 Helper script for setting up mtz files (?) for comparing results with scala
 
@@ -61,9 +63,9 @@ def check_needed_files():
     not_exists = [ f for f in needed_files if not os.path.isfile(f) ]
 
     if not_exists != []:
-        print "We need these files!"
-        print "  " + ",".join(not_exists)
-        print
+        print("We need these files!")
+        print("  " + ",".join(not_exists))
+        print()
 
     return len(not_exists) == 0
 # check_needed_files()
@@ -143,7 +145,7 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args(sys.argv)
 
     if opts.mtz_free is not None and opts.free_fraction is not None:
-        print "mtz-free and free-fraction cannot be specified at the same time."
+        print("mtz-free and free-fraction cannot be specified at the same time.")
         quit()
     if 0:
         parser.print_help()
@@ -218,16 +220,16 @@ if __name__ == "__main__":
 
 
     # Run aimless
-    print "Running aimless"
+    print("Running aimless")
     for prefix in ("INTEGRATE", "CORRECT_a", "CORRECT_b", "CORRECT_c"):
-        print "running aimless for", prefix
+        print("running aimless for", prefix)
         wdir = os.path.join(workdir, "aimless_%s"%prefix)
         os.mkdir(wdir)
         run_aimless(prefix, wdir)
 
         truncate_mtz = os.path.join(wdir, prefix+"_aimless_truncate.mtz")
         if not os.path.exists(truncate_mtz):
-            print "WARNING: mtz file was not created:", truncate_mtz
+            print("WARNING: mtz file was not created:", truncate_mtz)
             continue
 
         if opts.mtz_free:

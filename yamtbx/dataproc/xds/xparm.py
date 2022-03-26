@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 import numpy
 import itertools
@@ -11,14 +13,14 @@ import copy
 from yamtbx.dataproc.xds import get_xdsinp_keyword
 from yamtbx.util import safe_float
 
-class Segment:
+class Segment(object):
     def __init__(self):
         self.x1, self.x2, self.y1, self.y2 = 1, 1, 1, 1
         self.orgxs, self.orgys, self.fs = 0, 0, 0
         self.eds_x = numpy.array([1.,0,0])
         self.eds_y = numpy.array([0,1.,0])
 
-class XPARM:
+class XPARM(object):
     def __init__(self, xparm_file=None):
         self.segments = []
         self.xds_ver = "March 30, 2013"
@@ -101,9 +103,9 @@ class XPARM:
         self.Z_axis = numpy.array((float(Zx), float(Zy), float(Zz)))
         self.spacegroup = int(spacegroup)
         self.unit_cell = numpy.array((float(a), float(b), float(c), float(alpha), float(beta), float(gamma)))
-        self.a_axis = numpy.array(map(safe_float, (ax, ay, az)))
-        self.b_axis = numpy.array(map(safe_float, (bx, by, bz)))
-        self.c_axis = numpy.array(map(safe_float, (cx, cy, cz)))
+        self.a_axis = numpy.array(list(map(safe_float, (ax, ay, az))))
+        self.b_axis = numpy.array(list(map(safe_float, (bx, by, bz))))
+        self.c_axis = numpy.array(list(map(safe_float, (cx, cy, cz))))
 
         # Segments
         if is_new_format and len(lines) > 14:
@@ -111,16 +113,16 @@ class XPARM:
                 self.segments.append(Segment())
 
                 s = lines[li]
-                iseg, x1, x2, y1, y2 = map(int, (s[:10], s[10:20], s[20:30], s[30:40], s[40:50]))
+                iseg, x1, x2, y1, y2 = list(map(int, (s[:10], s[10:20], s[20:30], s[30:40], s[40:50])))
                 self.segments[-1].x1 = x1
                 self.segments[-1].x2 = x2
                 self.segments[-1].y1 = y1
                 self.segments[-1].y2 = y2
                 
                 s = lines[li+1]
-                orgxs, orgys, fs, x0, x1, x2, y0, y1, y2 = map(float, (s[:8], s[8:16], s[16:24],
+                orgxs, orgys, fs, x0, x1, x2, y0, y1, y2 = list(map(float, (s[:8], s[8:16], s[16:24],
                                                                        s[24:33], s[33:42], s[42:51],
-                                                                       s[51:60], s[60:69], s[69:78]))
+                                                                       s[51:60], s[60:69], s[69:78])))
                 self.segments[-1].orgxs = orgxs
                 self.segments[-1].orgys = orgys
                 self.segments[-1].fs = fs
@@ -135,21 +137,21 @@ class XPARM:
         table = [("STARTING_FRAME", "starting_frame", lambda x: int(t1(x))),
                  ("STARTING_ANGLE", "starting_angle", lambda x: float(t1(x))),
                  ("OSCILLATION_RANGE", "osc_range", lambda x: float(t1(x))),
-                 ("ROTATION_AXIS", "rotation_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
-                 ("DIRECTION_OF_DETECTOR_X-AXIS", "X_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
-                 ("DIRECTION_OF_DETECTOR_Y-AXIS", "Y_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("ROTATION_AXIS", "rotation_axis", lambda x: numpy.array([float(y) for y in x.split()[:3]])),
+                 ("DIRECTION_OF_DETECTOR_X-AXIS", "X_axis", lambda x: numpy.array([float(y) for y in x.split()[:3]])),
+                 ("DIRECTION_OF_DETECTOR_Y-AXIS", "Y_axis", lambda x: numpy.array([float(y) for y in x.split()[:3]])),
                  ("X-RAY_WAVELENGTH", "wavelength", lambda x: float(t1(x))),
-                 ("INCIDENT_BEAM_DIRECTION", "incident_beam", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
+                 ("INCIDENT_BEAM_DIRECTION", "incident_beam", lambda x: numpy.array([float(y) for y in x.split()[:3]])),
                  ("NX", "nx", lambda x: int(t1(x))),
                  ("NY", "ny", lambda x: int(t1(x))),
                  ("QX", "qx", lambda x: float(t1(x))),
                  ("QY", "qy", lambda x: float(t1(x))),
                  ("DETECTOR_DISTANCE", "distance", lambda x: float(t1(x))),
                  ("SPACE_GROUP_NUMBER", "spacegroup", lambda x: int(t1(x))),
-                 ("UNIT_CELL_CONSTANTS", "unit_cell", lambda x: numpy.array(map(lambda y:float(y), x.split()[:6]))),
-                 ("UNIT_CELL_A-AXIS", "a_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
-                 ("UNIT_CELL_B-AXIS", "b_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3]))),
-                 ("UNIT_CELL_C-AXIS", "c_axis", lambda x: numpy.array(map(lambda y:float(y), x.split()[:3])))
+                 ("UNIT_CELL_CONSTANTS", "unit_cell", lambda x: numpy.array([float(y) for y in x.split()[:6]])),
+                 ("UNIT_CELL_A-AXIS", "a_axis", lambda x: numpy.array([float(y) for y in x.split()[:3]])),
+                 ("UNIT_CELL_B-AXIS", "b_axis", lambda x: numpy.array([float(y) for y in x.split()[:3]])),
+                 ("UNIT_CELL_C-AXIS", "c_axis", lambda x: numpy.array([float(y) for y in x.split()[:3]]))
                  ]
         inp_raw = get_xdsinp_keyword(xdsinp=xdsinp, inp_str=inpstr)
         inp = dict(inp_raw)# I believe dict() removes duplicated parameters and keeps last.
@@ -169,7 +171,7 @@ class XPARM:
         # Segment
         for k, v in inp_raw:
             if k == "SEGMENT":
-                sp = map(int, v.split())
+                sp = list(map(int, v.split()))
                 self.segments.append(Segment())
                 self.segments[-1].x1 = sp[0]
                 self.segments[-1].x2 = sp[1]
@@ -182,9 +184,9 @@ class XPARM:
             elif k == "SEGMENT_DISTANCE":
                 self.segments[-1].fs = float(v)
             elif k == "DIRECTION_OF_SEGMENT_X-AXIS":
-                self.segments[-1].eds_x = numpy.array(map(float, v.split()))               
+                self.segments[-1].eds_x = numpy.array(list(map(float, v.split())))               
             elif k == "DIRECTION_OF_SEGMENT_Y-AXIS":
-                self.segments[-1].eds_y = numpy.array(map(float, v.split()))               
+                self.segments[-1].eds_y = numpy.array(list(map(float, v.split())))               
     # set_info_from_xdsinp()
 
 
@@ -258,14 +260,14 @@ class XPARM:
     def update_cell_based_on_axes(self):
         from yamtbx.util.maths import vectors_angle
 
-        a, b, c = map(lambda x: numpy.linalg.norm(x), (self.a_axis, self.b_axis, self.c_axis))
+        a, b, c = [numpy.linalg.norm(x) for x in (self.a_axis, self.b_axis, self.c_axis)]
         al = vectors_angle(self.b_axis, self.c_axis)
         be = vectors_angle(self.c_axis, self.a_axis)
         ga = vectors_angle(self.a_axis, self.b_axis)
-        al, be, ga = map(lambda x: numpy.rad2deg(x), (al, be, ga))
+        al, be, ga = [numpy.rad2deg(x) for x in (al, be, ga)]
         
         self.unit_cell = numpy.array((a,b,c,al,be,ga))
-        print 
+        print() 
 # class XPARM
 
 def prep_xparm_objects_from_integrate_lp(lpfile, xparm_ref=None):
@@ -292,18 +294,17 @@ def prep_xparm_objects_from_integrate_lp(lpfile, xparm_ref=None):
         if "PROCESSING OF IMAGES" in l:
             flag_read = False
             l = l.strip()
-            range_current = map(lambda x:int(x.strip()),
-                                l[l.index("PROCESSING OF IMAGES")+len("PROCESSING OF IMAGES"):].split("..."))
+            range_current = [int(x.strip()) for x in l[l.index("PROCESSING OF IMAGES")+len("PROCESSING OF IMAGES"):].split("...")]
             
             flag_read = True
             all_data.append([tuple(range_current), {}])
         elif "STANDARD DEVIATIONS OF BEAM DIVERGENCE AND REFLECTING RANGE OBTAINED" in l:
             flag_read = False
         elif flag_read:
-            for key, s in keys.items():
+            for key, s in list(keys.items()):
                 if s in l:
                     l = l.strip()
-                    val = map(lambda x:float(x.strip()), l[l.index(s)+len(s):].split())
+                    val = [float(x.strip()) for x in l[l.index(s)+len(s):].split()]
                     all_data[-1][1][key] = val
 
     ret = []
@@ -330,7 +331,7 @@ def get_xparm_from_integrate_lp(lpfile, frame):
     assert 0 < frame
 
     xparm_objs = prep_xparm_objects_from_integrate_lp(lpfile)
-    xp = filter(lambda x: x[0][0] <= frame <= x[0][1], xparm_objs)[0][1]
+    xp = [x for x in xparm_objs if x[0][0] <= frame <= x[0][1]][0][1]
 
     return xp.xparm_str()
 # get_xparm_from_integrate_lp()
@@ -353,7 +354,7 @@ def find_best_ucaxes_transform(xparm1, xparm2):
     min_score = numpy.inf
     best_mat = None
 
-    for x in itertools.product(xrange(-1,2), repeat=9):
+    for x in itertools.product(range(-1,2), repeat=9):
         #if x != (1,0,0,0,1,0,0,0,1): continue
         m = numpy.array(x).reshape(3,3)
         if numpy.linalg.det(m) != 1: continue

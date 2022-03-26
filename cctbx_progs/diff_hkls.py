@@ -2,6 +2,8 @@
 Give two mtz files (mtz_1 and mtz_2).
 Reflections only in mtz_1 will be written as only_in_1.mtz. only_in_2.mtz will be written in the same way.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import mmtbx.utils
 import iotbx.phil
@@ -30,11 +32,11 @@ labels_2 = None
 
 def get_data(mtzin, labels):
     mtzobj = iotbx.mtz.object(file_name=mtzin)
-    selected = filter(lambda x:x.info().label_string() == labels, mtzobj.as_miller_arrays())
+    selected = [x for x in mtzobj.as_miller_arrays() if x.info().label_string() == labels]
 
     if len(selected) < 1:
-        print mtzin, "does not have", labels
-        print " Possible labels:", [x.info().label_string() for x in mtzobj.as_miller_arrays()]
+        print(mtzin, "does not have", labels)
+        print(" Possible labels:", [x.info().label_string() for x in mtzobj.as_miller_arrays()])
 
     return selected[0]
 # get_data()
@@ -54,12 +56,12 @@ if __name__ == "__main__":
 
     if params.hklin_1 is None and params.hklin_2 is None:
         if len(processed_args.reflection_file_names) != 2:
-            print "Exactly two mtz files must be given."
+            print("Exactly two mtz files must be given.")
             sys.exit(1)
         params.hklin_1, params.hklin_2 = processed_args.reflection_file_names
 
     working_phil = parsed.format(python_object=params)
-    print "Parameters to compute maps:"
+    print("Parameters to compute maps:")
     working_phil.show(out = sys.stdout, prefix=" ")
 
 

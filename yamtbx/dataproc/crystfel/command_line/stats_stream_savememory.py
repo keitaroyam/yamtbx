@@ -6,6 +6,8 @@ library(reshape2)
 d.m<-melt(d,id=c("nframes","red"))
 ggplot(d.m, aes(x=red, y=value)) + geom_point() + geom_line() + facet_grid(variable~.,scale="free")
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc import crystfel
 from yamtbx.dataproc.crystfel.command_line import split_stats
@@ -68,7 +70,7 @@ output_prefix = None
 
 def get_reference_data(refdata, reflabel, assert_anomalous=True):
     arrays = iotbx.file_reader.any_file(refdata).file_server.miller_arrays
-    array = filter(lambda x: x.info().label_string()==reflabel, arrays)[0]
+    array = [x for x in arrays if x.info().label_string()==reflabel][0]
     if assert_anomalous:
         assert array.anomalous_flag()
     return array.as_intensity_array()
@@ -108,7 +110,7 @@ def read_stream(stream, start_at=0):
         fin = open(stream)
     line = fin.readline()
     format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
-    print "# format version:", format_ver
+    print("# format version:", format_ver)
     assert float(format_ver) >= 2.2 # TODO support other version
     chunk = None
     count = 0
@@ -132,8 +134,8 @@ def show_split_stats(stream, nindexed, symm, params, anoref=None, ref=None, out_
     out = open(out_prefix + ".dat", "w")
 
     out_byres = open(out_prefix + "_byres.dat", "w")
-    print >>out_byres, ("%"+str(len(str(nindexed)))+"s")%"nframes",
-    print >>out_byres, "dmin  dmax   red  cmpl acmpl  rsplit    rano   cc1/2   ccano  snr  rano/split CCanoref CCref"
+    print(("%"+str(len(str(nindexed)))+"s")%"nframes", end=' ', file=out_byres)
+    print("dmin  dmax   red  cmpl acmpl  rsplit    rano   cc1/2   ccano  snr  rano/split CCanoref CCref", file=out_byres)
 
     #formatstr_for_eachout = out_prefix+"_to%."+str(len(str(nindexed)))+"d_byres.dat"
     #indices1, iobs1, sel1 = [], [], []
@@ -143,11 +145,11 @@ def show_split_stats(stream, nindexed, symm, params, anoref=None, ref=None, out_
     iobs1, iobs2 = flex.double(), flex.double()
     sel1, sel2 = flex.bool(), flex.bool()
 
-    print >>out, "   nframes     red  Rsplit    Rano   CC1/2   CCano  snr  Rano/Rsplit CCanoref CCref"
+    print("   nframes     red  Rsplit    Rano   CC1/2   CCano  snr  Rano/Rsplit CCanoref CCref", file=out)
 
     chunks = read_stream(stream, start_at)
 
-    for i in xrange(params.nsplit):
+    for i in range(params.nsplit):
         e = (i+1)*nstep
         if i == params.nsplit-1: e = nindexed
 
@@ -167,7 +169,7 @@ def show_split_stats(stream, nindexed, symm, params, anoref=None, ref=None, out_
             slc1 = slc[0::2]
             slc2 = slc[1::2]
         elif params.halve_method == "random":
-            perm = range(len(slc))
+            perm = list(range(len(slc)))
             random.shuffle(perm)
             nhalf = len(slc)//2
             slc1 = [slc[r] for r in perm[:nhalf]]
@@ -222,11 +224,11 @@ def show_split_stats(stream, nindexed, symm, params, anoref=None, ref=None, out_
         ccanoref = split_stats.calc_ccano(m.array(), anoref, take_common=True) if params.anomalous and anoref is not None else float("nan")
         ccref = split_stats.calc_cc(m.array(), ref, take_common=True) if ref is not None else float("nan")
         snr = flex.mean(m.array().data()/m.array().sigmas())
-        print >>out, "%10d %7.2f %7.4f %7.4f % .4f % .4f %.2f %.4f % .4f % .4f" % (e, red, rsplit, rano, cc, ccano, snr, rano/rsplit, ccanoref, ccref)
+        print("%10d %7.2f %7.4f %7.4f % .4f % .4f %.2f %.4f % .4f % .4f" % (e, red, rsplit, rano, cc, ccano, snr, rano/rsplit, ccanoref, ccref), file=out)
         out.flush()
 
         byresolution_stats(params, a1, a2, m, anoref, ref, ("%"+str(len(str(nindexed)))+"d")%e, out_byres)
-        print >>out_byres, "#"
+        print("#", file=out_byres)
         #open(formatstr_for_eachout%e, "w"))
 
     # Oveall stats by redundancy
@@ -252,7 +254,7 @@ def byresolution_stats(params, a1, a2, m, anoref, ref, prefix, out):
         ccanoref = split_stats.calc_ccano(m_sel, anoref, take_common=True) if params.anomalous and anoref is not None else float("nan")
         ccref = split_stats.calc_cc(m_sel, ref, take_common=True) if ref is not None else float("nan")
         snr = flex.mean(m_sel.data()/m_sel.sigmas())
-        print >>out, "%s %5.2f %5.2f %5d %5.1f %5.1f %7.4f %7.4f % .4f % .4f %.2f %7.4f % .4f % .4f" % (prefix, dmax, dmin, red, cmpl, cmplano, rsplit, rano, cc, ccano, snr, rano/rsplit, ccanoref, ccref)
+        print("%s %5.2f %5.2f %5d %5.1f %5.1f %7.4f %7.4f % .4f % .4f %.2f %7.4f % .4f % .4f" % (prefix, dmax, dmin, red, cmpl, cmplano, rsplit, rano, cc, ccano, snr, rano/rsplit, ccanoref, ccref), file=out)
 # byresolution_stats()
 
 def run(streamin, symm_source, params):
@@ -277,7 +279,7 @@ def run(streamin, symm_source, params):
         if params.stop_after is not None and params.stop_after <= (nindexed-params.start_at):
             break
 
-    print >> sys.stderr, "# nframes checked (%d). time:" % nindexed, time.time() - t
+    print("# nframes checked (%d). time:" % nindexed, time.time() - t, file=sys.stderr)
 
     nindexed -= params.start_at
     

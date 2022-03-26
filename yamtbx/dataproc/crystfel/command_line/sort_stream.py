@@ -1,4 +1,6 @@
-import cPickle as pickle
+from __future__ import print_function
+from __future__ import unicode_literals
+import pickle
 import os
 
 def run(streamin, pklin, key, stop_after=None, streamout=None):
@@ -9,8 +11,8 @@ def run(streamin, pklin, key, stop_after=None, streamout=None):
     rev_order = key[-1] == "-"
     key = key[:-1]
 
-    stats = pickle.load(open(pklin))
-    sorted_indices = sorted(range(len(stats["chunk_ranges"])),
+    stats = pickle.load(open(pklin, "rb"))
+    sorted_indices = sorted(list(range(len(stats["chunk_ranges"]))),
                             key=lambda x: stats[key][x],
                             reverse=rev_order)
 
@@ -19,7 +21,7 @@ def run(streamin, pklin, key, stop_after=None, streamout=None):
     ofs.write(ifs.readline())
 
     for i, idx in enumerate(sorted_indices):
-        print "writing", stats[key][idx]
+        print("writing", stats[key][idx])
         s, e = stats["chunk_ranges"][idx]
         ifs.seek(s-1)
         ofs.write(ifs.read(e-s+1))

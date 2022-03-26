@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import numpy
 import cctbx.eltbx.xray_scattering
 import cctbx.eltbx.e_scattering
@@ -12,16 +14,16 @@ def run(elements, smin=0, smax=1, sstep=0.01):
     #reg.assign_from_table("IT1992")
     #print reg.unique_form_factors_at_d_star_sq(0.05**2)[0]
 
-    print "element s xray electron"
+    print("element s xray electron")
     for el in elements:
         xray = cctbx.eltbx.xray_scattering.it1992(el, True).fetch()
         elec = cctbx.eltbx.e_scattering.ito_vol_c_2011_table_4_3_2_2_entry_as_gaussian(label=el, exact=True)
 
-        print "# Xray for %s    :"%el, fetch_equation(xray)
-        print "# electron for %s:"%el, fetch_equation(elec)
+        print("# Xray for %s    :"%el, fetch_equation(xray))
+        print("# electron for %s:"%el, fetch_equation(elec))
     
         for s in numpy.arange(smin, smax, sstep):
-            print "%2s %.4f %.4f %.4f" % (el, s, xray.at_d_star(s), elec.at_d_star(s))
+            print("%2s %.4f %.4f %.4f" % (el, s, xray.at_d_star(s), elec.at_d_star(s)))
 
 if __name__ == "__main__":
     import sys

@@ -1,10 +1,12 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.xds.xparm import XPARM
 
 def run(xds_inp):
     xp = XPARM()
     xp.set_info_from_xdsinp_or_inpstr(xdsinp=xds_inp)
     xp.update_cell_based_on_axes()
-    print xp.xparm_str().rstrip()
+    print(xp.xparm_str().rstrip())
 
 if __name__ == "__main__":
     import sys

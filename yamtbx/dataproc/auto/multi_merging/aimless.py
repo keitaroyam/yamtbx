@@ -4,13 +4,17 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc import aimless
 from yamtbx import util
 import collections
 
 import os
+from functools import reduce
 
-class AimlessCycles:
+class AimlessCycles(object):
     def __init__(self, workdir, anomalous_flag, d_min, d_max,
                  reject_method, cc_cutoff, delta_cchalf_bin,
                  mtzin, batch_info, out, nproc=1, nproc_each=None, batchjobs=None):
@@ -46,7 +50,7 @@ class AimlessCycles:
         self._counter += 1
         new_wd = os.path.join(self.workdir_org, "run_%.2d" % self._counter)
         os.mkdir(new_wd)
-        print >>self.out, "\nIn %s" % new_wd
+        print("\nIn %s" % new_wd, file=self.out)
 
         return new_wd
     # request_next_workdir()
@@ -63,36 +67,36 @@ class AimlessCycles:
                 if l.startswith("!SPACE_GROUP_NUMBER="):
                     sg = l[l.index("=")+1:].strip()
                 if l.startswith("!UNIT_CELL_CONSTANTS="):
-                    cell = map(float, l[l.index("=")+1:].split())
+                    cell = list(map(float, l[l.index("=")+1:].split()))
                     assert len(cell) == 6
                     cells.append(cell)
                     break
 
-        cell_sum = reduce(lambda x,y:map(lambda a:x[a]+y[a], xrange(6)), cells)
-        return sg, " ".join(map(lambda x:"%.3f"%(x/float(len(cells))), cell_sum))
+        cell_sum = reduce(lambda x,y:[x[a]+y[a] for a in range(6)], cells)
+        return sg, " ".join(["%.3f"%(x/float(len(cells))) for x in cell_sum])
     # average_cells()
 
     def run_cycles(self, xds_files):
         self.removed_files = []
         self.removed_reason = {}
-        print >>self.out, "********************* START FUNCTION ***********************"
+        print("********************* START FUNCTION ***********************", file=self.out)
 
         # Remove unconnected files here.
         remove_idxes = find_unconnected_xds_files(xds_files, min_ios=3, d_min=self.d_min)
-        print >>self.out, "DEBUG:: Need to remove unconnected %d files" % len(remove_idxes)
+        print("DEBUG:: Need to remove unconnected %d files" % len(remove_idxes), file=self.out)
         for i in sorted(remove_idxes): 
-            print >>self.out, " %.3d %s" % (i+1, xds_files[i])
+            print(" %.3d %s" % (i+1, xds_files[i]), file=self.out)
             self.removed_files.append(xds_files[i])
             self.removed_reason[xds_files[i]] = "no_common_refls"
 
-        keep_idxes = filter(lambda x: x not in remove_idxes, xrange(len(xds_files)))
-        self.run_cycle(map(lambda i: xds_files[i], keep_idxes))
+        keep_idxes = [x for x in range(len(xds_files)) if x not in remove_idxes]
+        self.run_cycle([xds_files[i] for i in keep_idxes])
 
         # Final cycle; average cells and merge again.
         used_files = set(xds_files).difference(set(self.removed_files))
         sg, cell = self.average_cells(used_files)
-        print >>self.out, "Final scaling with averaged cell."
-        print >>self.out, "Averaged cell= %s" % (cell)
+        print("Final scaling with averaged cell.", file=self.out)
+        print("Averaged cell= %s" % (cell), file=self.out)
 
         # call mtzutils to change cell!
         mtz_finalcell = "pointless_finalcell.mtz"
@@ -132,7 +136,7 @@ class AimlessCycles:
 
     def run_cycle(self, xds_files, do_rejection=True):
         if len(xds_files) == 0:
-            print >>self.out, "Error: no files given."
+            print("Error: no files given.", file=self.out)
             return
 
         inp_str = ""
@@ -140,7 +144,7 @@ class AimlessCycles:
             brange = self.batch_info[f]
             inp_str += "RUN %3d BATCH %4d to %4d\n" % (i+1, brange[0], brange[1])
 
-        print >>self.out, "DEBUG:: running aimless with %3d files.." % len(xds_files)
+        print("DEBUG:: running aimless with %3d files.." % len(xds_files), file=self.out)
         aimless.run_aimless(mtzin=os.path.relpath(self.mtzin, self.workdir),
                             wdir=self.workdir,
                             anomalous=self.anomalous_flag, d_min=self.d_min, prefix="aimless",
@@ -156,21 +160,21 @@ class AimlessCycles:
         remove_idxes = []
 
         if self.reject_method == "delta_cc1/2":
-            print >>self.out, "Rejection based on delta_CC1/2 in %s shell" % self.delta_cchalf_bin
+            print("Rejection based on delta_CC1/2 in %s shell" % self.delta_cchalf_bin, file=self.out)
             table = aimless.read_summary(aimless_log)
             i_stat = 0 if self.delta_cchalf_bin == "total" else 2
             prev_cchalf = table["cc_half"][i_stat]
             prev_nuniq = table["nuniq"][i_stat]
             # file_name->idx table
-            remaining_files = collections.OrderedDict(map(lambda x: x[::-1], enumerate(xds_files)))
+            remaining_files = collections.OrderedDict([x[::-1] for x in enumerate(xds_files)])
 
-            for i in xrange(len(xds_files)-1): # if only one file, cannot proceed.
+            for i in range(len(xds_files)-1): # if only one file, cannot proceed.
                 tmpdir = os.path.join(self.workdir, "reject_test_%.3d" % i)
 
                 cchalf_list = aimless.calc_cchalf_by_removing(wdir=tmpdir,
                                                               mtzin=self.mtzin,
                                                               batch_info=self.batch_info,
-                                                              inpfiles=remaining_files.keys(),
+                                                              inpfiles=list(remaining_files.keys()),
                                                               anomalous_flag=self.anomalous_flag,
                                                               d_min=self.d_min,
                                                               stat_bin=self.delta_cchalf_bin,
@@ -179,25 +183,25 @@ class AimlessCycles:
                                                               batchjobs=self.batchjobs)
 
                 rem_idx, cc_i, nuniq_i = cchalf_list[0] # First (largest) is worst one to remove.
-                rem_idx_in_org = remaining_files[remaining_files.keys()[rem_idx]]
+                rem_idx_in_org = remaining_files[list(remaining_files.keys())[rem_idx]]
                 
                 # Decision making by CC1/2
-                print >>self.out, "DEBUG:: remove %3d if %.4f*%d > %.4f*%d" % (rem_idx_in_org, 
+                print("DEBUG:: remove %3d if %.4f*%d > %.4f*%d" % (rem_idx_in_org, 
                                                                                cc_i, nuniq_i,
-                                                                               prev_cchalf, prev_nuniq)
+                                                                               prev_cchalf, prev_nuniq), file=self.out)
                 if cc_i*nuniq_i <= prev_cchalf*prev_nuniq: break
-                print >>self.out, "Removing idx= %3d gains CC1/2 by %.4f" % (rem_idx_in_org, cc_i-prev_cchalf)
+                print("Removing idx= %3d gains CC1/2 by %.4f" % (rem_idx_in_org, cc_i-prev_cchalf), file=self.out)
 
                 prev_cchalf, prev_nuniq = cc_i, nuniq_i
                 remove_idxes.append(rem_idx_in_org)
-                del remaining_files[remaining_files.keys()[rem_idx]] # remove file from table
+                del remaining_files[list(remaining_files.keys())[rem_idx]] # remove file from table
         else:
-            print >>self.out, "ERROR:: Unsupported reject_method (%s)" % reject_method
+            print("ERROR:: Unsupported reject_method (%s)" % reject_method, file=self.out)
 
         if len(remove_idxes) > 0:
-            print >>self.out, "DEBUG:: Need to remove %d files" % len(remove_idxes)
+            print("DEBUG:: Need to remove %d files" % len(remove_idxes), file=self.out)
             for i in sorted(remove_idxes): 
-                print >>self.out, " %.3d %s" % (i+1, xds_files[i])
+                print(" %.3d %s" % (i+1, xds_files[i]), file=self.out)
                 self.removed_files.append(xds_files[i])
                 self.removed_reason[xds_files[i]] = "badcc"
 
@@ -208,9 +212,9 @@ class AimlessCycles:
             do_rejection = False
 
         if do_rejection or len(remove_idxes) > 0:
-            keep_idxes = filter(lambda x: x not in remove_idxes, xrange(len(xds_files)))
+            keep_idxes = [x for x in range(len(xds_files)) if x not in remove_idxes]
             self.workdir = self.request_next_workdir()
-            self.run_cycle(map(lambda i: xds_files[i], keep_idxes), do_rejection=do_rejection)
+            self.run_cycle([xds_files[i] for i in keep_idxes], do_rejection=do_rejection)
             # XXX second rejection trials are (sometimes?) waste.
     # run_cycle()
 # class AimlessCycles
@@ -238,16 +242,16 @@ def find_unconnected_xds_files(xds_files, min_ios=3, d_min=None):
         a = a.merge_equivalents(use_internal_variance=False).array()
         arrays.append(a.select(a.data()/a.sigmas()>=min_ios))
 
-    for i in xrange(len(arrays)-1):
-        for j in xrange(i+1, len(arrays)):
+    for i in range(len(arrays)-1):
+        for j in range(i+1, len(arrays)):
             matchs = arrays[i].match_indices(other=arrays[j], assert_is_similar_symmetry=False)
             if matchs.pairs().size() >= 10:
                 G.add_edge(i, j)
-                print "edge", i, j
+                print("edge", i, j)
     
-    ccomps = map(lambda x:x, nx.connected_components(G))
-    print "DEBUG:: Connected components=", ccomps
+    ccomps = [x for x in nx.connected_components(G)]
+    print("DEBUG:: Connected components=", ccomps)
     keep_idxes = ccomps[0]
-    remove_idxes = filter(lambda x: x not in keep_idxes, xrange(len(xds_files)))
+    remove_idxes = [x for x in range(len(xds_files)) if x not in keep_idxes]
     return remove_idxes
 # find_unconnected_xds_files()

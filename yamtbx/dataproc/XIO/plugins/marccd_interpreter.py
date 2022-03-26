@@ -2,6 +2,9 @@
 
 """ XIO plugin for the MarCCD image format.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
 __version__ = "0.4.3"
 __author__ = "Pierre Legrand (pierre.legrand \at synchrotron-soleil.fr)"
@@ -16,19 +19,19 @@ import sys
 def extr_time(time_str):
     "from str return tupple"
     try:
-        return time.strptime(time_str[12:27], "%m%d%H%M%Y.%S")
-    except ValueError, err:
-        print "Warning:", err
-        print "... Using time.localtime() instead."
+        return time.strptime(time_str[12:27].decode(), "%m%d%H%M%Y.%S")
+    except ValueError as err:
+        print("Warning:", err)
+        print("... Using time.localtime() instead.")
         return time.localtime()
 
 def date_seconds(time_str):
     "from tupple return seconds"
     try:
         return time.mktime(extr_time(time_str))
-    except ValueError, err:
-        print "Warning:", err
-        print "... Using time.time() instead."
+    except ValueError as err:
+        print("Warning:", err)
+        print("... Using time.time() instead.")
         return time.time()
 
 def date_time(time_str):
@@ -44,7 +47,7 @@ AXIS_CODE = {0: "twotheta", 1:"omega", 2:"chi", 3:"kappa", 4: "phi"}
 def get_serial(comment):
     "Try to find the serial string in comments."
     for line in comment.splitlines():
-        if line.lower().count("serial"):
+        if line.lower().count(b"serial"):
             try:
                 return line.split()[-1]
             except:
@@ -147,7 +150,7 @@ HEADER_STRUCTURE = [
 ('file_comment','512s'),
 ('junk11','1132s')]
 
-class Interpreter:
+class Interpreter(object):
     "Dummy class, container for standard Dict and Function."
 
     HTD = {
@@ -226,20 +229,21 @@ class Interpreter:
             _key = header_structure_keys[line]
             self.raw_head_dict[_key] = read_unp[line]
             if verbose and not _key.count("junk"):
-                print "%s ->%s<-" % (_key, read_unp[line])
+                print("%s ->%s<-" % (_key, read_unp[line]))
         self.raw_head_dict.update({'MESSAGE': '', 'HEADER_BYTES': 4096,
                                            'EndianType': endian_type})
+        self.raw_head_dict = dict(((k.encode("utf-8"), self.raw_head_dict[k]) for k in self.raw_head_dict))
         return self.raw_head_dict
 
 def test1():
     "Get the raw header keys from one image"
-    image = open(sys.argv[1])
+    image = open(sys.argv[1], "rb")
     raw_head = image.read(9000)
-    header = image.getRawHeadDict(raw_head)
+    header = Interpreter().getRawHeadDict(raw_head)
 
     header_keys =  [a[0] for a in HEADER_STRUCTURE]
     for k in header_keys:
-        print "%s:\t%s" % (k, header[k])
+        print("%s:\t%s" % (k, header[k]))
 
 if __name__ == "__main__":
     test1()

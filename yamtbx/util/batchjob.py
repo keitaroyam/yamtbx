@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import os, subprocess, re, threading, time, stat
 import shlex
@@ -38,8 +40,10 @@ echo finished at `date "+%Y-%m-%d %H:%M:%S"`
 
 class SgeError(Exception):
     pass
+class SlurmError(Exception):
+    pass
 
-class JobManager: # interface
+class JobManager(object): # interface
     def __init__(self): pass
     def submit(self, j): pass
     def update_stat(self, j): pass # update j's state to RUNNING/FINISHED
@@ -48,7 +52,7 @@ class JobManager: # interface
         acc = 0
         while True:
             for job in jobs: self.update_state(job)
-            if all(map(lambda job: job.state==STATE_FINISHED, jobs)):
+            if all([job.state==STATE_FINISHED for job in jobs]):
                 return True
             
             time.sleep(interval)
@@ -66,13 +70,14 @@ class LocalThread(threading.Thread):
         self.p_list = [] # running process list [(Job, subprocess.Popen), ..]
 
         threading.Thread.__init__(self)
+        self.setDaemon(True)
     # __init__()
 
     def start_job(self, j):
         p = subprocess.Popen(os.path.join(".", j.script_name), shell=True, cwd=j.wdir,
                              stdout=open(os.path.join(j.wdir, j.script_name + ".out"), "w"),
                              stderr=open(os.path.join(j.wdir, j.script_name + ".err"), "w"),
-                             )
+                             universal_newlines=True)
         return p
     # start_job()
     
@@ -84,7 +89,7 @@ class LocalThread(threading.Thread):
                     j.state = STATE_FINISHED
 
             # Keep unfinished jobs
-            self.p_list = filter(lambda p: p[1].poll() is None, self.p_list)
+            self.p_list = [p for p in self.p_list if p[1].poll() is None]
 
             # Register new jobs
             for i in range(self.num_jobs - len(self.p_list)):
@@ -167,7 +172,7 @@ class SGE(JobManager):
             cmd = "qsub -j y %s" % script_name
 
         p = subprocess.Popen(cmd, shell=True, cwd=wdir, 
-                             stdout=subprocess.PIPE)
+                             stdout=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
         
@@ -181,7 +186,7 @@ class SGE(JobManager):
             raise SgeError("cannot read job-id from qsub result. please contact author. stdout is:\n" % stdout)
         
         self.job_id[j] = job_id
-        print "Job %s on %s is started. id=%s"%(j.script_name, j.wdir, job_id)
+        print("Job %s on %s is started. id=%s"%(j.script_name, j.wdir, job_id))
 
     # submit()
 
@@ -203,19 +208,19 @@ class SGE(JobManager):
     def qstat(self, job_id):
         cmd = "qstat -j %s" % job_id
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
 
         if p.returncode != 0:
-            print "job %s finished (qstat returned %s)." % (job_id, p.returncode)
+            print("job %s finished (qstat returned %s)." % (job_id, p.returncode))
             return None
         #raise SgeError("qstat failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
         #                                                                     stdout))
 
         status = {}
 
-        for l in filter(lambda s:":" in s, stdout):
+        for l in [s for s in stdout if ":" in s]:
             splitted = l.split(":")
             key = splitted[0].strip()
             val = "".join(splitted[1:]).strip()
@@ -225,19 +230,19 @@ class SGE(JobManager):
     # qstat()
 
     def stop_all(self):
-        for i in self.job_id.values():
+        for i in list(self.job_id.values()):
             self.qdel(i)
     # stop_all()
     
     def qdel(self, job_id):
         cmd = "qdel %s" % job_id
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
 
         if p.returncode != 0:
-            print "qdel %s failed."%job_id 
+            print("qdel %s failed."%job_id) 
             return None
         #raise SgeError("qstat failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
         #                                                                     stdout))
@@ -246,8 +251,114 @@ class SGE(JobManager):
 
 # class SGE
 
+class Slurm(JobManager):
+    def __init__(self):
+        JobManager.__init__(self)
 
-class Job:
+        sbatch_found, squeue_found = False, False
+        
+        for d in os.environ["PATH"].split(":"):
+            if os.path.isfile(os.path.join(d, "sbatch")):
+                sbatch_found = True
+            if os.path.isfile(os.path.join(d, "squeue")):
+                squeue_found = True
+
+        if not( sbatch_found and squeue_found ):
+            raise SlurmError("cannot find sbatch or squeue command under $PATH")
+                
+        self.job_id = {} # [Job: jobid]
+    # __init__()
+
+    def submit(self, j):
+        ##
+        # submit script
+        # @return jobID 
+
+        script_name = j.script_name
+        wdir = j.wdir
+
+        cmd = "sbatch -c %d %s" % (j.nproc, script_name)
+
+        p = subprocess.Popen(cmd, shell=True, cwd=wdir, 
+                             stdout=subprocess.PIPE, universal_newlines=True)
+        p.wait()
+        stdout = p.stdout.readlines()
+        
+        if p.returncode != 0:
+            raise SlurmError("sbatch failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
+                                                                            stdout))
+        
+        r = re.search(r"^Submitted batch job ([0-9]+)", stdout[0])
+        job_id = r.group(1)
+        if job_id == "":
+            raise SlurmError("cannot read job-id from sbatch result. please contact author. stdout is:\n" % stdout)
+        
+        self.job_id[j] = job_id
+        print("Job %s on %s is started. id=%s"%(j.script_name, j.wdir, job_id))
+
+    # submit()
+
+    def update_state(self, j):
+        # if job_id is unknown (waiting or finished), state won't be changed
+        if j in self.job_id:
+            status = self.qstat(self.job_id[j])
+
+            if status is None: # if sbatch failed, flagged as FINISHED?
+                j.state = STATE_FINISHED
+                self.job_id.pop(j)
+                #j.check_after_run() # j.state may be changed to FAILED
+
+            else: # if sbatch succeeded, RUNNING or WAITING.
+                j.state = STATE_RUNNING
+            
+    # update_state()
+
+    def qstat(self, job_id):
+        cmd = "squeue --job %s" % job_id
+        p = subprocess.Popen(cmd, shell=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        p.wait()
+        stdout = p.stdout.read()
+
+        if p.returncode != 0:
+            raise SlurmError("squeue failed. returncode is %d.\nstdout:\n%s\n"%(p.returncode,
+                                                                              stdout))
+        """
+        example:
+             JOBID PARTITION     NAME     USER ST       TIME  NODES NODELIST(REASON)
+            944900       cpu  junk.sh kyamashi PD       0:00      1 (Priority)
+        """
+
+        status = {}
+
+        if job_id not in stdout:
+            print("job %s finished (squeue showed nothing)." % job_id)
+            return None
+        else:
+            return "running" # better to parse ST
+    # qstat()
+
+    def stop_all(self):
+        for i in list(self.job_id.values()):
+            self.qdel(i)
+    # stop_all()
+    
+    def qdel(self, job_id):
+        cmd = "scancel %s" % job_id
+        p = subprocess.Popen(cmd, shell=True,
+                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+        p.wait()
+        stdout = p.stdout.readlines()
+
+        if p.returncode != 0:
+            print("scancel %s failed."%job_id) 
+            return None
+
+    # qdel()
+
+# class Slurm
+
+class Job(object):
     ##
     # This class will be overridden
     #
@@ -272,7 +383,7 @@ class Job:
                     sh.whitespace=":"
                     sh.whitespace_split = True
                     env += 'export %s='%k
-                    env += ":".join(map(lambda x: '"%s"'%x, filter(lambda x: os.path.isdir(x), sh)))
+                    env += ":".join(['"%s"'%x for x in [x for x in sh if os.path.isdir(x)]])
                     env += "\n"
                 else:
                     if re_allowed_env.match(k):
@@ -284,7 +395,7 @@ class Job:
         
         open(os.path.join(self.wdir, self.script_name), "w").write(script)
         os.chmod(os.path.join(self.wdir, self.script_name) , stat.S_IXUSR + stat.S_IWUSR + stat.S_IRUSR + stat.S_IRGRP + stat.S_IROTH)
-        print "job_file=", os.path.join(self.wdir, self.script_name)
+        print("job_file=", os.path.join(self.wdir, self.script_name))
     # write_script()
 
 # class Job

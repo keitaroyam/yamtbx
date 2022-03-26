@@ -4,7 +4,10 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
+from builtins import range
 from yamtbx.dataproc.auto.multi_merging.resolve_reindex import KabschSelectiveBreeding
 from yamtbx.util import read_path_list
 from libtbx.utils import multi_out
@@ -59,7 +62,7 @@ def run(params):
 
     xac_files = read_path_list(params.lstin, only_exists=True, err_out=log_out)
     if len(xac_files) == 0:
-        print >>log_out, "No (existing) files in the list: %s" % params.lstin
+        print("No (existing) files in the list: %s" % params.lstin, file=log_out)
         return
 
     if params.method == "selective_breeding":
@@ -81,13 +84,13 @@ def run(params):
         sg = copy.copy(xs.space_group())
         unit_cell = xs.unit_cell()
 
-        cc0 = map(lambda x: x[0][1], final_cc_means)
+        cc0 = [x[0][1] for x in final_cc_means]
         log_out.write("Analyzing KabschSelectiveBreeding result..\n")
 
         accepted_ops = []
 
         for iop in range(1, len(reidx_ops)):
-            cci = map(lambda x: x[iop][1], final_cc_means)
+            cci = [x[iop][1] for x in final_cc_means]
             corr = numpy.corrcoef(cc0, cci)[0,1]
             log_out.write("  h,k,l vs %s: corr= %.4f\n" % (reidx_ops[iop].as_hkl(), corr))
             if corr > 0.5:
@@ -118,10 +121,10 @@ Please note that space group is only determined when the structure is solved.
 # run()
 
 def show_help():
-    print """
-"""
+    print("""
+""")
     iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
-    print 
+    print() 
 # show_help()
 
 def run_from_args(argv):
@@ -140,7 +143,7 @@ def run_from_args(argv):
 
     if params.lstin is None:
         show_help()
-        print "Error: Give .lst of XDS_ASCII files"
+        print("Error: Give .lst of XDS_ASCII files")
         quit()
 
     run(params)

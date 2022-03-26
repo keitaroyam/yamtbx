@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import re
 import os
 import collections
@@ -108,7 +111,7 @@ def get_ISa(lpin):
 
             sp = l.strip().split()
             if len(sp) == 5:
-                a, b, ISa, ISa0 = map(float, sp[:4])
+                a, b, ISa, ISa0 = list(map(float, sp[:4]))
                 ret.append([a,b,ISa,ISa0, sp[4]])
     return ret
 # get_ISa()
@@ -147,7 +150,7 @@ def get_rfactors_for_each(lpin):
                 if dmin != "total": dmin = float(dmin)
                 else: dmin, read_flag = None, False
 
-                robs, rexp = map(float, (robs, rexp))
+                robs, rexp = list(map(float, (robs, rexp)))
                 compared = int(compared)
                 ret.setdefault(filename, []).append([dmin, robs, rexp, compared])
     return ret
@@ -202,7 +205,7 @@ def read_stats_table(lpin):
         table.setdefault("cc_ano", []).append(float(sp[11].replace("*","")))
         table.setdefault("sig_ano", []).append(float(sp[12]))
 
-    for i in xrange(len(table["dmin"])):
+    for i in range(len(table["dmin"])):
         lrange = float("Inf") if i in (0,len(table["dmin"])-1) else table["dmin"][i-1]
         rrange = table["dmin"][i] if i != len(table["dmin"])-1 else table["dmin"][i-1]
         table.setdefault("d_range", []).append((lrange, rrange))
@@ -269,9 +272,9 @@ def cbf_to_dat(lpin):
             xstep = (xmax-xmin)/nxbin
 
             if "ABSORP_" in filename:
-                for ix in xrange(nxbin):
+                for ix in range(nxbin):
                     x1, x2 = xmin + ix*xstep, xmin + (ix+1)*xstep
-                    for ipos in xrange(len(params["DETECTOR_SURFACE_POSITION"])):
+                    for ipos in range(len(params["DETECTOR_SURFACE_POSITION"])):
                         pos = params["DETECTOR_SURFACE_POSITION"][ipos]
                         fac = data[ipos, ix]
                         ofs_abs.write("%s %2d %.2f %.2f %2d %s %5d\n" % (filenum, ix, x1, x2, ipos, pos, fac))
@@ -280,15 +283,15 @@ def cbf_to_dat(lpin):
                 nybin = int(params["NYBIN"][0])
                 ystep = (ymax-ymin)/nybin
 
-                for ix in xrange(nxbin):
+                for ix in range(nxbin):
                     x1, x2 = xmin + ix*xstep, xmin + (ix+1)*xstep
-                    for iy in xrange(nybin):
+                    for iy in range(nybin):
                         y1, y2 = ymin + iy*ystep, ymin + (iy+1)*ystep
                         fac = data[iy, ix]
                         ofs = ofs_mod if "MODPIX_" in filename else ofs_dec
                         ofs.write("%s %2d %.2f %.2f %2d %.5f %.5f %5d\n" % (filenum, ix, x1, x2, iy, y1, y2, fac))
             else:
-                print "What is this file!?", filename
+                print("What is this file!?", filename)
 
             # reset
             filename = None

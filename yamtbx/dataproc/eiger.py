@@ -9,6 +9,10 @@ Reference: tools/python/streamreceiver2.py by Dectris.
 
 from __future__ import absolute_import, division, print_function, generators
 import dxtbx.format # to set HDF5_PLUGIN_PATH in phenix environment
+try: # now dxtbx.format does not work
+    import hdf5plugin
+except ImportError:
+    pass
 
 import h5py
 import json
@@ -208,9 +212,9 @@ def extract_to_minicbf(h5master, frameno_or_path, cbfout, binning=1):
 
     h["Detector"] = "Unknown"
     if "/entry/instrument/detector/description" in h: # EIGER2 does not have this field?
-        h["Detector"] = h5["/entry/instrument/detector/description"].value
+        h["Detector"] = h5["/entry/instrument/detector/description"][()]
 
-    h["ExposurePeriod"] = h5["/entry/instrument/detector/frame_time"].value
+    h["ExposurePeriod"] = h5["/entry/instrument/detector/frame_time"][()]
     h["PhiWidth"] *= nframes
     cbf.save_numpy_data_as_cbf(data.flatten(), size1=data.shape[1], size2=data.shape[0], title="",
                                cbfout=cbfout,

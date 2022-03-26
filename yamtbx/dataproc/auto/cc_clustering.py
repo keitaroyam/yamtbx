@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from cctbx.array_family import flex
 from cctbx import miller
 from libtbx import easy_mp
@@ -45,7 +48,7 @@ def read_xac_files(xac_files, d_min=None, d_max=None, min_ios=None):
     return arrays
 # read_xac_files()
 
-class CCClustering:
+class CCClustering(object):
     def __init__(self, wdir, xac_files, d_min=None, d_max=None, min_ios=None):
         self.arrays = read_xac_files(xac_files, d_min=d_min, d_max=d_max, min_ios=min_ios)
         self.wdir = wdir
@@ -79,7 +82,7 @@ class CCClustering:
         
         
         if len(self.arrays) < 2:
-            print "WARNING: less than two data! can't do cc-based clustering"
+            print("WARNING: less than two data! can't do cc-based clustering")
             self.clusters[1] = [float("nan"), [0]]
             return
 
@@ -89,7 +92,7 @@ class CCClustering:
             from mmtbx.scaling.absolute_scaling import ml_iso_absolute_scaling
             
             ofs_wilson = open("%s_wilson_scales.dat"%prefix, "w")
-            n_residues = p_vm_calculator(self.arrays.values()[0], 1, 0).best_guess
+            n_residues = p_vm_calculator(list(self.arrays.values())[0], 1, 0).best_guess
             ofs_wilson.write("# guessed n_residues= %d\n" % n_residues)
             ofs_wilson.write("file wilsonB\n")
             for f in self.arrays:
@@ -112,22 +115,22 @@ class CCClustering:
                     normaliser = kernel_normalisation(arr, auto_kernel=True)
                     self.arrays[f] = arr.customized_copy(data=arr.data()/normaliser.normalizer_for_miller_array,
                                                          sigmas=arr.sigmas()/normaliser.normalizer_for_miller_array)
-                except Exception, e:
-                    failed.setdefault(e.message, []).append(f)
+                except Exception as e:
+                    failed.setdefault(str(e), []).append(f)
 
             if failed:
                 msg = ""
-                for r in failed: msg += " %s\n%s\n" % (r, "\n".join(map(lambda x: "  %s"%x, failed[r])))
+                for r in failed: msg += " %s\n%s\n" % (r, "\n".join(["  %s"%x for x in failed[r]]))
                 raise Sorry("intensity normalization failed by following reason(s):\n%s"%msg)
                     
         # Prep 
         args = []
-        for i in xrange(len(self.arrays)-1):
-            for j in xrange(i+1, len(self.arrays)):
+        for i in range(len(self.arrays)-1):
+            for j in range(i+1, len(self.arrays)):
                 args.append((i,j))
            
         # Calc all CC
-        worker = lambda x: calc_cc(self.arrays.values()[x[0]], self.arrays.values()[x[1]])
+        worker = lambda x: calc_cc(list(self.arrays.values())[x[0]], list(self.arrays.values())[x[1]])
         results = easy_mp.pool_map(fixed_func=worker,
                                    args=args,
                                    processes=nproc)
@@ -146,29 +149,29 @@ class CCClustering:
         if html_maker is not None:
             html_maker.add_cc_clustering_details(cc_data_for_html)
 
-        idx_bad = idx_bad.items()
+        idx_bad = list(idx_bad.items())
         idx_bad.sort(key=lambda x:x[1])
         remove_idxes = set()
         
         for idx, badcount in reversed(idx_bad):
-            if len(filter(lambda x: idx in x, nans)) == 0: continue
+            if len([x for x in nans if idx in x]) == 0: continue
             remove_idxes.add(idx)
-            nans = filter(lambda x: idx not in x, nans)
+            nans = [x for x in nans if idx not in x]
             if len(nans) == 0: break
 
-        use_idxes = filter(lambda x: x not in remove_idxes, xrange(len(self.arrays)))
+        use_idxes = [x for x in range(len(self.arrays)) if x not in remove_idxes]
         N = len(use_idxes)
 
         # Make table: original index (in file list) -> new index (in matrix)
         count = 0
         org2now = collections.OrderedDict()
-        for i in xrange(len(self.arrays)):
+        for i in range(len(self.arrays)):
             if i in remove_idxes: continue
             org2now[i] = count
             count += 1
 
         if len(remove_idxes) > 0:
-            open("%s_notused.lst"%prefix, "w").write("\n".join(map(lambda x: self.arrays.keys()[x], remove_idxes)))
+            open("%s_notused.lst"%prefix, "w").write("\n".join([list(self.arrays.keys())[x] for x in remove_idxes]))
 
         # Make matrix
         mat = numpy.zeros(shape=(N, N))
@@ -187,14 +190,14 @@ class CCClustering:
         Z = scipy.cluster.hierarchy.linkage(D, cluster_method) # doesn't work with SciPy 0.17 (works with 0.18 or newer?)
         pyplot.figure(figsize=(max(5, min(N,200)/10.),)*2, dpi=100)
         pyplot.title("%s, %s" % (distance_eqn, cluster_method))
-        hclabels = map(lambda x: x+1, org2now.keys())
+        hclabels = [x+1 for x in list(org2now.keys())]
         scipy.cluster.hierarchy.dendrogram(Z, orientation="left", labels=hclabels)
         pyplot.savefig(os.path.join(self.wdir, "tree.png"))
         pyplot.savefig(os.path.join(self.wdir, "tree.pdf"))
 
         def traverse(node, results, dendro):
             # Cluster id starts with the number of data files
-            leaves = map(lambda x: hclabels[x], sorted(node.pre_order())) # file numbers
+            leaves = [hclabels[x] for x in sorted(node.pre_order())] # file numbers
             
             if not node.right and not node.left: # this must be leaf
                 dendro["children"].append(dict(name=str(hclabels[node.id]))) # file number
@@ -227,20 +230,20 @@ class CCClustering:
 
     def cluster_completeness(self, clno, anomalous_flag, d_min, calc_redundancy=True):
         if clno not in self.clusters:
-            print "Cluster No. %d not found" % clno
+            print("Cluster No. %d not found" % clno)
             return
 
         cls = self.clusters[clno][-1]
-        msets = map(lambda x: self.miller_sets[self.arrays.keys()[x-1]], cls)
+        msets = [self.miller_sets[list(self.arrays.keys())[x-1]] for x in cls]
         #msets = map(lambda x: self.arrays.values()[x-1], cls)
-        num_idx = sum(map(lambda x: x.size(), msets))
+        num_idx = sum([x.size() for x in msets])
         all_idx = flex.miller_index()
         all_idx.reserve(num_idx)
         for mset in msets: all_idx.extend(mset.indices())
 
         # Calc median cell
-        cells = numpy.array(map(lambda x: x.unit_cell().parameters(), msets))
-        median_cell = map(lambda i: numpy.median(cells[:,i]), xrange(6))
+        cells = numpy.array([x.unit_cell().parameters() for x in msets])
+        median_cell = [numpy.median(cells[:,i]) for i in range(6)]
         symm = msets[0].customized_copy(unit_cell=median_cell)
 
         assert anomalous_flag is not None
@@ -265,8 +268,8 @@ class CCClustering:
       IDs = self.clusters[clno][1]
       ret = []
       
-      for i in xrange(len(IDs)-1):
-          for j in xrange(i+1, len(IDs)):
+      for i in range(len(IDs)-1):
+          for j in range(i+1, len(IDs)):
             ids = IDs[i]-1, IDs[j]-1
             ret.append(self.all_cc[(min(ids), max(ids))])
       return ret
@@ -274,7 +277,7 @@ class CCClustering:
     
     def show_cluster_summary(self, d_min, out=null_out()):
         tmp = []
-        self.miller_sets = load_xds_data_only_indices(xac_files=self.arrays.keys(), d_min=d_min)
+        self.miller_sets = load_xds_data_only_indices(xac_files=list(self.arrays.keys()), d_min=d_min)
 
         for clno in self.clusters:
             cluster_height, IDs = self.clusters[clno]

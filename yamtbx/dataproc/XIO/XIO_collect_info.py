@@ -5,14 +5,17 @@
 # 14th April 2005
 # 
 
+from __future__ import print_function
+from __future__ import absolute_import
+from __future__ import unicode_literals
 import os, sys
-import  __init__
+from . import  __init__
 
 def _print_autopar(parDict):
-    K = parDict.keys()
+    K = list(parDict.keys())
     K.sort()
     for k in K:
-        print "%s = %s" % (k, parDict[k])
+        print("%s = %s" % (k, parDict[k]))
 
 def _test1(filename):
     line_fmt = "%(Wavelength)8.4f\t%(Distance).2f\t%(Nimages)4d\t%(PhiWidth).2f\t%(ImageNameTemplate)s"
@@ -25,10 +28,10 @@ def _test1(filename):
         CollectData["Nimages"] = CollectData["ImageRange"][-1][-1] - \
                                  CollectData["ImageRange"][0][0] + 1
         CollectData["ImageNameTemplate"] = os.path.split(collect.xdsTemplate)[-1]
-        print line_fmt % CollectData
-    except __init__.XIOError, _mess:
-        print _mess
-        print "\nError: Can't access to file(s) %s.\nStop." % inputf
+        print(line_fmt % CollectData)
+    except __init__.XIOError as _mess:
+        print(_mess)
+        print("\nError: Can't access to file(s) %s.\nStop." % inputf)
         sys.exit(2)
         #dc = __init__.Collect(filename)
     #im.info()
@@ -41,13 +44,13 @@ def _export(filename, format):
         datacoll.interpretImage()
         datacoll.lookup_imageRanges()
     except __init__.XIOError:
-        print "\nError while trying to acceess %s.\nSorry." % filename
+        print("\nError while trying to acceess %s.\nSorry." % filename)
         sys.exit()
     newPar = datacoll.export(format)
     if format == "adp":
         newPar["anomalous"] = "off"
         newPar["spg"] = 0
-    print datacoll.export_template(format)
+    print(datacoll.export_template(format))
 
 if __name__ == "__main__":
 

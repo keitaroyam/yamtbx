@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc import blend_lcv
 import numpy
 import os
@@ -10,7 +12,7 @@ def run(filein):
         sp = l.split()
         if len(sp) == 6:
             try:
-                sp = map(float, sp)
+                sp = list(map(float, sp))
                 cells.append(sp)
                 continue
             except:
@@ -30,29 +32,29 @@ def run(filein):
             f = os.path.join(os.path.dirname(filein), f)
         
         if not os.path.isfile(f):
-            print "not exists:", f
+            print("not exists:", f)
             continue
         for l in open(f):
             if l.startswith("!SPACE_GROUP_NUMBER="):
                 sg = l[l.index("=")+1:].strip()
             if l.startswith("!UNIT_CELL_CONSTANTS="):
-                cell = map(float, l[l.index("=")+1:].split())
+                cell = list(map(float, l[l.index("=")+1:].split()))
                 assert len(cell) == 6
                 cells.append(cell)
                 break
 
-    print "%d cells loaded." % len(cells)
+    print("%d cells loaded." % len(cells))
     cells = numpy.array(cells)
-    mean_cell = map(lambda i: cells[:,i].mean(), xrange(6))
-    cell_std = map(lambda i: numpy.std(cells[:,i]), xrange(6))
-    mean_cell_str = " ".join(map(lambda x:"%.3f"%x, mean_cell))
-    cell_std_str = " ".join(map(lambda x:"%.1e"%x, cell_std))
-    print "Averaged cell= %s" % mean_cell_str
-    print "Cell Std dev.= %s" % cell_std_str
-    print ""
+    mean_cell = [cells[:,i].mean() for i in range(6)]
+    cell_std = [numpy.std(cells[:,i]) for i in range(6)]
+    mean_cell_str = " ".join(["%.3f"%x for x in mean_cell])
+    cell_std_str = " ".join(["%.1e"%x for x in cell_std])
+    print("Averaged cell= %s" % mean_cell_str)
+    print("Cell Std dev.= %s" % cell_std_str)
+    print("")
     lcv, alcv = blend_lcv.calc_lcv(cells)
-    print " LCV= %.2f%%" % lcv
-    print "aLCV= %.2f A" % alcv
+    print(" LCV= %.2f%%" % lcv)
+    print("aLCV= %.2f A" % alcv)
 
 
 if __name__ == "__main__":

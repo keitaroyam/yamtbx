@@ -1,5 +1,7 @@
 #!/usr/bin/env phenix.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, os, optparse
 import iotbx.mtz
 from iotbx.reflection_file_editor import is_rfree_array
@@ -20,7 +22,7 @@ if __name__ == "__main__":
             mtzfile = arg
 
     if mtzfile is None or len(pdbfiles)==0:
-        print "Provide pdb and mtz"
+        print("Provide pdb and mtz")
         quit()
 
     arrays = iotbx.mtz.object(mtzfile).as_miller_arrays()
@@ -43,7 +45,7 @@ if __name__ == "__main__":
             pass
         elif array.is_xray_amplitude_array():
             if array.sigmas() is None:
-                print "Not having sigma:", array.info().labels
+                print("Not having sigma:", array.info().labels)
                 continue
             if array.anomalous_flag():
                 #if "+" not in array.info().label_string():
@@ -55,11 +57,11 @@ if __name__ == "__main__":
                 col_target.append("F=%s SIGF=%s" % tuple(array.info().labels))
 
         else:
-            print "Unrecognized:", array.info().labels
+            print("Unrecognized:", array.info().labels)
 
     if os.path.exists("run_phaser.sh"):
-        print
-        print "Error: Script file already exists. aborting."
+        print()
+        print("Error: Script file already exists. aborting.")
         sys.exit(1)
 
     sh_str = """\

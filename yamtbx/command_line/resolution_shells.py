@@ -1,18 +1,22 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 # LIBTBX_SET_DISPATCHER_NAME yamtbx.resolution_shells
 
+from builtins import map
+from builtins import range
 import numpy
 
 def run(d_max, d_min, nbins, power, quiet=False):
     start = 1./(d_max**power)
     step = ( d_min**(-power) - start ) / float(nbins)
-    d_vals = 1./(start + numpy.array(range(nbins+1)) * step)**(1./power)
+    d_vals = 1./(start + numpy.array(list(range(nbins+1))) * step)**(1./power)
 
     if not quiet:
-        print "%d resolution shells (%.3f - %.3f A) split by 1/d^%d" % (nbins, d_max, d_min, power)
-        print " ".join(map(lambda x: "%.3f"%x, d_vals))
-        print
-        print "For XSCALE,"
-        print " RESOLUTION_SHELLS= %s" % (" ".join(map(lambda x: "%.3f"%x, d_vals[1:])))
+        print("%d resolution shells (%.3f - %.3f A) split by 1/d^%d" % (nbins, d_max, d_min, power))
+        print(" ".join(["%.3f"%x for x in d_vals]))
+        print()
+        print("For XSCALE,")
+        print(" RESOLUTION_SHELLS= %s" % (" ".join(["%.3f"%x for x in d_vals[1:]])))
 
     return d_vals
     
@@ -38,7 +42,7 @@ if __name__ == "__main__":
         quit()
 
     try:
-        d_max, d_min = map(float, args)
+        d_max, d_min = list(map(float, args))
     except:
         parser.print_help()
         quit()

@@ -13,6 +13,8 @@ First of all, read XDS_ASCII.HKL and reject reflections with negative sigma!!
 
 Usage: cctbx.python add_saturation_info_to_mtz.py XDS_ASCII_copy_free.mtz ../INTEGRATE.HKL ../XDS_ASCII.HKL overload=65535 hklout=test2.mtz
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 master_params_str = """\
 hklin = None
@@ -57,15 +59,15 @@ def run(params, log_out):
     assert integ_zcal.unit_cell().is_similar_to(xa_zd.unit_cell()) # two set of indices should be comparable.
 
     overload_flags = maxc_array.customized_copy(data=maxc_array.data() == params.overload)
-    print "Overloaded observations in INTEGRATE.HKL:", overload_flags.data().count(True)
-    print "Rejected (sigma<0) observations in XDS_ASCII.HKL:", rejected_array.data().count(True)
+    print("Overloaded observations in INTEGRATE.HKL:", overload_flags.data().count(True))
+    print("Rejected (sigma<0) observations in XDS_ASCII.HKL:", rejected_array.data().count(True))
     # common_sets() does not work correctly for unmerged data!
 
     rejected_zd = xa_zd.select(rejected_array.data())
 
     #reject_indices = flex.bool([False for i in xrange(overload_flags.size())])
 
-    print "making indices..........."
+    print("making indices...........")
     import yamtbx_utils_ext
     integ_zcal = integ_zcal.sort(by_value="packed_indices") # Must be sorted before C++ function below!!
     reject_indices = yamtbx_utils_ext.make_selection_for_xds_unmerged(rejected_zd.indices(),
@@ -90,9 +92,9 @@ def run(params, log_out):
             reject_indices[j] = True
     """
 
-    print "Found rejected observations in INTEGRATE.HKL:", reject_indices.count(True)
+    print("Found rejected observations in INTEGRATE.HKL:", reject_indices.count(True))
     overload_flags.data().set_selected(reject_indices, False) # Set 'Un-overloaded'
-    print "Remained overloaded observations:", overload_flags.data().count(True)
+    print("Remained overloaded observations:", overload_flags.data().count(True))
 
     overload_flags_partial = overload_flags.map_to_asu().merge_equivalents(incompatible_flags_replacement=True).array()
     overload_flags_all = overload_flags.map_to_asu().merge_equivalents(incompatible_flags_replacement=False).array()
@@ -122,12 +124,12 @@ if __name__ == "__main__":
         elif params.xds_ascii is None and "XDS_ASCII" in arg:
             params.xds_ascii = arg
 
-    print "Paramters:"
+    print("Paramters:")
     cmdline.work.format(python_object=params).show(out=sys.stdout, prefix=" ")
-    print
+    print()
 
     if None in (params.hklin, params.xds_ascii, params.integrate_hkl, params.overload):
-        print "Missing information!"
+        print("Missing information!")
         sys.exit(1)
 
     if params.hklout is None:

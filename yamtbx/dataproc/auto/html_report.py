@@ -4,12 +4,14 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import unicode_literals
 import sys
 import os
 import time
-import cPickle as pickle
+import pickle
 import iotbx.phil
-import StringIO
+import io
 
 from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc.xds import idxreflp
@@ -60,7 +62,7 @@ created on %(cdate)s
     if os.path.isfile(shika_log):
         lines = open(shika_log).readlines()
         if len(lines) > 1:
-            data = map(lambda x: (x.split()[0], x.split()[2]), lines[1:])
+            data = [(x.split()[0], x.split()[2]) for x in lines[1:]]
             html += "<h1>Low resolution spots</h1>\n"
             html += """\
 <div id="chartdiv_shika" style="width: 640px; height: 400px;"></div>
@@ -95,7 +97,7 @@ var chart_idxref_ibf = AmCharts.makeChart("chartdiv_shika", {
     }
 });
 </script>
-""" % (",".join(map(lambda x: '{"frame": %s, "nspt": %s}'%x, data)),
+""" % (",".join(['{"frame": %s, "nspt": %s}'%x for x in data]),
        )
 
     html += "<h1>IDXREF (Indexing)</h1>\n"
@@ -198,8 +200,8 @@ var chart_idxref_iod = AmCharts.makeChart("chartdiv_idxref_indexed_on_det", {
     },
 });
 </script>
-""" %  (",".join(map(lambda x: '{"frame": %d, "ind": %s, "und": %s}'%(x[0],x[1][0],x[1][1]), SX.indexed_and_unindexed_by_frame())),
-        ",".join(map(lambda x: '{"ix":%.1f,"iy":%.1f,"d":%.1f}'%x, i_ui_on_det["indexed"]) + map(lambda x: '{"ux":%.1f,"uy":%.1f,"d":%.1f}'%x, i_ui_on_det["unindexed"])),
+""" %  (",".join(['{"frame": %d, "ind": %s, "und": %s}'%(x[0],x[1][0],x[1][1]) for x in SX.indexed_and_unindexed_by_frame()]),
+        ",".join(['{"ix":%.1f,"iy":%.1f,"d":%.1f}'%x for x in i_ui_on_det["indexed"]] + ['{"ux":%.1f,"uy":%.1f,"d":%.1f}'%x for x in i_ui_on_det["unindexed"]]),
         )
 
         idexref_has_problem = False
@@ -260,12 +262,12 @@ var chart_idxref_cluster_int = AmCharts.makeChart("chartdiv_idxref_cluster_int",
 	],
 });
 </script>
-""" % (",".join(map(lambda x: '{"f":.%d,"h":%d,"k":%d,"l":%d}'%x, map(lambda x: tuple([x,]+map(lambda y: intness[y][x], xrange(3))), xrange(6))))
+""" % (",".join(['{"f":.%d,"h":%d,"k":%d,"l":%d}'%x for x in [tuple([x,]+[intness[y][x] for y in range(3)]) for x in range(6)]])
        )
 
         html += "<h4>Subtree populations</h4>\n<pre>"
         accum_pop = 0
-        for i, pp in enumerate(map(lambda x: float(x)/sum(lp.subtree_population), lp.subtree_population)):
+        for i, pp in enumerate([float(x)/sum(lp.subtree_population) for x in lp.subtree_population]):
             html += "%s subtree: %.2f%%\n" % (util.num_th_str(i+1), pp*100.)
             if i==0 and pp < 0.9: idexref_has_problem = True
 
@@ -283,7 +285,7 @@ var chart_idxref_cluster_int = AmCharts.makeChart("chartdiv_idxref_cluster_int",
     if os.path.isfile(integrate_lp):
         lp = integratelp.IntegrateLp(integrate_lp)
 
-        if any(map(lambda x: float(x) > 1.5, lp.sigmars)):
+        if any([float(x) > 1.5 for x in lp.sigmars]):
             problems.append("INTEGRATE")
         
         html += """\
@@ -400,8 +402,8 @@ var chart2 = AmCharts.makeChart("chartdiv_integrate_rotxyz", {
 });
 
 </script>
-""" % (",".join(map(lambda x: '{"frame": %d, "sigmar": %s, "sigmad": %s}'%x, zip(lp.frames,lp.sigmars,lp.sigmads))),
-       ",".join(map(lambda x: ",".join(map(lambda y: '{"frame": %d, "rotx": %s, "roty": %s, "rotz": %s}'%((y,)+tuple(x[1].get("rotation", ["NaN"]*3))), x[0])), lp.blockparams.items())),
+""" % (",".join(['{"frame": %d, "sigmar": %s, "sigmad": %s}'%x for x in zip(lp.frames,lp.sigmars,lp.sigmads)]),
+       ",".join([",".join(['{"frame": %d, "rotx": %s, "roty": %s, "rotz": %s}'%((y,)+tuple(x[1].get("rotation", ["NaN"]*3))) for y in x[0]]) for x in list(lp.blockparams.items())]),
        )
 
     html += "<h1>CORRECT (Scaling)</h1>\n"
@@ -437,16 +439,21 @@ var chart2 = AmCharts.makeChart("chartdiv_integrate_rotxyz", {
         html += "<h3>ISa</h3>\n<pre>%s</pre>\n" % lp.snippets.get("ISa","")
         html += "<h3>Statistics of all data</h3>\n"
         if os.path.isfile(stats_pkl):
-            sio = StringIO.StringIO()
-            pickle.load(open(stats_pkl))["stats"].show(out=sio, header=False)
-            html += "<pre>%s</pre>\n" % sio.getvalue().replace("<","&lt;").replace(">","&gt;")
+            tmp = pickle.load(open(stats_pkl, "rb"))
+            if "stats" in tmp:
+                sio = io.StringIO()
+                tmp["stats"].show(out=sio, header=False)
+                stats_str = sio.getvalue()
+            else:
+                stats_str = tmp["stats_str"]
+            html += "<pre>%s</pre>\n" % stats_str.replace("<","&lt;").replace(">","&gt;")
         else:
             html += "<pre>%s</pre>\n" % lp.snippets.get("table1","")
 
         if lp.error_table != {}:
-            tmp = map(lambda x: '{"d":%.3f,"ios":%.2f,"nrej":%d}'%x, zip(lp.error_table["dmin"], 
+            tmp = ['{"d":%.3f,"ios":%.2f,"nrej":%d}'%x for x in zip(lp.error_table["dmin"], 
                                                                          lp.error_table["ios"], 
-                                                                         lp.error_table["nrej"]))
+                                                                         lp.error_table["nrej"])]
             tmp = tmp[:-1] # last is about all data
             html += """\
 <h3>By resolution</h3>
@@ -509,7 +516,7 @@ var chart_correct_er = AmCharts.makeChart("chartdiv_correct_error", {
 
     if os.path.isfile(xdsstat_lp):
         lp = xdsstat.XdsstatLp(xdsstat_lp)
-        if set(("frame","iobs","sigma","ios","rmeas","nmisfits")).issubset(lp.by_frame.keys()):
+        if set(("frame","iobs","sigma","ios","rmeas","nmisfits")).issubset(list(lp.by_frame.keys())):
             html += """\
 <h3>By frame</h3>
 <div id="chartdiv_xdsstat_ios" style="width: 640px; height: 400px;"></div>
@@ -629,10 +636,8 @@ var chart_xdsstat_r = AmCharts.makeChart("chartdiv_xdsstat_r", {
     }
 });
 </script>
-""" % (",".join(map(lambda x: '{"frame":%d,"i":%.2f,"sig":%.2f,"ios":%.2f}'%x,
-                    zip(lp.by_frame["frame"], lp.by_frame["iobs"], lp.by_frame["sigma"], lp.by_frame["ios"]))),
-       ",".join(map(lambda x: '{"frame":%d,"r":%.4f,"mis":%d}'%x,
-                    zip(lp.by_frame["frame"], lp.by_frame["rmeas"], lp.by_frame["nmisfits"])))
+""" % (",".join(['{"frame":%d,"i":%.2f,"sig":%.2f,"ios":%.2f}'%x for x in zip(lp.by_frame["frame"], lp.by_frame["iobs"], lp.by_frame["sigma"], lp.by_frame["ios"])]),
+       ",".join(['{"frame":%d,"r":%.4f,"mis":%d}'%x for x in zip(lp.by_frame["frame"], lp.by_frame["rmeas"], lp.by_frame["nmisfits"])])
        )
 
     html += "</body></html>"
@@ -672,7 +677,7 @@ def find_problems(xds_wd):
     if os.path.isfile(integrate_lp):
         lp = integratelp.IntegrateLp(integrate_lp)
 
-        if any(map(lambda x: float(x) > 1.5, lp.sigmars)):
+        if any([float(x) > 1.5 for x in lp.sigmars]):
             problems.append("INTEGRATE")
         
     if os.path.isfile(correct_lp):

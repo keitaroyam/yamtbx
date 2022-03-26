@@ -1,11 +1,14 @@
 #!/usr/bin/env yamtbx.python
 
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys
 import os
 import math
 import tempfile
 import getpass
-import pysqlite2.dbapi2 as sqlite3
+import sqlite3
 import matplotlib
 matplotlib.interactive( True )
 matplotlib.use( 'WXAgg' )
@@ -22,12 +25,12 @@ from wx.lib.mixins.listctrl import CheckListCtrlMixin, ListCtrlAutoWidthMixin
 import datetime
 import time
 import glob
-import cPickle as pickle
+import pickle
 import collections
 import threading
 import subprocess
 import socket
-import xmlrpclib
+import xmlrpc.client
 import re
 import copy
 import zmq
@@ -105,7 +108,7 @@ pushport = 5556
  .help = port for ZMQ-PUSH to communicate with workers.
 """
 
-class Stat:
+class Stat(object):
     def __init__(self):
         self.img_file = None
         self.stats = [] # n_spots, total, mean
@@ -147,7 +150,7 @@ def read_shika_auto_config(scandir):
     return ret
 # read_shika_auto_config()
 
-class ReportHTMLMakerThread:
+class ReportHTMLMakerThread(object):
     def __init__(self, parent, dont_work=False, make_html=True):
         self.parent = parent
         self.interval = 1
@@ -197,7 +200,7 @@ class ReportHTMLMakerThread:
             if self.interval < 1:
                 time.sleep(self.interval)
             else:
-                for i in xrange(int(self.interval/.5)):
+                for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
 
@@ -216,7 +219,7 @@ class ReportHTMLMakerThread:
         def normalize_max(v, maximum=400.):
             max_v = max(v)
             f = maximum / max_v if max_v > 0 else 1.
-            return map(lambda x:f*x + 1., v) # add 1 to make zero-value pickable # XXX when max_v is Inf?
+            return [f*x + 1. for x in v] # add 1 to make zero-value pickable # XXX when max_v is Inf?
         # normalize_max()
 
         scan_prefix = f[:f.index(" ")] if " (phi=" in f else f
@@ -303,9 +306,9 @@ class ReportHTMLMakerThread:
 
         datout = os.path.join(wdir, "summary.gui.dat")
         ofs = open(datout, "w")
-        kinds = map(lambda rb: rb.GetLabelText(), self.plotFrame.rb_kind)
+        kinds = [rb.GetLabelText() for rb in self.plotFrame.rb_kind]
 
-        print >>ofs, "prefix x y kind data filename"
+        print("prefix x y kind data filename", file=ofs)
         for f in self.plot_data:
             for i, kind in enumerate(kinds):
                 for imgf, stat in sorted(self.plot_data[f]):
@@ -316,7 +319,7 @@ class ReportHTMLMakerThread:
                     else:
                         x, y = gc
                     d = stat.stats[("n_spots","total_integrated_signal","median_integrated_signal").index(kind)]
-                    print >>ofs, f[:f.rindex("(")-1], x, y, kind, d, os.path.basename(imgf)
+                    print(f[:f.rindex("(")-1], x, y, kind, d, os.path.basename(imgf), file=ofs)
     # make_dat()
 
     def make(self, wdir, rotate=False):
@@ -331,7 +334,7 @@ class ReportHTMLMakerThread:
 
         if gui_params.mode == "zoo": assert len(self.plot_data) <= 1
 
-        kinds = map(lambda rb: rb.GetLabelText(), self.plotFrame.rb_kind)
+        kinds = [rb.GetLabelText() for rb in self.plotFrame.rb_kind]
         plots=""
         pngs = []
         for f in self.plot_data:
@@ -350,8 +353,8 @@ class ReportHTMLMakerThread:
                     im.save(os.path.join(wdir, "loop_before.jpg"))
                 except:
                     import traceback
-                    print "Can't convert loop image"
-                    print traceback.format_exc()
+                    print("Can't convert loop image")
+                    print(traceback.format_exc())
                 plots += '  Loop image</td><td><img src="loop_before.jpg" /></td></tr>\n'
                 plots += '  <tr><td>\n'
 
@@ -407,7 +410,7 @@ class ReportHTMLMakerThread:
             plots += '<td style="border:solid 1px #999"><canvas id="%scanvas" width=600 height=600></canvas>\n' % scan_prefix
             plots += '<td id="%sinfo" valign="top"></tr></table>\n\n' % scan_prefix
 
-        result = current_stats.items()
+        result = list(current_stats.items())
         if len(result) == 0:
             shikalog.warning("No results found. Exiting. %s"% wdir)
             return
@@ -415,9 +418,9 @@ class ReportHTMLMakerThread:
         dbfile = os.path.join(wdir, "shika.db")
         con = sqlite3.connect(dbfile, timeout=10, isolation_level=None)
         con.execute('pragma query_only = ON;')
-        print "Reading data from DB for making report html."
+        print("Reading data from DB for making report html.")
         c = con.execute("select filename,spots from spots")
-        dbspots = dict(map(lambda x: (str(x[0]), pickle.loads(str(x[1]))), c.fetchall()))
+        dbspots = dict([(str(x[0]), pickle.loads(str(x[1]))) for x in c.fetchall()])
         spot_data = "var spot_data = {"
         for i, (f, stat) in enumerate(result):
             if stat is None: continue
@@ -601,7 +604,7 @@ Original directory: %(wdir)s
     # make()
 # class ReportHTMLMakerThread
 
-class ConfigManager:
+class ConfigManager(object):
     def __init__(self):
         self.items = copy.copy(config_manager.sp_params_strs)
         self.common_params_str = config_manager.get_common_params_str()
@@ -623,9 +626,9 @@ class ConfigManager:
                                                          track_unused_definitions=True)
             working_params.extract()
             if len(alldef) > 0:
-                return "Unknown parameters: " + ", ".join(map(lambda x:x.path, alldef))
-        except RuntimeError, e:
-            return e.message
+                return "Unknown parameters: " + ", ".join([x.path for x in alldef])
+        except RuntimeError as e:
+            return str(e)
         return ""
     # check_phil_valid()
 
@@ -645,7 +648,7 @@ class ConfigManager:
         return ret
     # get_names()
 
-    def keys(self): return self.items.keys()
+    def keys(self): return list(self.items.keys())
 
     def get_params_by_key(self, key):
         params_str = self.get_common_params_str() + self.get_specific_params_str(key)
@@ -747,15 +750,15 @@ class ConfigFrame(wx.Frame):
             self.cmbDet.Select(0)
 
             if beamline == "32xu":
-                fltr = filter(lambda x: "BL32XU" in x[1], enumerate(self.cmbDet.GetItems()))
+                fltr = [x for x in enumerate(self.cmbDet.GetItems()) if "BL32XU" in x[1]]
                 if len(fltr) > 0:
                     self.cmbDet.Select(fltr[0][0])
             elif beamline == "41xu":
-                fltr = filter(lambda x: "BL41XU" in x[1], enumerate(self.cmbDet.GetItems()))
+                fltr = [x for x in enumerate(self.cmbDet.GetItems()) if "BL41XU" in x[1]]
                 if len(fltr) > 0:
                     self.cmbDet.Select(fltr[0][0])
             elif beamline == "26b2":
-                fltr = filter(lambda x: "BL26B2" in x[1], enumerate(self.cmbDet.GetItems()))
+                fltr = [x for x in enumerate(self.cmbDet.GetItems()) if "BL26B2" in x[1]]
                 if len(fltr) > 0:
                     self.cmbDet.Select(fltr[0][0])
             else:
@@ -809,7 +812,7 @@ class ConfigFrame(wx.Frame):
 
     def send_control(self):
         params = {}
-        for key in self.manager.keys(): params[key] = self.manager.get_params_by_key(key)
+        for key in list(self.manager.keys()): params[key] = self.manager.get_params_by_key(key)
         control_send.send_pyobj(dict(params=params))
     # send_control()
 
@@ -951,8 +954,8 @@ class ControlPanel(wx.Panel):
     def treectrl_onSelChanged(self, event):
         seldir, fpref = self.get_selected_dir_fpref()
         target_dir = os.path.join(self.txtTopDir.GetValue(), seldir)
-        print "DEBUG::target_dir, fpref=", target_dir, fpref
-        print "DEBUG::current           ", self.current_target_dir, self.current_target_fpref
+        print("DEBUG::target_dir, fpref=", target_dir, fpref)
+        print("DEBUG::current           ", self.current_target_dir, self.current_target_fpref)
         if target_dir != self.current_target_dir or fpref != self.current_target_fpref:
             wx.PostEvent(self, EventTargetDirChanged(target=target_dir,
                                                      fpref=fpref))
@@ -993,7 +996,7 @@ class ControlPanel(wx.Panel):
         mainframe.plotFrame.splotFrame.reset()
         mainframe.grid.clear()
 
-        print "DEBUG::self.current_target_dir, new_target=", self.current_target_dir, new_target
+        print("DEBUG::self.current_target_dir, new_target=", self.current_target_dir, new_target)
         self.current_target_dir = new_target
         self.current_target_fpref = None
 
@@ -1049,15 +1052,15 @@ class ControlPanel(wx.Panel):
 
     def onScanlogsUpdated(self, event):
         # Update directory tree
-        dirs = map(lambda x: os.path.relpath(os.path.dirname(x[0]), self.mainFrame.topdir), event.scanlogs)
+        dirs = [os.path.relpath(os.path.dirname(x[0]), self.mainFrame.topdir) for x in event.scanlogs]
         dic = self.dic_for_tree
         #print "DEBUG:: dirs=", dirs
         #print "DEBUG:: dic=", dic
         for d in dirs:
             sp = d.split(os.sep)
-            for i in xrange(len(sp)):
+            for i in range(len(sp)):
                 key, keypar = tuple(sp[:i+1]), tuple(sp[:i])
-                print "  DEBUG:: key, keypar=", key, keypar
+                print("  DEBUG:: key, keypar=", key, keypar)
                 if key not in dic:
                     dic[key] = self.treectrl.AppendItem(dic[keypar], sp[i], image=0)
                     self.treectrl.EnsureVisible(dic[key])
@@ -1140,7 +1143,7 @@ class ControlPanel(wx.Panel):
 
         self.db_last_latest_time = time.time()
 
-        updates = map(lambda x: (os.path.dirname(x[0]),x[1]), c.fetchall()) # take upper directory
+        updates = [(os.path.dirname(x[0]),x[1]) for x in c.fetchall()] # take upper directory
         if not updates: return
 
         updates.sort(key=lambda x:x[1])
@@ -1188,7 +1191,7 @@ class ControlPanel(wx.Panel):
         self.mainFrame.plotFrame.rb_clicked(None)
 
         if self.mainFrame.grid.current_img_file is None:
-            self.mainFrame.grid.load(self.mainFrame.data.keys()[0])
+            self.mainFrame.grid.load(list(self.mainFrame.data.keys())[0])
         else:
             self.mainFrame.grid.update()
     # rb_clicked()
@@ -1228,7 +1231,7 @@ class ControlPanel(wx.Panel):
             return
 
 
-        dbfile = os.path.join(os.path.dirname(self.mainFrame.data.keys()[0]), "_spotfinder", "shika.db")
+        dbfile = os.path.join(os.path.dirname(list(self.mainFrame.data.keys())[0]), "_spotfinder", "shika.db")
         if os.path.isfile(dbfile):
             con = sqlite3.connect(dbfile, timeout=10)
             con.execute("delete from spots")
@@ -1239,7 +1242,7 @@ class ControlPanel(wx.Panel):
         headers = {}
 
         h5files = []
-        for imgfile in self.mainFrame.data.keys():
+        for imgfile in list(self.mainFrame.data.keys()):
             frameno = int(re.search(".*_([0-9]*)\..*$", imgfile).group(1))
             if os.path.isfile(imgfile):
                 ventilator_send.send_json(dict(imgfile=imgfile, idx=frameno))
@@ -1259,10 +1262,10 @@ class ControlPanel(wx.Panel):
                                          pixel_size_x=float(h["PixelX"]),
                                          file_prefix=re.sub("_master.h5$","", os.path.basename(h5master)))
 
-            for i in xrange(h["Nimages"]):
+            for i in range(h["Nimages"]):
                 headers[h5master]["frame"] = i
                 imgfile = h5master.replace("_master.h5", "_%.6d.img"%(i+1))
-                print "Sending", h5master, i
+                print("Sending", h5master, i)
                 ventilator_send.send_json(dict(imgfile=imgfile, h5master=h5master, idx=i+1, header=headers[h5master]))
 
             
@@ -1309,7 +1312,7 @@ class ControlPanel(wx.Panel):
 
                 self.txtComment.SetFocus()
                 self.ranges = ranges
-                self.txtComment.SetValue("\n".join(map(lambda r:"%.2f %.2f" % (r[0]/100.,r[1]/100.), self.ranges))+"\n")
+                self.txtComment.SetValue("\n".join(["%.2f %.2f" % (r[0]/100.,r[1]/100.) for r in self.ranges])+"\n")
 
                 btnOK.Bind(wx.EVT_BUTTON, self.btnOK_click)
                 btnCancel.Bind(wx.EVT_BUTTON, lambda e: self.Destroy())
@@ -1321,7 +1324,7 @@ class ControlPanel(wx.Panel):
                     for l in self.txtComment.GetValue().splitlines():
                         if l.strip() == "":
                             continue
-                        sp = map(float, l.strip().split())
+                        sp = list(map(float, l.strip().split()))
                         if len(sp) != 2:
                             raise Exception("More than or less than two numbers in line.")
                         if abs(sp[0] - sp[1]) < 1e-4:
@@ -1348,7 +1351,7 @@ class ControlPanel(wx.Panel):
     # btnSetExResRange_onClick()
 
     def add_detected_exclude_resolution_ranges(self, rr, updategui=True):
-        rrr = set(map(lambda x:(int(x[0]*100.), int(x[1]*100.)), rr))
+        rrr = set([(int(x[0]*100.), int(x[1]*100.)) for x in rr])
         orgset = set(self.detected_exclude_resolution_ranges)
         if not rrr.issubset(orgset):
             toadd = list(rrr.difference(orgset))
@@ -1377,8 +1380,7 @@ class ControlPanel(wx.Panel):
                     self.detected_exclude_resolution_ranges.append(r)
 
             if orgset != set(self.detected_exclude_resolution_ranges):
-                shikalog.info("detected exclude_resolution_range = %s" % map(lambda x:(x[0]/100.,x[1]/100.),
-                                                                             self.detected_exclude_resolution_ranges))
+                shikalog.info("detected exclude_resolution_range = %s" % [(x[0]/100.,x[1]/100.) for x in self.detected_exclude_resolution_ranges])
 
             if updategui: # XXX do this if range was actually updated
                 self.update_rbuttons()
@@ -1386,12 +1388,12 @@ class ControlPanel(wx.Panel):
     # add_detected_resolution_ranges()
 
     def update_user_defined_exclude_resolution_ranges(self, rr):
-        rr = set(map(lambda x:(int(x[0]*100.), int(x[1]*100.)), rr))
+        rr = set([(int(x[0]*100.), int(x[1]*100.)) for x in rr])
         if set(self.user_defined_exclude_resolution_ranges + self.detected_exclude_resolution_ranges) == rr:
             shikalog.debug("user_defined_exclude_resolution_ranges not changed")
         else:
             self.user_defined_exclude_resolution_ranges = list(rr)
-            shikalog.info("user_defined_exclude_resolution_ranges = %s" % map(lambda x:(x[0]/100., x[1]/100.), rr))
+            shikalog.info("user_defined_exclude_resolution_ranges = %s" % [(x[0]/100., x[1]/100.) for x in rr])
             self.mainFrame.load_results()
 
         self.detected_exclude_resolution_ranges = [] # user's definition overrides auto-detected ranges
@@ -1403,7 +1405,7 @@ class ControlPanel(wx.Panel):
 
     def get_exclude_resolution_ranges(self, stat=None):
         #rr = self.user_defined_exclude_resolution_ranges + self.detected_exclude_resolution_ranges
-        rr =  map(lambda x:(x[0]/100., x[1]/100.), self.user_defined_exclude_resolution_ranges)
+        rr =  [(x[0]/100., x[1]/100.) for x in self.user_defined_exclude_resolution_ranges]
         if stat is not None and hasattr(stat, "ring_res_ranges"):
             rr += stat.ring_res_ranges
         return rr #map(lambda x:(x[0]/100., x[1]/100.), rr)
@@ -1625,7 +1627,7 @@ class PlotFrame(wx.Frame):
             mainFrame = plotFrame.GetParent()
 
             imgfb = os.path.basename(imgf)
-            print "Selected:", imgfb
+            print("Selected:", imgfb)
 
             # Update main window
             mainFrame.grid.load(imgf)
@@ -1634,7 +1636,7 @@ class PlotFrame(wx.Frame):
             plotFrame.splotFrame.reset()
 
             f, kind = plotFrame.get_selected_f_kind()
-            sel = filter(lambda x:os.path.basename(x[0])==imgfb, plotFrame.data[f])
+            sel = [x for x in plotFrame.data[f] if os.path.basename(x[0])==imgfb]
             if len(sel) == 0:
                 return
 
@@ -1662,10 +1664,10 @@ class PlotFrame(wx.Frame):
             elif event.key == " ":
                 lc.ToggleItem(isel)
             elif event.key in "hl": # <- H, -> L
-                idx = mainframe.data.keys().index(mainframe.grid.current_img_file)
+                idx = list(mainframe.data.keys()).index(mainframe.grid.current_img_file)
                 inc = 1 if event.key=="h" else -1
                 if 0<= idx + inc < len(mainframe.data):
-                    self.select_imgf(mainframe.data.keys()[idx+inc])
+                    self.select_imgf(list(mainframe.data.keys())[idx+inc])
             elif event.key in "jk": # j:down, k:up
                 imgf = mainframe.grid.current_img_file
                 found = plotFrame.find_data_by_filename(imgf)
@@ -1673,9 +1675,9 @@ class PlotFrame(wx.Frame):
                 inc = 1 if event.key=="j" else -1
                 if sc.vpoints==1: return
                 if sc.hpoints==1:
-                    idx = mainframe.data.keys().index(imgf)
+                    idx = list(mainframe.data.keys()).index(imgf)
                     if 0<= idx + inc < len(mainframe.data):
-                        self.select_imgf(mainframe.data.keys()[idx+inc])
+                        self.select_imgf(list(mainframe.data.keys())[idx+inc])
                 else:
                     newgc = (gc[0], gc[1] - inc*sc.vstep)
                     fnd = plotFrame.find_data_by_gc(mainframe.ctrlFrame.current_target_fpref, newgc)
@@ -1694,7 +1696,7 @@ class PlotFrame(wx.Frame):
             self.listctrl.InsertColumn(1, "x", wx.LIST_FORMAT_RIGHT, width=50)
             self.listctrl.InsertColumn(2, "y", wx.LIST_FORMAT_RIGHT, width=50)
             vbox.Add(self.listctrl, 1, wx.EXPAND)
-            vbox.AddSpacer((5,5))
+            vbox.Add((5,5))
             self.stxtSelNum = wx.StaticText(self, label="  0 positions checked")
             vbox.Add(self.stxtSelNum)#, flag=wx.EXPAND|wx.ALL, border=1)
             self.btn_uncheck_all = wx.Button(self, wx.ID_ANY, "Uncheck all")
@@ -1742,7 +1744,7 @@ class PlotFrame(wx.Frame):
             lc.DeleteAllItems()
             p = self.GetParent().GetParent().plotPanel
 
-            perm = sorted(range(len(p.plotted_data)), key=lambda x: -p.plotted_data[x])
+            perm = sorted(list(range(len(p.plotted_data))), key=lambda x: -p.plotted_data[x])
 
             for i, k in enumerate(perm):
                 lc.InsertStringItem(i, "%d"%p.plotted_data[k])
@@ -1757,7 +1759,7 @@ class PlotFrame(wx.Frame):
             
             idx = event.GetIndex()
             if len(self.perm) <= idx:
-                print "error."
+                print("error.")
                 return
 
             p.select_imgf(p.current_plotted_imgfs[self.perm[idx]])
@@ -1781,7 +1783,7 @@ class PlotFrame(wx.Frame):
 
             gonios = []
 
-            for i in xrange(self.listctrl.GetItemCount()):
+            for i in range(self.listctrl.GetItemCount()):
                 if self.listctrl.IsChecked(i):
                     score = self.listctrl.GetItem(i, 0).GetText()
                     imgf = p.current_plotted_imgfs[self.perm[i]]
@@ -1790,7 +1792,7 @@ class PlotFrame(wx.Frame):
                     gonios.append((gonio_xyz_phi, comment))
 
             for gonio, comment in gonios:
-                print "tranferring", gonio, comment
+                print("tranferring", gonio, comment)
                 mainFrame.tell_kuma(gonio, comment, with_dialog=False)
         # btn_tell_kuma_checked_clicked()
 
@@ -1802,7 +1804,7 @@ class PlotFrame(wx.Frame):
             ofs = open(filename, "w")
             ofs.write("filename gx gy gz phi score\n")
 
-            for i in xrange(self.listctrl.GetItemCount()):
+            for i in range(self.listctrl.GetItemCount()):
                 if self.listctrl.IsChecked(i):
                     score = self.listctrl.GetItem(i, 0).GetText()
                     imgf = p.current_plotted_imgfs[self.perm[i]]
@@ -1813,12 +1815,12 @@ class PlotFrame(wx.Frame):
         # save_selected_info()
         
         def btn_unckeck_all_clicked(self, event):
-            if sum(map(lambda x: self.listctrl.IsChecked(x), xrange(self.listctrl.GetItemCount()))) == 0:
+            if sum([self.listctrl.IsChecked(x) for x in range(self.listctrl.GetItemCount())]) == 0:
                 return
 
             if wx.MessageDialog(None, "All items will be unchecked and this *CANNOT* be undone. Are you sure?",
                                 "Confirm", style=wx.YES_NO|wx.NO_DEFAULT).ShowModal() == wx.ID_YES:
-                for i in xrange(self.listctrl.GetItemCount()):
+                for i in range(self.listctrl.GetItemCount()):
                     if self.listctrl.GetItem(i).GetImage() == 1: self.listctrl.SetItemImage(i, 0)
                 self.listctrl_item_checked(None, None)
         # btn_unckeck_all_clicked()
@@ -1831,18 +1833,18 @@ class PlotFrame(wx.Frame):
 
             # Register already-checked items
             registered = []
-            for i in xrange(lc.GetItemCount()):
+            for i in range(lc.GetItemCount()):
                 if lc.IsChecked(i):
-                    x, y = map(lambda x: float(lc.GetItem(i, x).GetText()), xrange(1, 3))
+                    x, y = [float(lc.GetItem(i, x).GetText()) for x in range(1, 3)]
                     registered.append((x, y))
 
             # Traverse listctrl
             checked = []
-            for i in xrange(lc.GetItemCount()):
+            for i in range(lc.GetItemCount()):
                 if len(registered) >= max_hits:
                     break
 
-                score, x, y = map(lambda x: float(lc.GetItem(i, x).GetText()), xrange(3))
+                score, x, y = [float(lc.GetItem(i, x).GetText()) for x in range(3)]
 
                 if score < min_score:
                     break
@@ -1850,7 +1852,7 @@ class PlotFrame(wx.Frame):
                 # dumn method.. would be slow if many positions registered
                 min_ever = None
                 if len(registered) > 0:
-                    min_ever = min(map(lambda a: (a[0]-x)**2+(a[1]-y)**2, registered))
+                    min_ever = min([(a[0]-x)**2+(a[1]-y)**2 for a in registered])
 
                 if min_ever is None or min_ever >= min_dist_sqr:
                     checked.append(i)
@@ -1868,7 +1870,7 @@ class PlotFrame(wx.Frame):
         
         def select_imgf(self, imgf):
             p = self.GetParent().GetParent().plotPanel
-            for i in xrange(self.listctrl.GetItemCount()):
+            for i in range(self.listctrl.GetItemCount()):
                 if imgf == p.current_plotted_imgfs[self.perm[i]]:
                     self.listctrl.Select(i)
                     self.listctrl.EnsureVisible(i)
@@ -1878,9 +1880,7 @@ class PlotFrame(wx.Frame):
         def listctrl_item_checked(self, index, flag):
             p = self.GetParent().GetParent().plotPanel
             plotFrame = p.GetParent().GetParent().GetParent().GetParent()
-            imgfs = map(lambda i: p.current_plotted_imgfs[self.perm[i]],
-                        filter(lambda x: self.listctrl.IsChecked(x), xrange(self.listctrl.GetItemCount()))
-                        )
+            imgfs = [p.current_plotted_imgfs[self.perm[i]] for i in [x for x in range(self.listctrl.GetItemCount()) if self.listctrl.IsChecked(x)]]
             self.stxtSelNum.SetLabel("%3d positions checked" % len(imgfs))
             plotFrame.annotate_checked(imgfs)
         # listctrl_item_checked()
@@ -1953,7 +1953,7 @@ class PlotFrame(wx.Frame):
         # TODO probably inefficient way.
         # Better to find data in main frame?
         for fpref in self.data:
-            fltr = filter(lambda s: s[0]==filename, self.data[fpref])
+            fltr = [s for s in self.data[fpref] if s[0]==filename]
             if len(fltr) > 0:
                 return fltr[0][1]
         return None
@@ -1962,9 +1962,9 @@ class PlotFrame(wx.Frame):
     def find_data_by_gc(self, fpref, gc):
         # TODO inefficient way.
         if fpref not in self.data: return None
-        tocmp = lambda x: map(lambda y: int(y*1e4+.5), x) # in .1 micron precision
+        tocmp = lambda x: [int(y*1e4+.5) for y in x] # in .1 micron precision
         gc = tocmp(gc)
-        fltr = filter(lambda s: tocmp(s[1].grid_coord)==gc, self.data[fpref])
+        fltr = [s for s in self.data[fpref] if tocmp(s[1].grid_coord)==gc]
         if len(fltr) > 0:
             return fltr[0] # return filename, too. (not fltr[0][1])
         return None
@@ -2027,7 +2027,7 @@ class PlotFrame(wx.Frame):
     def get_selected_f_kind(self):
         seldir, file_sel = self.GetParent().ctrlFrame.get_selected_dir_fpref()
 
-        kind_sel = filter(lambda rb: rb.GetValue(), self.rb_kind)
+        kind_sel = [rb for rb in self.rb_kind if rb.GetValue()]
         if file_sel != "" and len(kind_sel) > 0:
             f = file_sel
             kind = kind_sel[0].GetLabelText()
@@ -2052,7 +2052,7 @@ class PlotFrame(wx.Frame):
                 return [0]
 
             ret = [] # list of True/False
-            for i in xrange(3):
+            for i in range(3):
                 i_diff_max = max([g[i]-gonios[0][i] for g in gonios[1:]])
                 if i_diff_max >= 1e-4:
                     ret.append(i)
@@ -2065,7 +2065,7 @@ class PlotFrame(wx.Frame):
         self.data = collections.OrderedDict()
         mainframe = self.GetParent()
 
-        sorted_result = result.items()
+        sorted_result = list(result.items())
         try:
             sorted_result.sort(key=lambda x:self.diffscan_manager.get_scan_info(x[0]).date)
         except:
@@ -2204,16 +2204,16 @@ class PlotFrame(wx.Frame):
     def plot_circles(self, xs, ys, ds, zero_xs, zero_ys):
         def normalize(v, m=100., sd=60.):
             vm = float(sum(v))/float(len(v))
-            vsd = math.sqrt(sum(map(lambda x:(x-vm)**2, v))/float(len(v)))
+            vsd = math.sqrt(sum([(x-vm)**2 for x in v])/float(len(v)))
             if vsd < 1e-12:
-                return [m for x in xrange(len(v))]
-            return map(lambda x:sd*(x-vm)/vsd+m, v)
+                return [m for x in range(len(v))]
+            return [sd*(x-vm)/vsd+m for x in v]
         # normalize()
 
         def normalize_max(v, maximum=400.):
             max_v = max(v)
             f = maximum / max_v if max_v > 0 else 1.
-            return map(lambda x:f*x + 1., v) # add 1 to make zero-value pickable
+            return [f*x + 1. for x in v] # add 1 to make zero-value pickable
         # normalize_max()
 
         p1 = self.plotPanel.subplot.scatter(xs, ys, s=normalize_max(ds), c=ds, alpha=0.5)
@@ -2453,8 +2453,8 @@ class ImageResultPanel(wx.Panel):
         self.lbtn = wx.Button(self.panel1, wx.ID_ANY, "<")
         self.rbtn = wx.Button(self.panel1, wx.ID_ANY, ">")
         panel1_hbox.Add(self.dtxt, 1, flag=wx.ALIGN_CENTER_VERTICAL)
-        panel1_hbox.Add(self.lbtn, 0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
-        panel1_hbox.Add(self.rbtn, 0, flag=wx.EXPAND|wx.ALIGN_RIGHT)
+        panel1_hbox.Add(self.lbtn, 0, flag=wx.EXPAND)
+        panel1_hbox.Add(self.rbtn, 0, flag=wx.EXPAND)
 
         self.panel2 = ImageSpotPanel(self, size=(600,600))
 
@@ -2490,7 +2490,7 @@ class ImageResultPanel(wx.Panel):
         if self.current_img_file is None or len(mainframe.data) < 2:
             return
 
-        data = mainframe.data.keys()
+        data = list(mainframe.data.keys())
 
         if self.current_img_file not in data:
             return
@@ -2545,8 +2545,8 @@ class ImageResultPanel(wx.Panel):
 
         if img_file in mainframe.data:
             item = mainframe.data[img_file]
-            possible_paths = map(lambda ext: os.path.join(os.path.dirname(item.img_file), "_spotfinder",
-                                                          os.path.basename(item.img_file)+ext), (".jpg",".png"))
+            possible_paths = [os.path.join(os.path.dirname(item.img_file), "_spotfinder",
+                                                          os.path.basename(item.img_file)+ext) for ext in (".jpg",".png")]
             tiled_jpg = None
             prefix, num = None, None
             r = re.search("^(.*)_([0-9]+)\.[^0-9]+$", os.path.basename(item.img_file))
@@ -2559,7 +2559,7 @@ class ImageResultPanel(wx.Panel):
                                          "thumb_%s" % prefix,
                                          "%s_%.6d-%.6d.jpg" % (prefix, idx*100+1, (idx+1)*100))
                 
-            img_pics = filter(lambda f: os.path.exists(f), possible_paths)
+            img_pics = [f for f in possible_paths if os.path.exists(f)]
             if len(img_pics) > 0:
                 self.show_image(img_pics[0], item.stat.thumb_posmag)
             elif os.path.isfile(tiled_jpg):
@@ -2574,7 +2574,7 @@ class ImageResultPanel(wx.Panel):
             self.show_scan_info(scaninfo)
 
             # Decide next and prev buttons available
-            data = mainframe.data.keys()
+            data = list(mainframe.data.keys())
             idx = data.index(self.current_img_file)
             is_valid_idx = lambda i: 0<= i < len(data)
 
@@ -2704,7 +2704,7 @@ class ImageResultPanel(wx.Panel):
 # class ImageResultPanel
 
 class MainFrame(wx.Frame):
-    class Item:
+    class Item(object):
         def __init__(self, img_file):
             self.img_file = img_file # file name (absolute path)
             self.stat = None # distl_stat
@@ -2771,7 +2771,7 @@ class MainFrame(wx.Frame):
 
         # Hdf5 workaround
         tmp = glob.glob(re.sub("_[0-9]*\.img$", "_master*.h5", imgfile)) # if binned, master_bin*.h5 exists instead.
-        print tmp
+        print(tmp)
         if tmp and not os.path.isfile(imgfile):
             h5master = tmp[0]
             from yamtbx.dataproc import eiger
@@ -2792,11 +2792,11 @@ class MainFrame(wx.Frame):
             sock_test.close()
             # start adxv
             self.adxv_proc = subprocess.Popen(adxv_comm%self.adxv_port, shell=True,
-                                              cwd=os.path.dirname(imgfile))
+                                              cwd=os.path.dirname(imgfile), universal_newlines=True)
 
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
-        for i in xrange(4): # try for 2 seconds.
+        for i in range(4): # try for 2 seconds.
             try:
                 sock.connect(("localhost", self.adxv_port))
                 break
@@ -2819,7 +2819,7 @@ class MainFrame(wx.Frame):
         if self.imgview_host is None:
             shikalog.error("imgview host is not configured!")
             return
-        print "Trying",self.imgview_host, 5555
+        print("Trying",self.imgview_host, 5555)
 
         import telnetlib
         telnet = telnetlib.Telnet(self.imgview_host, 5555)
@@ -2827,12 +2827,12 @@ class MainFrame(wx.Frame):
         #print "READ=", telnet.read_all()
         recv = telnet.read_until("/ok", timeout=3)
         if recv == "":
-            print "ERROR: imgview not responding!"
+            print("ERROR: imgview not responding!")
             telnet.close()
             return
         #print "READ=", telnet.read_very_eager()
         telnet.write("put/video/disconnect\n")
-        print "DONE."
+        print("DONE.")
         telnet.close()
         return
 
@@ -2843,13 +2843,13 @@ class MainFrame(wx.Frame):
         try:
             sock.sendall("put/video_file/%s\n"%imgfile)
         except:
-            print "ERROR: imgview load failed!"
+            print("ERROR: imgview load failed!")
             sock.close()
             return
 
         time.sleep(1)
         recv = sock.recv(4096)
-        print "recv=", recv
+        print("recv=", recv)
 
         sock.send("put/video/disconnect\n")
         sock.close()
@@ -2867,7 +2867,7 @@ class MainFrame(wx.Frame):
 
         img_file = self.grid.current_img_file
         if img_file is None:
-            print "No image"
+            print("No image")
             return
 
         self.open_img_with_adxv(img_file)
@@ -2973,9 +2973,9 @@ class MainFrame(wx.Frame):
 
         #s = xmlrpclib.ServerProxy('http://192.168.163.2:1920')
         try:
-            s = xmlrpclib.ServerProxy('http://%s'%self.kuma_addr)
+            s = xmlrpc.client.ServerProxy('http://%s'%self.kuma_addr)
             s.append_coords(gonio_xyz_phi, comment)
-        except socket.error, e:
+        except socket.error as e:
             shikalog.error("Cannot communicate with KUMA: %s" % e)
             wx.MessageDialog(None, """\
 Cannot communicate with KUMA.
@@ -2988,13 +2988,13 @@ Try restarting KUMA and SHIKA!
 """% self.kuma_addr,
                              "Error", style=wx.OK).ShowModal()
 
-        print gonio_xyz_phi, comment
+        print(gonio_xyz_phi, comment)
     # tell_kuma()
 
     def update_result(self, append=False):
         result = current_stats
 
-        for f, stat in result.items():
+        for f, stat in list(result.items()):
             if f in self.data:
                 self.data[f].stat = stat
 
@@ -3047,7 +3047,7 @@ Try restarting KUMA and SHIKA!
             con.execute('pragma query_only = ON;')
             cur = con.cursor()
 
-            for itrial in xrange(60):
+            for itrial in range(60):
                 try:
                     c = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='status';")
                     if c.fetchone() is None:
@@ -3059,10 +3059,10 @@ Try restarting KUMA and SHIKA!
                     time.sleep(1)
                     continue
 
-            for itrial in xrange(60):
+            for itrial in range(60):
                 try:
                     c = con.execute("select filename,spots from spots")
-                    results = dict(map(lambda x: (str(x[0]), pickle.loads(str(x[1]))), c.fetchall()))
+                    results = dict([(str(x[0]), pickle.loads(str(x[1]))) for x in c.fetchall()])
                     break
                 except sqlite3.DatabaseError:
                     shikalog.warning("DB failed. retrying (%d)" % itrial)
@@ -3072,14 +3072,14 @@ Try restarting KUMA and SHIKA!
             exranges = self.ctrlFrame.get_exclude_resolution_ranges()
             if exranges:
                 shikalog.info("Applying resolution-range exclusion: %s" % exranges)
-                for r in results.values():
+                for r in list(results.values()):
                     if not r["spots"]: continue
-                    ress = numpy.array(map(lambda x: x[3], r["spots"]))
+                    ress = numpy.array([x[3] for x in r["spots"]])
                     test = numpy.zeros(len(r["spots"])).astype(numpy.bool)
                     for rr in exranges: test |= ((min(rr) <= ress) & (ress <= max(rr)))
                     for i in reversed(numpy.where(test)[0]): del r["spots"][i]
 
-            print "DEBUG:: scans=", slog.scans 
+            print("DEBUG:: scans=", slog.scans) 
             for scan in slog.scans:
                 for imgf, (gonio, gc) in scan.filename_coords:
                     #print imgf, (gonio, gc) 
@@ -3088,10 +3088,10 @@ Try restarting KUMA and SHIKA!
                     possible_imgfs = (imgf, os.path.splitext(imgf)[0] + ".img",
                                       re.sub("(.*)_0([0-9]{6})\..*$", r"\1_\2.img", imgf), # too dirty fix!! for new bss which writes 7-digits filename..
                                       )
-                    imgfs_found = filter(lambda x: x in results, possible_imgfs)
+                    imgfs_found = [x for x in possible_imgfs if x in results]
                     if not imgfs_found: continue
                     imgf = imgfs_found[0]
-                    snrlist = map(lambda x: x[2], results[imgf]["spots"])
+                    snrlist = [x[2] for x in results[imgf]["spots"]]
                     stat.stats = (len(snrlist), sum(snrlist), numpy.median(snrlist) if snrlist else 0)
                     stat.spots = results[imgf]["spots"]
                     stat.gonio = gonio
@@ -3127,7 +3127,7 @@ Try restarting KUMA and SHIKA!
 
 def run_from_args(argv):
     if "-h" in argv or "--help" in argv:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(gui_phil_str).show(prefix="  ", attributes_level=1)
         return
 
@@ -3148,7 +3148,7 @@ def run_from_args(argv):
         if not re_addr.search(gui_params.kuma_addr):
             shikalog.error("Invalid address definition of KUMA: %s" % gui_params.kuma_addr)
             return
-        print "Config: KUMA addr=", gui_params.kuma_addr
+        print("Config: KUMA addr=", gui_params.kuma_addr)
 
 
     if gui_params.mode == "zoo":
@@ -3164,25 +3164,25 @@ def run_from_args(argv):
     if gui_params.subport:
         shikalog.info("Config: ZMQ SUB port= %s" % gui_params.subport)
         try: control_send.bind("tcp://*:%d"%gui_params.subport)
-        except zmq.ZMQError, e:
+        except zmq.ZMQError as e:
             shikalog.error("Error in binding SUB port: %s" % e.strerror)
-            print "If you don't need to change parameters, try subport=none"
+            print("If you don't need to change parameters, try subport=none")
             return
             
     if gui_params.pushport:
         shikalog.info("Config: ZMQ PUSH host= %s" % gui_params.pushport)
         try: ventilator_send.bind("tcp://*:%d"%gui_params.pushport)
-        except zmq.ZMQError, e:
+        except zmq.ZMQError as e:
             shikalog.error("Error in binding PUSH port: %s" % e.strerror)
-            print "If you don't need to recalculate, try pushport=none"
+            print("If you don't need to recalculate, try pushport=none")
             return
 
-    print """\
+    print("""\
 
 SHIKA (Spot wo Hirotte Ichi wo Kimeru Application) is a spot finder application for diffraction based crystal centering based on Cheetah by Anton Barty et al.
 If you found something wrong, please let staff know! We would appreciate your feedback.
 
-"""
+""")
 
     if topdir is None:
         topdir = os.getcwd()

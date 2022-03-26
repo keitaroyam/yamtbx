@@ -5,6 +5,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 """
 Find data sets, make directories for XDS runs, and prepare XDS.INP.
 """
@@ -21,7 +24,7 @@ def split_runs_based_on_pf_logfiles(logfiles):
         for l in open(logfile):
             if len(l.split()) == 4:
                 r = re_pref_num_ext.search(os.path.basename(l.split()[-1]))
-                print l[-1]
+                print(l[-1])
                 if r:
                     nums.append(int(r.group(2)))
         return min(nums), max(nums)
@@ -33,9 +36,9 @@ def split_runs_based_on_pf_logfiles(logfiles):
 def run(search_dir, pf_logfiles=None):
     for img_template, min_frame, max_frame in dataset.find_data_sets(search_dir,skip_symlinks=False):
 
-        print "Dataset found:"
-        print " NAME_TEMPLATE_OF_DATA_FRAMES= %s" % img_template
-        print " DATA_RNAGE= %d %d" % (min_frame, max_frame)
+        print("Dataset found:")
+        print(" NAME_TEMPLATE_OF_DATA_FRAMES= %s" % img_template)
+        print(" DATA_RNAGE= %d %d" % (min_frame, max_frame))
 
         pdir, ppath = os.path.split(img_template)
         if not os.path.exists(os.path.join(pdir, "xds")):
@@ -50,13 +53,13 @@ def run(search_dir, pf_logfiles=None):
         if pf_logfiles is None:
             wdir = os.path.join(pdir, "xds", "xds_%s%d-%d" % (prefix, min_frame, max_frame))
             if os.path.isfile(os.path.join(wdir, "XDS.INP")):
-                print " Already exist:", os.path.join(wdir, "XDS.INP")
+                print(" Already exist:", os.path.join(wdir, "XDS.INP"))
                 continue
 
             os.mkdir(wdir)
 
             cmd = 'generate_XDS.INP "%s"' % os.path.relpath(img_template, wdir)
-            print " launching", cmd
+            print(" launching", cmd)
             call(cmd=cmd, wdir=wdir)
         else:
             for minf, maxf in split_runs_based_on_pf_logfiles(pf_logfiles):
@@ -70,13 +73,13 @@ def run(search_dir, pf_logfiles=None):
                 wdir = os.path.join(pdir, "xds", "xds_%s%d-%d" % (prefix, minf, maxf))
 
                 if os.path.isfile(os.path.join(wdir, "XDS.INP")):
-                    print "Already exist:", os.path.isfile(os.path.join(wdir, "XDS.INP"))
+                    print("Already exist:", os.path.isfile(os.path.join(wdir, "XDS.INP")))
                     continue
 
                 os.mkdir(wdir)
 
                 cmd = 'generate_XDS.INP "%s"' % os.path.relpath(img_template, wdir)
-                print " launching", cmd
+                print(" launching", cmd)
                 call(cmd=cmd, wdir=wdir)
                 # XXX dirty hacks..
                 inp = open(os.path.join(wdir, "XDS.INP")).readlines()
@@ -88,7 +91,7 @@ def run(search_dir, pf_logfiles=None):
                         l = "SPOT_RANGE= %d %d\n" % (minf, (maxf-minf)/2+minf)
                     ofs.write(l)
                 ofs.close()
-        print
+        print()
 
 # run()
 

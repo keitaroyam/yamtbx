@@ -4,6 +4,7 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
 from cctbx import sgtbx
 from cctbx import uctbx
 from yamtbx.util import safe_float
@@ -29,12 +30,12 @@ def get_P1_cell(lp, force_obtuse_angle=False):
         if l.startswith(" CHARACTER  LATTICE     OF FIT      a      b      c   alpha  beta gamma"):
             read_flag = True
         elif read_flag and l[14:16] == "aP":
-            cell = map(float, (l[32:39], l[39:46], l[46:53], l[53:59], l[59:65], l[65:71]))
+            cell = list(map(float, (l[32:39], l[39:46], l[46:53], l[53:59], l[59:65], l[65:71])))
             if force_obtuse_angle:
-                tmp = map(lambda x: (x[0]+3,abs(90.-x[1])), enumerate(cell[3:])) # Index and difference from 90 deg
+                tmp = [(x[0]+3,abs(90.-x[1])) for x in enumerate(cell[3:])] # Index and difference from 90 deg
                 tmp.sort(key=lambda x: x[1], reverse=True)
                 if cell[tmp[0][0]] < 90:
-                    tmp = map(lambda x: (x[0]+3,90.-x[1]), enumerate(cell[3:])) # Index and 90-val.
+                    tmp = [(x[0]+3,90.-x[1]) for x in enumerate(cell[3:])] # Index and 90-val.
                     tmp.sort(key=lambda x: x[1], reverse=True)
                     for i,v in tmp[:2]: cell[i] = 180.-cell[i]
             return uctbx.unit_cell(cell)
@@ -44,8 +45,7 @@ def get_P1_cell(lp, force_obtuse_angle=False):
 def table_split(l):
     # TODO need to change behavior by version?
     assert l[50] == l[61] == l[71] == l[98] == "%"
-    return map(lambda x:x.strip(),
-               (l[:9], # RESOLUTION LIMIT
+    return [x.strip() for x in (l[:9], # RESOLUTION LIMIT
                 l[9:21], l[21:29], l[29:39], # NUMBER OF REFLECTIONS: OBSERVED  UNIQUE  POSSIBLE
                 l[39:50], # COMPLETENESS
                 l[51:61], l[62:71], # R-FACTOR: observed  expected
@@ -56,18 +56,17 @@ def table_split(l):
                 l[108:114], # AnomalCorr
                 l[115:123], # SigAno 
                 l[123:] # Nano
-               ))
+               )]
 
 # table_split
 
 def errortable_split(l):
     # TODO need to change behavior by version?
-    return map(lambda x:x.strip(),
-               (l[:9], l[9:17], l[17:26], l[26:33], l[33:43], l[43:53], l[53:61], l[61:69], l[69:77]))
+    return [x.strip() for x in (l[:9], l[9:17], l[17:26], l[26:33], l[33:43], l[43:53], l[53:61], l[61:69], l[69:77])]
 # errortable_split
 
 
-class CorrectLp:
+class CorrectLp(object):
     def __init__(self, lpin):
         self.anomalous_flag = None
 
@@ -82,9 +81,9 @@ class CorrectLp:
         self.table = {}
         self.error_table = {}
         self.space_group = None
-        self.unit_cell = map(lambda x: float("nan"), xrange(6))
-        self.unit_cell_esd = map(lambda x: float("nan"), xrange(6))
-        self.a_b_ISa = map(lambda x: float("nan"), xrange(3))
+        self.unit_cell = [float("nan") for x in range(6)]
+        self.unit_cell_esd = [float("nan") for x in range(6)]
+        self.a_b_ISa = [float("nan") for x in range(3)]
         self.snippets = {}
 
         lines = open(lpin).readlines()
@@ -102,7 +101,7 @@ class CorrectLp:
                 elif "UNIT_CELL_CONSTANTS=" in l:
                     # Will be overridden if refined
                     tmp = l[l.index("=")+1:]
-                    self.unit_cell = map(float, (tmp[0:9],tmp[9:18],tmp[18:27],tmp[27:35],tmp[35:43],tmp[43:51]))
+                    self.unit_cell = list(map(float, (tmp[0:9],tmp[9:18],tmp[18:27],tmp[27:35],tmp[35:43],tmp[43:51])))
                     
                 if "********" in l:
                     reading = ""
@@ -111,10 +110,10 @@ class CorrectLp:
             #  REFINEMENT OF DIFFRACTION PARAMETERS USING ALL IMAGES
             # ******************************************************************************
             elif l.startswith(" UNIT CELL PARAMETERS"):
-                cell_params = map(float, (l[21:32], l[32:42], l[42:52], l[52:60], l[60:68], l[68:76]))
+                cell_params = list(map(float, (l[21:32], l[32:42], l[42:52], l[52:60], l[60:68], l[68:76])))
                 self.unit_cell = cell_params
             elif l.startswith(" E.S.D. OF CELL PARAMETERS"):
-                esd_params = map(float, (l[26:35], l[35:43], l[43:51], l[51:59], l[59:67], l[67:75]))
+                esd_params = list(map(float, (l[26:35], l[35:43], l[43:51], l[51:59], l[59:67], l[67:75])))
                 self.unit_cell_esd = esd_params
             elif l.startswith(" SPACE GROUP NUMBER"):
                 self.space_group = sgtbx.space_group_info(int(l[20:])).group()
@@ -126,7 +125,7 @@ class CorrectLp:
                 reading = "ISa"
                 self.snippets["ISa"] = l
             elif reading == "ISa":
-                a, b, ISa = map(float, l.split())
+                a, b, ISa = list(map(float, l.split()))
                 reading = ""
                 self.a_b_ISa = a, b, ISa
                 self.snippets["ISa"] += l
@@ -214,5 +213,5 @@ class CorrectLp:
 if __name__ == "__main__":
     import sys
     lp = CorrectLp(sys.argv[1])
-    print lp.table
-    print lp.space_group.info(), lp.unit_cell
+    print(lp.table)
+    print(lp.space_group.info(), lp.unit_cell)

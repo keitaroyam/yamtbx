@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 master_params_str = """\
 dx = 2
@@ -44,14 +46,14 @@ def analyze_result(idxreflp):
         if r:
             outof = int(r.group(1)), int(r.group(2))
 
-    print "  Indexed: %d/%d (%.2f%%)" % (outof[0],outof[1], 100.*float(outof[0])/float(outof[1]))
+    print("  Indexed: %d/%d (%.2f%%)" % (outof[0],outof[1], 100.*float(outof[0])/float(outof[1])))
 
 def work(rootdir, xdsinp, orgxy):
     workdir = os.path.join(rootdir, "bs_x%+.1f_y%+.1f" % orgxy)
     inpdir = os.path.normpath(os.path.dirname(xdsinp))
-    print workdir
+    print(workdir)
     if os.path.exists(workdir):
-        print "- exists. skipping."
+        print("- exists. skipping.")
         return
     
     os.makedirs(workdir)
@@ -67,7 +69,7 @@ def work(rootdir, xdsinp, orgxy):
 def run(params):
     xdsinp = "XDS.INP"
     kwds = dict(get_xdsinp_keyword(xdsinp))
-    orgx_org, orgy_org = map(float, (kwds["ORGX"], kwds["ORGY"]))
+    orgx_org, orgy_org = list(map(float, (kwds["ORGX"], kwds["ORGY"])))
 
     dx, dy = params.dx, params.dy
     if params.unit == "mm":
@@ -80,8 +82,8 @@ def run(params):
     #bk_prefix = make_backup(backup_needed)
 
     orgxy_list = []
-    for i in xrange(-params.nx, params.nx+1):
-        for j in xrange(-params.ny, params.ny+1):
+    for i in range(-params.nx, params.nx+1):
+        for j in range(-params.ny, params.ny+1):
             orgxy_list.append((orgx_org + i * dx, orgy_org + j * dy))
 
     easy_mp.pool_map(fixed_func=lambda x: work(os.path.abspath(params.workdir), os.path.abspath(xdsinp), x),

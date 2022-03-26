@@ -11,6 +11,8 @@ Try several scaling parameters in CORRECT step of XDS, and make mtz files which 
 Usage:
   PHENIX_TRUST_OTHER_ENV=1 phenix.python xds_try_scale_params.py wfac1=1,1.2,0.8,...
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 
 master_params_str = """\
@@ -45,7 +47,7 @@ def get_digit(x):
     if len(x) == 1:
         m = str(x[0])
     else:
-        m = str(min(map(lambda x,y:y-x, x[:-1], x[1:])))
+        m = str(min(list(map(lambda x,y:y-x, x[:-1], x[1:]))))
     if "." in m:
         return len(m) - m.index(".") - 1
     else:
@@ -103,11 +105,11 @@ if __name__ == "__main__":
     if params.mtz_free is not None:
         params.mtz_free = os.path.abspath(params.mtz_free)
 
-    print "Parameters:"
+    print("Parameters:")
     cmdline.work.format(python_object=params).show(out=sys.stdout, prefix=" ")
 
     if len(params.wfac1) == 1 and len(params.minpk) == 1:
-        print "Specify params!"
+        print("Specify params!")
         sys.exit(1)
 
     run(params)

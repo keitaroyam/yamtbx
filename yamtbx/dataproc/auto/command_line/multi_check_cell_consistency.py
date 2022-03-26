@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 from cctbx import uctbx
 from cctbx import sgtbx
@@ -42,7 +44,7 @@ do_pointless = False
  .help = Run pointless for largest group data to determine symmetry
 """
 
-class CellGraph:
+class CellGraph(object):
     def __init__(self, tol_length=None, tol_angle=None):
         self.tol_length = tol_length if tol_length else 0.1
         self.tol_angle = tol_angle if tol_angle else 5
@@ -66,28 +68,28 @@ class CellGraph:
         if xac_file:
             correct_lp = util.return_first_found_file(("CORRECT.LP_noscale", "CORRECT.LP"), wd=xdsdir)
             if not correct_lp:
-                print "CORRECT.LP not found in %s" % xdsdir
+                print("CORRECT.LP not found in %s" % xdsdir)
                 return None, None
             p1cell = correctlp.get_P1_cell(correct_lp, force_obtuse_angle=True)
             try:
                 xac = XDS_ASCII(xac_file, read_data=False)
             except:
-                print "Invalid XDS_ASCII format:", xac_file
+                print("Invalid XDS_ASCII format:", xac_file)
                 return None, None
             xs = xac.symm
 
         elif os.path.isfile(dials_hkl): # DIALS
             xs = run_dials_auto.get_most_possible_symmetry(xdsdir)
             if xs is None:
-                print "Cannot get crystal symmetry:", xdsdir
+                print("Cannot get crystal symmetry:", xdsdir)
                 return None, None
 
             p1cell = list(xs.niggli_cell().unit_cell().parameters())
             # force obtuse angle
-            tmp = map(lambda x: (x[0]+3,abs(90.-x[1])), enumerate(p1cell[3:])) # Index and difference from 90 deg
+            tmp = [(x[0]+3,abs(90.-x[1])) for x in enumerate(p1cell[3:])] # Index and difference from 90 deg
             tmp.sort(key=lambda x: x[1], reverse=True)
             if p1cell[tmp[0][0]] < 90:
-                tmp = map(lambda x: (x[0]+3,90.-x[1]), enumerate(p1cell[3:])) # Index and 90-val.
+                tmp = [(x[0]+3,90.-x[1]) for x in enumerate(p1cell[3:])] # Index and 90-val.
                 tmp.sort(key=lambda x: x[1], reverse=True)
                 for i,v in tmp[:2]: p1cell[i] = 180.-p1cell[i]
 
@@ -119,7 +121,7 @@ class CellGraph:
                                                       self.tol_length, self.tol_angle)
                 if cosets.double_cosets is not None:
                     self.cbops[(node,key)] = cosets.combined_cb_ops()[0]
-                    print p1cell, other_cell, self.cbops[(node,key)], other_cell.change_basis(self.cbops[(node,key)])
+                    print(p1cell, other_cell, self.cbops[(node,key)], other_cell.change_basis(self.cbops[(node,key)]))
                     connected_nodes.append(node)
 
         # Add nodes and edges
@@ -144,13 +146,13 @@ class CellGraph:
     
     def _average_p1_cell(self, keys):
         cells = numpy.array(self._transformed_cells(keys))
-        return map(lambda i: cells[:,i].mean(), xrange(6))
+        return [cells[:,i].mean() for i in range(6)]
     # _average_p1_cell()
 
     def group_xds_results(self, out, show_details=True):
-        print >>out, "Making groups from %d results\n" % len(self.p1cells) # Show total and failed!!
+        print("Making groups from %d results\n" % len(self.p1cells), file=out) # Show total and failed!!
         
-        self.groups = map(lambda g: list(g), nx.connected_components(self.G))
+        self.groups = [list(g) for g in nx.connected_components(self.G)]
         self.groups.sort(key=lambda x:-len(x))
         self.grouped_dirs = []
         self.reference_symmetries = []
@@ -162,8 +164,8 @@ class CellGraph:
         for i, keys in enumerate(self.groups):
             self.reference_symmetries.append([])
             avg_cell = uctbx.unit_cell(self._average_p1_cell(keys))
-            print >>out, "[%2d]"%(i+1), len(keys), "members:"
-            print >>out, " Averaged P1 Cell=", " ".join(map(lambda x:"%.2f"%x, avg_cell.parameters()))
+            print("[{:2d}] {} members:".format(i+1, len(keys)), file=out)
+            print(" Averaged P1 Cell=", " ".join(["%.2f"%x for x in avg_cell.parameters()]), file=out)
 
             #from yamtbx.util.xtal import format_unit_cell
             #for xd, uc in zip(map(lambda k:self.dirs[k], keys), self._transformed_cells(keys)):
@@ -172,15 +174,15 @@ class CellGraph:
             #print >>out, " Members=", keys
             if show_details:
                 # by explore_metric_symmetry
-                sg_explorer = pointgroup_tools.space_group_graph_from_cell_and_sg(avg_cell,  sgtbx.space_group_info("P1").group(), max_delta=10)
+                sg_explorer = pointgroup_tools.space_group_graph_from_cell_and_sg(avg_cell,  sgtbx.space_group_info(b"P1").group(), max_delta=10)
                 tmp = []
-                for obj in sg_explorer.pg_graph.graph.node_objects.values():
+                for obj in list(sg_explorer.pg_graph.graph.node_objects.values()):
                     pg = obj.allowed_xtal_syms[0][0].space_group().build_derived_reflection_intensity_group(True).info()
                     cbop = obj.allowed_xtal_syms[0][1]
                     trans_cell = avg_cell.change_basis(cbop)
 
-                    if pg.group() == sgtbx.space_group_info("I2").group():
-                        print >>out, "Warning!! I2 cell was given." # this should not happen..
+                    if pg.group() == sgtbx.space_group_info(b"I2").group():
+                        print("Warning!! I2 cell was given.", file=out) # this should not happen..
 
                     # Transform to best cell
                     fbc = crystal.find_best_cell(crystal.symmetry(trans_cell, space_group_info=pg,
@@ -199,31 +201,31 @@ class CellGraph:
                     tmp.append([0, pg, trans_cell, cbop, pg.type().number()])
 
                 # Calculate frequency
-                for pgnum in set(map(lambda x: x[-1], tmp)):
-                    sel = filter(lambda x: tmp[x][-1]==pgnum, xrange(len(tmp)))
+                for pgnum in set([x[-1] for x in tmp]):
+                    sel = [x for x in range(len(tmp)) if tmp[x][-1]==pgnum]
                     pgg = tmp[sel[0]][1].group()
 
                     if len(sel) == 1:
-                        freq = len(filter(lambda x: self.symms[x].space_group().build_derived_reflection_intensity_group(True) == pgg, keys))
+                        freq = len([x for x in keys if self.symms[x].space_group().build_derived_reflection_intensity_group(True) == pgg])
                         tmp[sel[0]][0] = freq
                     else:
-                        trans_cells = map(lambda x: numpy.array(tmp[x][2].parameters()), sel)
+                        trans_cells = [numpy.array(tmp[x][2].parameters()) for x in sel]
                         
                         for key in keys:
                             if self.symms[key].space_group().build_derived_reflection_intensity_group(True) != pgg: continue
                             cell = numpy.array(self.symms[key].unit_cell().parameters())
-                            celldiffs = map(lambda tc: sum(abs(tc-cell)), trans_cells)
+                            celldiffs = [sum(abs(tc-cell)) for tc in trans_cells]
                             min_key = celldiffs.index(min(celldiffs))
                             tmp[sel[min_key]][0] += 1
 
-                print >>out, " Possible symmetries:"
-                print >>out, "   freq symmetry     a      b      c     alpha  beta   gamma reindex"
+                print(" Possible symmetries:", file=out)
+                print("   freq symmetry     a      b      c     alpha  beta   gamma reindex", file=out)
                 for freq, pg, trans_cell, cbop, pgnum in sorted(tmp, key=lambda x:x[-1]):
-                    print >> out, "   %4d %-10s %s %s" % (freq, pg, " ".join(map(lambda x:"%6.2f"%x, trans_cell.parameters())), cbop)
+                    print("   %4d %-10s %s %s" % (freq, pg, " ".join(["%6.2f"%x for x in trans_cell.parameters()]), cbop), file=out)
                     self.reference_symmetries[i].append((pg, trans_cell, freq))
-                print >>out, ""
+                print("", file=out)
 
-            dirs = map(lambda x: self.dirs[x], keys)
+            dirs = [self.dirs[x] for x in keys]
             self.grouped_dirs.append(dirs)
     # group_xds_results()
 
@@ -253,7 +255,7 @@ class CellGraph:
     def get_most_frequent_symmetry(self, group_idx):
         # Should call after self.group_xds_results()
 
-        symms = filter(lambda x: x[2]>0, self.reference_symmetries[group_idx])
+        symms = [x for x in self.reference_symmetries[group_idx] if x[2]>0]
         symms.sort(key=lambda x: x[2], reverse=True)
 
         if len(symms) == 0: return None
@@ -271,12 +273,12 @@ class CellGraph:
         ref_pg = ref_cs.space_group().build_derived_reflection_intensity_group(True)
         ref_cell = ref_cs.unit_cell()
 
-        symms = filter(lambda x: x[0].group()==ref_pg, self.reference_symmetries[group_idx])
+        symms = [x for x in self.reference_symmetries[group_idx] if x[0].group()==ref_pg]
         if len(symms) == 0: return None
 
         if len(symms) > 1:
             # TODO if different too much?
-            celldiffs = map(lambda s: s[1].bases_mean_square_difference(ref_cell), symms)
+            celldiffs = [s[1].bases_mean_square_difference(ref_cell) for s in symms]
             min_idx = celldiffs.index(min(celldiffs))
             return crystal.symmetry(symms[min_idx][1], space_group_info=symms[min_idx][0],
                                     assert_is_compatible_unit_cell=False)
@@ -292,7 +294,7 @@ class CellGraph:
         for i, keys in enumerate(self.groups):
             v6 = xtal.v6cell(uctbx.unit_cell(self._average_p1_cell(keys)).niggli_cell())
             ncdists.append(NCDist(v6, ref_v6))
-            print "Group %d: NCDist to reference: %f" % (i+1, ncdists[-1])
+            print("Group %d: NCDist to reference: %f" % (i+1, ncdists[-1]))
 
         return ncdists.index(min(ncdists))+1
     # get_group_symmetry_reference_matched()
@@ -317,8 +319,7 @@ def run(params, out=sys.stdout):
     cm = CellGraph(tol_length=params.tol_length, tol_angle=params.tol_angle)
 
     if not params.xdsdir and params.topdir:
-        params.xdsdir = map(lambda x: x[0], filter(lambda x: any(map(lambda y: y.startswith("XDS_ASCII.HKL"), x[2])) or "DIALS.HKL" in x[2],
-                                                   os.walk(params.topdir)))
+        params.xdsdir = [x[0] for x in [x for x in os.walk(params.topdir) if any([y.startswith("XDS_ASCII.HKL") for y in x[2]]) or "DIALS.HKL" in x[2]]]
         
     for i, xdsdir in enumerate(params.xdsdir):
         cm.add_proc_result(i, xdsdir)
@@ -329,14 +330,14 @@ def run(params, out=sys.stdout):
     if len(ret) == 0:
         return cm
     
-    print >>out
-    print >>out, "About the largest group:"
+    print(file=out)
+    print("About the largest group:", file=out)
     for idx, wd in enumerate(ret[0]):
         xac_hkl = os.path.join(wd, "XDS_ASCII.HKL")
         correct_lp = os.path.join(wd, "CORRECT.LP")
-        print >>out, "%.3d %s" % (idx, os.path.relpath(wd, params.topdir) if params.topdir is not None else wd),
+        print("%.3d %s" % (idx, os.path.relpath(wd, params.topdir) if params.topdir is not None else wd), end=' ', file=out)
         if not os.path.isfile(xac_hkl):
-            print >>out, "Unsuccessful"
+            print("Unsuccessful", file=out)
             continue
         
         sg = XDS_ASCII(xac_hkl, read_data=False).symm.space_group_info()
@@ -346,20 +347,20 @@ def run(params, out=sys.stdout):
         else:
             cmpl = float("nan")
         ISa = clp.a_b_ISa[-1]
-        print >>out, "%10s ISa=%5.2f Cmpl=%5.1f " % (sg, ISa, cmpl)
+        print("%10s ISa=%5.2f Cmpl=%5.1f " % (sg, ISa, cmpl), file=out)
 
     if params.do_pointless:
         worker = pointless.Pointless()
-        files = map(lambda x: os.path.join(x, "INTEGRATE.HKL"), ret[0])
+        files = [os.path.join(x, "INTEGRATE.HKL") for x in ret[0]]
         #print files
-        files = filter(lambda x: os.path.isfile(x), files)
+        files = [x for x in files if os.path.isfile(x)]
         
-        print >>out, "\nRunning pointless for the largest member."
+        print("\nRunning pointless for the largest member.", file=out)
         result = worker.run_for_symm(xdsin=files, 
                                      logout="pointless.log",
                                      tolerance=10, d_min=5)
         if "symm" in result:
-            print >>out, " pointless suggested", result["symm"].space_group_info()
+            print(" pointless suggested", result["symm"].space_group_info(), file=out)
 
 
     if 0:

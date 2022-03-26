@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from cctbx import miller
 from cctbx import crystal
 from cctbx.array_family import flex
@@ -36,9 +38,9 @@ Strength of averaged profile in arbitrary units
             read_hkl = False
 
         if read_hkl:
-            hkl = map(int, (l[0:4], l[4:8], l[8:12]))
+            hkl = list(map(int, (l[0:4], l[4:8], l[8:12])))
             ispart = int(l[13])
-            iobs, sigma = map(float, (l[14:22], l[22:30]))
+            iobs, sigma = list(map(float, (l[14:22], l[22:30])))
 
             indices.append(hkl)
             data.append(iobs)
@@ -46,7 +48,7 @@ Strength of averaged profile in arbitrary units
             full_flags.append(ispart==0)
         else:
             if l.startswith("unit cell"):
-                cell = map(float, l.split()[2:])
+                cell = list(map(float, l.split()[2:]))
             elif l.startswith("space group"):
                 sg_str = l.split()[-1]
 
@@ -69,13 +71,13 @@ def run(x1, x2, n_bins):
     merged_data = []
 
     for x in (x1, x2):
-        print "Processing %s" % x
-        print "===================="
+        print("Processing %s" % x)
+        print("====================")
         data = read_x(x, take_full=False) # if you need only full, change this to True.
         data.crystal_symmetry().show_summary()
         merge = data.merge_equivalents(use_internal_variance=False)
         merge.show_summary()
-        print
+        print()
         array = merge.array()
         array = array.select(array.sigmas() > 0)
         merged_data.append(array)
@@ -90,10 +92,10 @@ def run(x1, x2, n_bins):
         hemispheres.append([array.select(sel_p, anomalous_flag=False),
                             array.select(sel_m, anomalous_flag=False).map_to_asu()])
 
-    print "x1: merged=%d (+)=%d (-)=%d" % (merged_data[0].size(),
-                                           hemispheres[0][0].size(), hemispheres[0][1].size())
-    print "x2: merged=%d (+)=%d (-)=%d" % (merged_data[1].size(),
-                                           hemispheres[1][0].size(), hemispheres[1][1].size())
+    print("x1: merged=%d (+)=%d (-)=%d" % (merged_data[0].size(),
+                                           hemispheres[0][0].size(), hemispheres[0][1].size()))
+    print("x2: merged=%d (+)=%d (-)=%d" % (merged_data[1].size(),
+                                           hemispheres[1][0].size(), hemispheres[1][1].size()))
 
     # for sigma calculation (new_sigma^2 = sigma1^2 + sigma2^2)
     additive_sigmas = lambda x, y: flex.sqrt(flex.pow2(x.sigmas()) + flex.pow2(y.sigmas()))
@@ -111,34 +113,34 @@ def run(x1, x2, n_bins):
     h1p, h2m = hemispheres[0][0].common_sets(hemispheres[1][1])
     h1p_h2m = h1p.customized_copy(data=h1p.data() - h2m.data(),
                                   sigmas=additive_sigmas(h1p, h2m))
-    print h1p_h2m.size()
+    print(h1p_h2m.size())
     #for x in h1p_h2m: print x
 
     # calculate data2(+) - data1(-)
     h2p, h1m = hemispheres[1][0].common_sets(hemispheres[0][1])
     h2p_h1m = h2p.customized_copy(data=h2p.data() - h1m.data(),
                                   sigmas=additive_sigmas(h2p, h1m))
-    print h2p_h1m.size()
-    print 
+    print(h2p_h1m.size())
+    print() 
     #for x in h2p_h1m: print x
 
     # concatenate data1(+) - data2(-) and data2(+) - data1(-)
     dano_tmp = h1p_h2m.concatenate(h2p_h1m)
     merge = dano_tmp.merge_equivalents(use_internal_variance=False)
-    print "Merging stats of (+)-(-) data"
-    print "============================="
+    print("Merging stats of (+)-(-) data")
+    print("=============================")
     merge.show_summary()
     dano = merge.array()
     
-    print "num_dano=", dano.size()
-    print
+    print("num_dano=", dano.size())
+    print()
 
     # process with binning
     dano.setup_binner(n_bins=n_bins)
     binner = dano.binner()
 
-    print "Result:"
-    print "   dmax    dmin  nrefs  dano"
+    print("Result:")
+    print("   dmax    dmin  nrefs  dano")
     for i_bin in binner.range_used():
         # selection for this bin. sel is flex.bool object (list of True of False)
         sel = binner.selection(i_bin)
@@ -149,7 +151,7 @@ def run(x1, x2, n_bins):
         else:
             bin_mean = float("nan")
         d_max, d_min = binner.bin_d_range(i_bin)
-        print "%7.2f %7.2f %6d %.2f" % (d_max, d_min, count, bin_mean)
+        print("%7.2f %7.2f %6d %.2f" % (d_max, d_min, count, bin_mean))
 # run()
 
 if __name__ == "__main__":

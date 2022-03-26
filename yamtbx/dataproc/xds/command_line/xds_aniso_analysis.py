@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import re
 import os
 from yamtbx.dataproc.xds.xds_ascii import XDS_ASCII
@@ -70,11 +73,11 @@ def parse_logfile(logfile):
         ret["d_min_worst"] = ret["aniso_cutoffs"][-1][2]
 
         # Fill eigen values
-        eigen_vals = dict(map(lambda x: x[::-1], ret["eigen_values"]))
+        eigen_vals = dict([x[::-1] for x in ret["eigen_values"]])
         for x in ret["aniso_cutoffs"]:
             x[-1] = eigen_vals.get(x[1])
             if x[-1] is None:
-                tmp = filter(lambda k: k!="c*", eigen_vals.keys()) # XXX does this always work??
+                tmp = [k for k in list(eigen_vals.keys()) if k!="c*"] # XXX does this always work??
                 if tmp: x[-1] = eigen_vals[tmp[0]]
     else:
         ret["d_min_best"] = ret["d_min_worst"] = float("nan")
@@ -90,7 +93,7 @@ def make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, do_fit, log_
     i_obs = i_obs.map_to_asu()
 
     v_stars = calc_principal_vectors(array_merged, log_out)
-    print >>log_out, ""
+    print("", file=log_out)
 
     if not v_stars:
         return
@@ -102,30 +105,30 @@ def make_aniso_stats_table(i_obs, array_merged, cone_angle, n_bins, do_fit, log_
 
     ret = dict(binner=binner, cchalf=cchalf, ios=ios)
     
-    print >>log_out, "Anisotropic stats with cone angle of %.1f deg:" % cone_angle
+    print("Anisotropic stats with cone angle of %.1f deg:" % cone_angle, file=log_out)
     for vc, vi in zip(cchalf, ios):
         label = vc[1]
         cc_ovl = vc[3]
         ios_ovl = vi[3]
-        print >>log_out, "%20s Overall CC1/2=%.4f Mn(I/sigma)=%.4f" %(label, cc_ovl, ios_ovl)
+        print("%20s Overall CC1/2=%.4f Mn(I/sigma)=%.4f" %(label, cc_ovl, ios_ovl), file=log_out)
 
     s2_max_min = i_obs.min_max_d_star_sq()
-    print >>log_out, """
+    print("""
 $TABLE: Anisotropic statistics:
 $GRAPHS: weighted CC1/2 v resolution:%(xmin).4f|%(xmax).4fx0|1:1,%(ccnumbers)s:
 : Mn(I/sigma) v resolution:%(xmin).4f|%(xmax).4fx%(iosmin).4f|%(iosmax).4f:1,%(isnumbers)s:
 : Number of unique reflections used in analysis v resolution:%(xmin).4f|%(xmax).4fx0|%(nrmax)d:1,%(nrnumbers)s:
 $$ 1/d^2 %(cclabels)s %(islabels)s %(nrlabels)s$$
-$$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
-             isnumbers=",".join(map(lambda x: str(x+2+len(cchalf)), xrange(len(ios)))),
-             nrnumbers=",".join(map(lambda x: str(x+2+len(cchalf)+len(ios)), xrange(len(ios)))),
-             cclabels=" ".join(map(lambda x: "CC1/2:"+x[1], cchalf)),
-             islabels=" ".join(map(lambda x: "I/sd:"+x[1], ios)),
-             nrlabels=" ".join(map(lambda x: "N:"+x[1], ios)),
-             iosmin=min(0,min(map(lambda x:min(x[-1]), ios))),
-             iosmax=max(map(lambda x:max(x[-1]), ios)),
-             nrmax=max(map(lambda x:max(x[-2]), ios)),
-             xmin=s2_max_min[0], xmax=s2_max_min[1])
+$$""" % dict(ccnumbers=",".join([str(x+2) for x in range(len(cchalf))]),
+             isnumbers=",".join([str(x+2+len(cchalf)) for x in range(len(ios))]),
+             nrnumbers=",".join([str(x+2+len(cchalf)+len(ios)) for x in range(len(ios))]),
+             cclabels=" ".join(["CC1/2:"+x[1] for x in cchalf]),
+             islabels=" ".join(["I/sd:"+x[1] for x in ios]),
+             nrlabels=" ".join(["N:"+x[1] for x in ios]),
+             iosmin=min(0,min([min(x[-1]) for x in ios])),
+             iosmax=max([max(x[-1]) for x in ios]),
+             nrmax=max([max(x[-2]) for x in ios]),
+             xmin=s2_max_min[0], xmax=s2_max_min[1]), file=log_out)
 
     for i, i_bin in enumerate(binner.range_used()):
         d_max, d_min = binner.bin_d_range(i_bin)
@@ -134,7 +137,7 @@ $$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
         for vstar, label, pn, cc_ovl, binnref, binstats in ios: log_out.write("% 6.2f "%binstats[i])
         for vstar, label, pn, cc_ovl, binnref, binstats in ios: log_out.write("%6d "%binnref[i])
         log_out.write("\n")
-    print >>log_out, "$$"
+    print("$$", file=log_out)
     
 
     if do_fit:
@@ -143,7 +146,7 @@ $$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
         ret["aniso_d_min"] = []
         for vstar, label, pn, cc_ovl, binnref, binstats in cchalf:
             #s2_list = map(lambda x: numpy.mean(1/numpy.array(binner.bin_d_range(x))**2), binner.range_used())
-            s2_list = numpy.array(map(lambda x: 1/binner.bin_d_min(x)**2, binner.range_used()))
+            s2_list = numpy.array([1/binner.bin_d_min(x)**2 for x in binner.range_used()])
             d0, r = resolution_cutoff.fit_curve_for_cchalf(s2_list, binstats, log_out, verbose=False)
             d_min_est = resolution_cutoff.resolution_fitted(d0, r, cchalf_min=0.5)
             ret["aniso_d_min"].append((label, d_min_est))
@@ -151,20 +154,20 @@ $$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
             log_out.write("CC1/2=0.5 resolution for %s: %.4f Angstrom\n" % (label, d_min_est))
         log_out.write("\n")
 
-        print >>log_out, """
+        print("""
 $TABLE: Anisotropic statistics - CC1/2 fitted:
 $GRAPHS: fitted curve for weighted CC1/2 v resolution:%(xmin).4f|%(xmax).4fx0|1:1,%(ccnumbers)s:
 $$ 1/d^2 %(cclabels)s $$
-$$""" % dict(ccnumbers=",".join(map(lambda x: str(x+2), xrange(len(cchalf)))),
-             cclabels=" ".join(map(lambda x: "CC1/2:%s:d=%.2fA"%(x[1],fitted_vals[x[1]][0]), cchalf)),
-             xmin=s2_max_min[0], xmax=s2_max_min[1])
+$$""" % dict(ccnumbers=",".join([str(x+2) for x in range(len(cchalf))]),
+             cclabels=" ".join(["CC1/2:%s:d=%.2fA"%(x[1],fitted_vals[x[1]][0]) for x in cchalf]),
+             xmin=s2_max_min[0], xmax=s2_max_min[1]), file=log_out)
 
         for i, i_bin in enumerate(binner.range_used()):
             d_max, d_min = binner.bin_d_range(i_bin)
             log_out.write("%.4f " % ((1./d_min**2+1./d_max**2)/2))
             for x in cchalf: log_out.write("% .4f "%fitted_vals[x[1]][1][i])
             log_out.write("\n")
-        print >>log_out, "$$"
+        print("$$", file=log_out)
 
     return ret
 # make_aniso_stats_table()
@@ -178,12 +181,12 @@ def run(hklin, hklin_merged=None, cone_angle=20., n_bins=10, anomalous=None, do_
     #    import iotbx.mtz
     #    i_obs = filter(lambda x: "SIGI" in x.info().label_string(), iotbx.mtz.object(hklin).as_miller_arrays(merge_equivalents=False))[0]
 
-    print >>log_out, "Unmerged intensity read from", hklin
+    print("Unmerged intensity read from", hklin, file=log_out)
     i_obs.show_summary(log_out, prefix=" ")
-    print >>log_out, ""
+    print("", file=log_out)
 
     if anomalous is not None and i_obs.anomalous_flag() != anomalous:
-        print >>log_out, "Changing anomalous flag based on user's input"
+        print("Changing anomalous flag based on user's input", file=log_out)
         i_obs = i_obs.customized_copy(anomalous_flag=anomalous)
 
     if hklin_merged is not None:
@@ -194,13 +197,13 @@ def run(hklin, hklin_merged=None, cone_angle=20., n_bins=10, anomalous=None, do_
                                                    parameter_scope="",
                                                    prefer_anomalous=False,
                                                    prefer_amplitudes=False)
-        print >>log_out, "Merged intensity read from", hklin_merged
+        print("Merged intensity read from", hklin_merged, file=log_out)
         array_merged.show_summary(log_out, prefix=" ")
     else:
         array_merged = i_obs.merge_equivalents(use_internal_variance=False).array()
-        print >>log_out, "Merged intensity calculated"
+        print("Merged intensity calculated", file=log_out)
 
-    print >>log_out, ""
+    print("", file=log_out)
 
     bad_data = array_merged.select(array_merged.data() < -3*array_merged.sigmas()) # FIXME What if already omitted..
     i_obs = i_obs.delete_indices(other=bad_data)
@@ -208,7 +211,7 @@ def run(hklin, hklin_merged=None, cone_angle=20., n_bins=10, anomalous=None, do_
     array_merged = array_merged.select(array_merged.sigmas()>0)
 
     if anomalous is not None and not anomalous and array_merged.anomalous_flag():
-        print >>log_out, "Converting to non-anomalous data..\n"
+        print("Converting to non-anomalous data..\n", file=log_out)
         array_merged = array_merged.average_bijvoet_mates()
 
 
@@ -220,9 +223,9 @@ def run_from_args(args):
     import libtbx.phil
 
     if not args or "-h" in args or "--help" in args:
-        print """\
+        print("""\
 Perform anisotropy analysis for XDS unmerged data.
-Parameters:"""
+Parameters:""")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         return
 

@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 import re
 import os
 import datetime
@@ -12,8 +14,9 @@ import traceback
 from collections import OrderedDict
 
 from yamtbx.dataproc.dataset import template_to_filenames, re_pref_num_ext
+from functools import reduce
 
-class ScanInfo:
+class ScanInfo(object):
     def __init__(self):
         self.vpoints, self.vstep = 0, 0
         self.hpoints, self.hstep = 0, 0
@@ -58,7 +61,7 @@ class ScanInfo:
 
 # class ScanInfo
 
-class BssDiffscanLog:
+class BssDiffscanLog(object):
     def __init__(self, scanlog):
         self.scanlog = scanlog
         self.parse()
@@ -187,7 +190,7 @@ class BssDiffscanLog:
                     assert not self.scans[-1].need_treatment_on_image_numbers
                     continue
                 else:
-                    gonio = tuple(map(lambda x:float(x), r.groups()[1:]))
+                    gonio = tuple([float(x) for x in r.groups()[1:]])
 
                 num = int(r.group(1))
                 if self.scans[-1].need_treatment_on_image_numbers and self.scans[-1].is_shutterless() and self.scans[-1].hpoints > 1:
@@ -212,7 +215,7 @@ class BssDiffscanLog:
 
     def __getitem__(self, filename):
         for scan in reversed(self.scans):
-            print scan.filename_coords
+            print(scan.filename_coords)
             if filename in scan.filename_coords:
                 return scan
         raise KeyError
@@ -291,7 +294,7 @@ class BssDiffscanLog:
         else:
             assert None not in (prefix, num)
             
-        matched = filter(lambda x: x.get_prefix()==prefix, self.scans)
+        matched = [x for x in self.scans if x.get_prefix()==prefix]
         if not matched: return None
         scan = matched[-1]
         return self.get_grid_coord_internal(scan.vpoints, scan.vstep,
@@ -306,8 +309,8 @@ class BssDiffscanLog:
             if scan.filename_coords:
                 table.setdefault(scan.filename_template, []).append(i)
 
-        table = filter(lambda x: len(x[1])>1, table.items())
-        rem_idxes = map(lambda x: x[1][:-1], table) # last indexes will be alive
+        table = [x for x in list(table.items()) if len(x[1])>1]
+        rem_idxes = [x[1][:-1] for x in table] # last indexes will be alive
         if not rem_idxes: return
         rem_idxes = reduce(lambda x,y:x+y, rem_idxes) 
         for i in sorted(rem_idxes, reverse=True):
@@ -327,7 +330,7 @@ def parse_bss_diffscan_log(scanlog):
     return ret
 # parse_bss_diffscan_log()
 
-class ImageStatus:
+class ImageStatus(object):
     def __init__(self, line=None):
         items_str = ("imagenum", "wavelength", "exp_time", "osc_start", "osc_step", "gonio_xyz", "filename", "ring_current", "I0", "time", "date")
         for s in items_str:
@@ -339,7 +342,7 @@ class ImageStatus:
     # __init__()
 
     def parse_line(self, line):
-        sp = map(lambda s:s.strip(), line.split(","))
+        sp = [s.strip() for s in line.split(",")]
         if len(sp) == 14:
             junk, self.imagenum, self.wavelength, self.exp_time, self.osc_start, self.osc_step, gx,gy,gz, self.filename, self.ringcurrent, self.I0, self.time, self.date = sp
             self.gonio_xyz = (gx, gy, gz)
@@ -391,7 +394,7 @@ def interpret_attenuator_label(label):
             return ("??", float("nan"))
 # interpret_attenuator_label()
 
-class JobInfo:
+class JobInfo(object):
     """
  JOB_ID#   = 568
  Beamline  = SACLABL3
@@ -464,7 +467,7 @@ class JobInfo:
         elif "scan_from" in line:
             r = re_scan.search(line)
             if r:
-                self.osc_start, self.osc_end, self.osc_step = map(float, r.groups())
+                self.osc_start, self.osc_end, self.osc_step = list(map(float, r.groups()))
         elif "sampling_interval = " in line:
             r = re_sampling.search(line)
             if r:
@@ -499,7 +502,7 @@ class JobInfo:
         elif "center #" in line: # NEED to also take care of "skipped point:"
             r = re_gonio_center.search(line)
             if r:
-                self.advanced_centering.setdefault("centers", []).append(map(float, r.groups()[1:]))
+                self.advanced_centering.setdefault("centers", []).append(list(map(float, r.groups()[1:])))
         elif line.startswith(" IMAGE_STATUS"):
             self.images.append(ImageStatus(line))
         elif line.startswith(" SCAN_STATUS"):
@@ -524,7 +527,7 @@ class JobInfo:
             return [(1, self.n_images)]
         
         ret = []
-        for i in xrange(len(self.advanced_centering.get("centers", []))):
+        for i in range(len(self.advanced_centering.get("centers", []))):
             ret.append((i*self.n_images+1, (i+1)*self.n_images))
         return ret
     # get_frame_num_ranges_for_h5()
@@ -546,13 +549,13 @@ class JobInfo:
                 frames_available = set(eiger.get_available_frame_numbers(master_h5))
                 return frames_requested.issubset(frames_available)
             else:
-                if debug: print "Checking if related files exist for %s" % master_h5
+                if debug: print("Checking if related files exist for %s" % master_h5)
                 try:
                     files = eiger.get_masterh5_related_filenames(master_h5)
                 except:
                     if debug:
-                        print "Error when reading master h5 (%s)" % master_h5
-                        print traceback.format_exc()
+                        print("Error when reading master h5 (%s)" % master_h5)
+                        print(traceback.format_exc())
                     return False
 
                 flag_ng = False
@@ -560,23 +563,23 @@ class JobInfo:
                     if os.path.isfile(f):
                         try: h5py.File(f, "r")
                         except:
-                            if debug: print " file incomplete or broken: %s" % f
+                            if debug: print(" file incomplete or broken: %s" % f)
                             flag_ng = True
                     else:
-                        if debug: print " not exists: %s" % f
+                        if debug: print(" not exists: %s" % f)
                         flag_ng = True
 
                 return not flag_ng
         else:
             if nr:
                 filenames = template_to_filenames(self.filename, nr[0], nr[1])
-                return all(map(lambda x: os.path.exists(x), filenames))
+                return all([os.path.exists(x) for x in filenames])
             else:
                 return True # XXX 
 
 # class JobInfo
 
-class BssJobLog:
+class BssJobLog(object):
     def __init__(self, joblog=None, remove_overwritten=False):
         self.jobs = []
         if joblog is not None:
@@ -604,7 +607,7 @@ class BssJobLog:
         for i, job in enumerate(self.jobs):
             this_job_filenames = []
             for j, img in enumerate(job.images):
-                fltr = filter(lambda x:x[2]==img.filename, filenames)
+                fltr = [x for x in filenames if x[2]==img.filename]
                 #assert len(fltr) in (0,1)
                 if len(fltr) > 0:
                     #del_indices.append((fltr[-1][0],fltr[-1][1]))
@@ -618,11 +621,11 @@ class BssJobLog:
         if remove:
             for i in del_indices:
                 for j in sorted(del_indices[i], reverse=True):
-                    print "overwritten:", self.jobs[i].logfilename, self.jobs[i].job_id, self.jobs[i].images[j].filename
+                    print("overwritten:", self.jobs[i].logfilename, self.jobs[i].job_id, self.jobs[i].images[j].filename)
                     del self.jobs[i].images[j]
                     ow_flag = True
 
         if ow_flag:
-            print
+            print()
     # remove_overwritten_images()
 # class BssJobLog

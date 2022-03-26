@@ -1,5 +1,7 @@
 #!/usr/bin/env phenix.python
 
+from __future__ import print_function
+from __future__ import unicode_literals
 import sys, os, optparse
 import iotbx.mtz
 from cctbx import crystal
@@ -24,8 +26,8 @@ def run(mtz, mtz_out, fraction, flag_name=None, ccp4=True, use_lattice_symmetry=
 
     # Open mtz
     miller_arrays = iotbx.mtz.object(mtz).as_miller_arrays()
-    print "Opening", mtz
-    print " Using information from", miller_arrays[0].info().label_string()
+    print("Opening", mtz)
+    print(" Using information from", miller_arrays[0].info().label_string())
     input_symm = crystal.symmetry(
         unit_cell=miller_arrays[0].unit_cell(),
         space_group_info=miller_arrays[0].space_group().info(),
@@ -34,9 +36,9 @@ def run(mtz, mtz_out, fraction, flag_name=None, ccp4=True, use_lattice_symmetry=
 
     d_max, d_min = get_best_resolution(miller_arrays, input_symm)
     
-    print " d_max, d_min=", d_max, d_min
-    print " Symm:", input_symm.space_group_info(), input_symm.unit_cell()
-    print
+    print(" d_max, d_min=", d_max, d_min)
+    print(" Symm:", input_symm.space_group_info(), input_symm.unit_cell())
+    print()
 
 
     # Extend flag
@@ -45,12 +47,12 @@ def run(mtz, mtz_out, fraction, flag_name=None, ccp4=True, use_lattice_symmetry=
     if use_lattice_symmetry:
         from cctbx.sgtbx import lattice_symmetry
 
-        print "Lattice symmetry:"
+        print("Lattice symmetry:")
         cb_op_to_niggli = complete_set.change_of_basis_op_to_niggli_cell()
         tmp_ma = complete_set.change_basis( cb_op_to_niggli )
         lattice_group = lattice_symmetry.group(tmp_ma.unit_cell(), max_delta=5.0)
-        print "  ", tmp_ma.unit_cell(), lattice_group.laue_group_type()
-        print
+        print("  ", tmp_ma.unit_cell(), lattice_group.laue_group_type())
+        print()
 
     new_r_free_array = complete_set.generate_r_free_flags(fraction=fraction,
                                                           max_free=None,
@@ -58,13 +60,13 @@ def run(mtz, mtz_out, fraction, flag_name=None, ccp4=True, use_lattice_symmetry=
                                                           use_lattice_symmetry=use_lattice_symmetry,
                                                           n_shells=n_shells)
 
-    print new_r_free_array.show_r_free_flags_info()
+    print(new_r_free_array.show_r_free_flags_info())
 
     if ccp4:
         new_r_free_array = new_r_free_array.customized_copy(data=r_free_utils.export_r_free_flags_for_ccp4(flags=new_r_free_array.data(), test_flag_value=True))
 
 
-    print
+    print()
 
     # Write mtz file
     mtz_object = iotbx.mtz.object(mtz).add_crystal("crystal", "project", new_r_free_array.unit_cell()). \
@@ -73,9 +75,9 @@ def run(mtz, mtz_out, fraction, flag_name=None, ccp4=True, use_lattice_symmetry=
     #mtz_object.show_summary(out=sys.stdout, prefix="  ")
     mtz_object.write(file_name=mtz_out)
 
-    print
-    print "Writing:", mtz_out
-    print 
+    print()
+    print("Writing:", mtz_out)
+    print() 
 # run()
 
 if __name__ == "__main__":
@@ -91,7 +93,7 @@ if __name__ == "__main__":
     (opts, args) = parser.parse_args(sys.argv)
 
     if len(args) < 2:
-        print parser.print_help()
+        print(parser.print_help())
         quit()
 
     

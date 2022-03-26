@@ -4,6 +4,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import unicode_literals
 """
 NOTE on unit cell constraints determination:
   XDS doesn't handle "real" rhombohedral space group (right?).
@@ -47,7 +49,7 @@ def rotations_to_missetting_angles(vals):
     return numpy.rad2deg(phi)
 # rotations_to_missetting_angles()
 
-class IntegrateLp:
+class IntegrateLp(object):
     def __init__(self, lpin):
         if lpin is not None:
             self.parse(lpin)
@@ -114,8 +116,8 @@ class IntegrateLp:
 
             if r_rotation:
                 self.blockparams.setdefault(tuple(images), {})["rotation"] = r_rotation.groups()
-                misset = rotations_to_missetting_angles(map(float, r_rotation.groups()))
-                self.blockparams.setdefault(tuple(images), {})["misset"] = map(lambda x:"%.2f"%x, misset)
+                misset = rotations_to_missetting_angles(list(map(float, r_rotation.groups())))
+                self.blockparams.setdefault(tuple(images), {})["misset"] = ["%.2f"%x for x in misset]
                 clear_flag = True
 
             if r_dist:

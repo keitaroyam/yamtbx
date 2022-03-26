@@ -10,6 +10,8 @@ Compare located spots and predicted positions.
 
 TODO: for fine-slicing, frame-width parameter should be prepared.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc.xds.command_line import xds_predict_mitai
 from yamtbx.dataproc.xds.colspot import get_colspot_result
@@ -52,13 +54,13 @@ def calc_matches(numer, denom, dist_limit, out):
         if idx==kdtree.n:
             continue
         if dist < dist_limit:
-            print >>out, "%.2f %.2f "%tuple(numer[idx])
+            print("%.2f %.2f "%tuple(numer[idx]), file=out)
             nmatch += 1
     return nmatch
 # calc_matches()
 
 def run(params, out):
-    print >>out, "Frames:", params.frames
+    print("Frames:", params.frames, file=out)
     backup_needed = xds_files.generated_by_DEFPIX + ("XDS.INP","BKGINIT.cbf",)
     bk_prefix = make_backup(backup_needed, wdir=params.xdsdir)
 
@@ -77,12 +79,12 @@ def run(params, out):
                         os.path.join(params.xdsdir, "BKGINIT.cbf"))
         
         for frame in params.frames:
-            print >>out, "Frame %d" % frame
-            print >>out, "====================\n"
+            print("Frame %d" % frame, file=out)
+            print("====================\n", file=out)
             # search spots
             if params.spotfinder == "xds":
                 spotxds = get_colspot_result(frame_ranges=[[frame, frame],], wdir=params.xdsdir)
-                spots = map(lambda x: x[:2], spotxds.collected_spots(with_resolution=False))
+                spots = [x[:2] for x in spotxds.collected_spots(with_resolution=False)]
             else:
                 raise "Sorry!"
 
@@ -93,9 +95,9 @@ def run(params, out):
                                                       sigmar=params.sigmar, sigmab=params.sigmab)
 
             # read predicted coords
-            tmp = filter(lambda x:x.endswith(".HKL"), integrate_results)
+            tmp = [x for x in integrate_results if x.endswith(".HKL")]
             if len(tmp) == 0:
-                print >>out, "Integration failed!"
+                print("Integration failed!", file=out)
                 ret[frame] = (0, len(spots), 0)
                 continue
 
@@ -107,7 +109,7 @@ def run(params, out):
             for l in open(integrate_hkl):
                 if l.startswith("!"): continue
                 sp = l.split()
-                predicted.append(map(float, (sp[i_xcal], sp[i_ycal])))
+                predicted.append(list(map(float, (sp[i_xcal], sp[i_ycal]))))
 
             # compare them
             nmatch = calc_matches(spots, predicted, params.distance_limit_in_px,
@@ -120,14 +122,14 @@ def run(params, out):
     finally:
         revert_files(backup_needed, bk_prefix, wdir=params.xdsdir)
 
-    print >>out
+    print(file=out)
     for frame in sorted(ret):
         nmatch, nspots, npredicted = ret[frame]
-        print >>out, "Frame %4d Located/Predicted: %d/%d= %.2f%%" % (frame, nmatch, npredicted,
-                                                                     100.*float(nmatch)/npredicted if npredicted>0 else float("nan"))
-        print >>out, "Frame %4d Predicted/Located: %d/%d= %.2f%%" % (frame, nmatch, nspots,
-                                                                     100.*float(nmatch)/nspots if nspots>0 else float("nan"))
-        print >>out
+        print("Frame %4d Located/Predicted: %d/%d= %.2f%%" % (frame, nmatch, npredicted,
+                                                                     100.*float(nmatch)/npredicted if npredicted>0 else float("nan")), file=out)
+        print("Frame %4d Predicted/Located: %d/%d= %.2f%%" % (frame, nmatch, nspots,
+                                                                     100.*float(nmatch)/nspots if nspots>0 else float("nan")), file=out)
+        print(file=out)
 
 
     return ret
@@ -150,8 +152,8 @@ if __name__ == "__main__":
 
     if len(params.frames) == 0:
         cmdline.work.format(python_object=params).show(out=sys.stdout, prefix=" ")
-        print
-        print "Give frames=."
+        print()
+        print("Give frames=.")
         quit()
 
     run(params, sys.stdout)

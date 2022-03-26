@@ -4,10 +4,12 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import sys
 import os
-import cPickle as pickle
+import pickle
 from yamtbx.dataproc.bl_logfiles import BssJobLog
 from yamtbx.dataproc.dataset import find_existing_files_in_template
 from yamtbx.dataproc.xds import xds_inp
@@ -65,11 +67,11 @@ def decide_data_range_using_nspots(spotstat, min_spots_for_ends):
 # decide_data_range_using_nspots()
 
 def make_shikalog(spotstat, out):
-    print >>out, "   idx filename n_spots"
+    print("   idx filename n_spots", file=out)
     for idx, f, stat in spotstat:
         if stat is None:
             continue
-        print >>out, "%6d %s %5d" % (idx, f, stat.spots.get_n_spots("hi_pass_resolution_spots"))
+        print("%6d %s %5d" % (idx, f, stat.spots.get_n_spots("hi_pass_resolution_spots")), file=out)
 # make_shikalog()     
 
 def create_crystal_symmetry(sg, cell):
@@ -81,33 +83,33 @@ def create_crystal_symmetry(sg, cell):
 
 def run(params):#data_dir, wdir, use_normalized=False):
     if (params.space_group, params.cell).count(None) == 1:
-        print "If you want to specify cell or symmetry, give both."
+        print("If you want to specify cell or symmetry, give both.")
         return
 
     if params.cell is not None and len(params.cell) > 6:
-        print "Too many parameters for unit cell:", params.cell
+        print("Too many parameters for unit cell:", params.cell)
         return
 
     xs = None if params.space_group is None else create_crystal_symmetry(params.space_group, params.cell)
 
-    logobjects = pickle.load(open(params.pklin))
+    logobjects = pickle.load(open(params.pklin, "rb"))
 
     # set topdir
-    topdir = os.path.dirname(os.path.commonprefix(map(lambda x: os.path.dirname(x[0]), logobjects)))
+    topdir = os.path.dirname(os.path.commonprefix([os.path.dirname(x[0]) for x in logobjects]))
 
     for log, logobj, spot_stats in logobjects:
         relpath = os.path.relpath(log, topdir)
         if relpath.startswith(os.sep) or relpath.startswith(".."):
-            print "Outside:", log
+            print("Outside:", log)
             continue
 
         if len(logobj.jobs) > 1:
-            print "##############################################################"
-            print relpath
-            print "Why %d jobs!?" % len(logobj.jobs)
-            print "May be overwritten? Additional images?? Need to be careful!!" 
-            print "Currently, I just pick up the last information."
-            print "##############################################################"
+            print("##############################################################")
+            print(relpath)
+            print("Why %d jobs!?" % len(logobj.jobs))
+            print("May be overwritten? Additional images?? Need to be careful!!") 
+            print("Currently, I just pick up the last information.")
+            print("##############################################################")
 
         job, spotstat = logobj.jobs[-1], spot_stats[-1]
         range_inlog = job.get_frame_num_range()
@@ -118,19 +120,19 @@ def run(params):#data_dir, wdir, use_normalized=False):
         if os.path.isfile(os.path.join(wd, "XDS.INP")) and params.dont_overwrite:
             continue
 
-        print wd, len(job.images)
+        print(wd, len(job.images))
         data_range = 1, job.n_images
         if params.min_spots_for_ends is not None:
             data_range = decide_data_range_using_nspots(spotstat, params.min_spots_for_ends)
             if None in data_range or data_range[1]-data_range[0] < 3:
-                print "  Oh no!! not useful data!"
+                print("  Oh no!! not useful data!")
                 if None in data_range:
-                    print "  No images contains more than %d spots." % params.min_spots_for_ends
+                    print("  No images contains more than %d spots." % params.min_spots_for_ends)
                 else:
-                    print "  Only %d images contains more than %d spots." % (data_range[1]-data_range[0]+1,
-                                                                             params.min_spots_for_ends)
+                    print("  Only %d images contains more than %d spots." % (data_range[1]-data_range[0]+1,
+                                                                             params.min_spots_for_ends))
                 continue
-            print " Data range:", data_range
+            print(" Data range:", data_range)
 
         # How about okkake sekibun?
         img_files = find_existing_files_in_template(job.filename, data_range[0], data_range[1],
@@ -161,10 +163,10 @@ if __name__ == "__main__":
     if "-h" in args: params.help = True
 
     if params.help:
-        print "Parameter syntax:\n"
+        print("Parameter syntax:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ")
-        print
-        print "Usage: prep_xds_runs.py logobjects.pkl [min_spots_for_ends=25] [workdir=run1]"
+        print()
+        print("Usage: prep_xds_runs.py logobjects.pkl [min_spots_for_ends=25] [workdir=run1]")
         quit()
 
     for arg in args:
@@ -174,7 +176,7 @@ if __name__ == "__main__":
             params.pklin = arg
 
     if None in (params.pklin,):
-        print "Provide single .pkl file"
+        print("Provide single .pkl file")
         quit()
 
     if params.workdir is None:
@@ -182,6 +184,6 @@ if __name__ == "__main__":
 
     run(params)
 
-    print
-    print "Want to start all XDS runs?"
-    print "run_all_xds_simple.py %s" % params.workdir
+    print()
+    print("Want to start all XDS runs?")
+    print("run_all_xds_simple.py %s" % params.workdir)

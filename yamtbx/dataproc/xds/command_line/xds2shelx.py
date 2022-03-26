@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
 from yamtbx.util import call
 from yamtbx.util import xtal
@@ -19,7 +21,7 @@ def xds2shelx(xds_file, dir_name, prefix=None, dmin=None, dmax=None, force_anoma
 
     wavelength = xac.wavelength
     if xac.wavelength is None and xac.input_files:
-        wavelength = float(xac.input_files.values()[0][1])
+        wavelength = float(list(xac.input_files.values())[0][1])
     else:
         wavelength = 1.0
 
@@ -40,19 +42,19 @@ def xds2shelx(xds_file, dir_name, prefix=None, dmin=None, dmax=None, force_anoma
         os.makedirs(dir_name)
 
     logout = open(os.path.join(dir_name, "xds2shelx.log"), "w")
-    print >>logout, "xds2shelx.py running in %s" % os.getcwd()
-    print >>logout, "output directory: %s" % dir_name
-    print >>logout, "original file: %s" % xds_file
-    print >>logout, "flag_source: %s" % flag_source
-    print >>logout, "space group: %s (original=%s, requested space_group=%s)" % (sginfo, sginfo_org, space_group)
+    print("xds2shelx.py running in %s" % os.getcwd(), file=logout)
+    print("output directory: %s" % dir_name, file=logout)
+    print("original file: %s" % xds_file, file=logout)
+    print("flag_source: %s" % flag_source, file=logout)
+    print("space group: %s (original=%s, requested space_group=%s)" % (sginfo, sginfo_org, space_group), file=logout)
     if sginfo_org.group().build_derived_reflection_intensity_group(False) != sg.build_derived_reflection_intensity_group(False):
-        print >>logout, "  WARNING!! specified space group is incompatible with original file (%s)." % sginfo_org
-    print >>logout, "anomalous: %s (original=%s force_anomalous=%s)" % (anom_flag, xac.anomalous, force_anomalous)
-    print >>logout, ""
+        print("  WARNING!! specified space group is incompatible with original file (%s)." % sginfo_org, file=logout)
+    print("anomalous: %s (original=%s force_anomalous=%s)" % (anom_flag, xac.anomalous, force_anomalous), file=logout)
+    print("", file=logout)
     logout.flush()
 
     if sg.is_centric() and not sg.is_origin_centric():
-        print >>logout, "Error: in shelx, the origin must lie on a center of symmetry."
+        print("Error: in shelx, the origin must lie on a center of symmetry.", file=logout)
         logout.flush()
         return
     ##
@@ -126,7 +128,7 @@ if __name__ == "__main__":
         xds_file = os.path.abspath(args[1])
 
     if not os.path.isfile(xds_file):
-        print "Cannot open", xds_file
+        print("Cannot open", xds_file)
         sys.exit(1)
 
     xds2shelx(xds_file, dir_name=opts.dir,

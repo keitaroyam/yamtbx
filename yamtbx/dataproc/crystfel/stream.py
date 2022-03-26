@@ -48,6 +48,8 @@ End of reflections
 --- End crystal
 ----- End chunk -----
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 import re
 
@@ -56,14 +58,14 @@ from cctbx import miller
 from cctbx import crystal
 from cctbx.array_family import flex
 
-import cPickle as pickle
+import pickle
 import sys
 import numpy
 #import msgpack
 
 re_abcstar = re.compile("([-\+][0-9\.]+ )([-\+][0-9\.]+ )([-\+][0-9\.]+ )")
 
-class Chunk:
+class Chunk(object):
     def __init__(self, read_reflections=True):        
         filename, event, serial = None, None, None
         indexed_by = None
@@ -136,13 +138,13 @@ class Chunk:
             self.n_sat_peaks = int(l[l.index("=")+1:].strip())
         elif l.startswith("Cell parameters"):
             sp = l.split()
-            self.cell = tuple(map(lambda x:float(x)*10., sp[2:5]) + map(float, sp[6:9]))
+            self.cell = tuple([float(x)*10. for x in sp[2:5]] + list(map(float, sp[6:9])))
         elif l.startswith("astar ="):
-            self.astar = map(lambda x:float(x)/10., re_abcstar.search(l).groups())
+            self.astar = [float(x)/10. for x in re_abcstar.search(l).groups()]
         elif l.startswith("bstar ="):
-            self.bstar = map(lambda x:float(x)/10., re_abcstar.search(l).groups())
+            self.bstar = [float(x)/10. for x in re_abcstar.search(l).groups()]
         elif l.startswith("cstar ="):
-            self.cstar = map(lambda x:float(x)/10., re_abcstar.search(l).groups())
+            self.cstar = [float(x)/10. for x in re_abcstar.search(l).groups()]
         elif l.startswith("lattice_type ="):
             self.latt_type = l[l.index("=")+1:].strip()
         elif l.startswith("centering ="):
@@ -240,12 +242,12 @@ class Chunk:
 
         ret.append("--- Begin crystal")
         if self.cell is not None:
-            tmp = tuple(map(lambda x: x/10, self.cell[:3])) + self.cell[3:]
+            tmp = tuple([x/10 for x in self.cell[:3]]) + self.cell[3:]
             ret.append("Cell parameters %7.5f %7.5f %7.5f nm, %7.5f %7.5f %7.5f deg"% tmp)
 
         for i, d in enumerate((self.astar, self.bstar, self.cstar)):
             if d is not None:
-                tmp = ("abc"[i],) + tuple(map(lambda x: x*10., d))
+                tmp = ("abc"[i],) + tuple([x*10. for x in d])
                 ret.append("%sstar = %+9.7f %+9.7f %+9.7f nm^-1" % tmp)
 
         if self.latt_type is not None: ret.append("lattice_type = %s" % self.latt_type)
@@ -265,7 +267,7 @@ class Chunk:
         else:
             raise "Never reaches here"
 
-        for i in xrange(len(self.indices)):
+        for i in range(len(self.indices)):
             if ver == "2.3":
                 h, k, l = self.indices[i]
                 tmp = (h, k, l, self.iobs[i], self.sigma[i], 
@@ -291,7 +293,7 @@ class Chunk:
         self.unique_axis = q if q else "*" # XXX should return c for P4 etc??
 # class Chunk
 
-class Streamfile:
+class Streamfile(object):
     def __init__(self, strin=None):
         self.chunks = []
         if strin is not None:
@@ -302,7 +304,7 @@ class Streamfile:
         fin = open(strin)
         line = fin.readline()
         format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
-        print "# format version:", format_ver
+        print("# format version:", format_ver)
         assert format_ver == "2.2" # TODO support other version
 
         self.chunks = []
@@ -317,7 +319,7 @@ class Streamfile:
                 sys.stderr.flush()
             elif read_flag:
                 self.chunks[-1].parse_line(l)
-        print >>sys.stderr, " done."
+        print(" done.", file=sys.stderr)
     # read_file()
 
     def dump_pickle(self, pklout):
@@ -347,7 +349,7 @@ def stream_iterator(stream, start_at=0, read_reflections=True):
 
     line = fin.readline()
     format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
-    print "# format version:", format_ver
+    print("# format version:", format_ver)
     assert float(format_ver) >= 2.2 # TODO support other version
     chunk = None
     count = 0
@@ -374,7 +376,7 @@ if __name__ == "__main__":
 
     t = time.time()
     stream = Streamfile(sys.argv[1])
-    print "process time:", time.time() - t
+    print("process time:", time.time() - t)
 
     """    t = time.time()
     stream.dump_msgpack("junk.msg")
@@ -387,8 +389,8 @@ if __name__ == "__main__":
 
     t = time.time()
     stream.dump_pickle("junk.pkl")
-    print "pickle dump time:", time.time() - t
+    print("pickle dump time:", time.time() - t)
 
     t = time.time()
     stream.load_pickle("junk.pkl")
-    print "pickle load time:", time.time() - t
+    print("pickle load time:", time.time() - t)

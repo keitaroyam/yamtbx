@@ -1,3 +1,5 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.auto.resolution_cutoff import estimate_resolution_based_on_cc_half
 from iotbx import reflection_file_reader
 import iotbx.phil
@@ -22,16 +24,16 @@ show_plot = False
 def run(params):
     hkl_in = reflection_file_reader.any_reflection_file(params.hklin)
     miller_arrays = hkl_in.as_miller_arrays(merge_equivalents=False)
-    miller_arrays = filter(lambda x: x.is_xray_intensity_array(), miller_arrays)
+    miller_arrays = [x for x in miller_arrays if x.is_xray_intensity_array()]
 
-    print "Reading intensity data from %s" % params.hklin
+    print("Reading intensity data from %s" % params.hklin)
     for ma in miller_arrays:
-        print " %s" % ma.info()
+        print(" %s" % ma.info())
 
     if len(miller_arrays) > 1:
-        print "Using %s for analysis" % miller_arrays[0].info()
+        print("Using %s for analysis" % miller_arrays[0].info())
     elif len(miller_arrays) == 0:
-        print "Error: No intensity data!"
+        print("Error: No intensity data!")
         return
 
     iobs = miller_arrays[0]
@@ -39,21 +41,21 @@ def run(params):
     est = estimate_resolution_based_on_cc_half(iobs, params.cc_one_half_min,
                                                params.cc_half_tol, params.n_bins,
                                                params.anomalous, sys.stdout)
-    print
-    print "Suggested cutoff= %.2f A (CC1/2= %.4f)" %(est.d_min, est.cc_at_d_min)
-    print "# Treated as *%s* data" % ("anomalous" if params.anomalous else "non-anomalous")
+    print()
+    print("Suggested cutoff= %.2f A (CC1/2= %.4f)" %(est.d_min, est.cc_at_d_min))
+    print("# Treated as *%s* data" % ("anomalous" if params.anomalous else "non-anomalous"))
 
     if params.show_plot:
         est.show_plot(filename="cchalf_plot.pdf")
 # run()    
 
 def show_help():
-    print """\
+    print("""\
 This script determines high resolution cutoff that gives specified CC1/2 value in outer shell.
 
 Usage: kamo.decide_resolution_cutoff xscale.hkl [n_bins=9] [cc_one_half_min=0.5]
 
-Parameters:"""
+Parameters:""")
     iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
 # show_help()
 
@@ -69,7 +71,7 @@ def run_from_args(argv):
 
     for arg in args:
         if not os.path.exists(arg):
-            print "Error: Given path does not exist: %s" % arg
+            print("Error: Given path does not exist: %s" % arg)
             quit()
         if params.hklin is None:
             params.hklin = arg

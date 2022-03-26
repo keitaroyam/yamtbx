@@ -4,6 +4,9 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 from yamtbx.dataproc.xds import integrate_hkl_as_flex
 from yamtbx.dataproc.xds import xds_ascii
 
@@ -31,7 +34,7 @@ fix_variance_model = false
 
 def eval_resolution(i_obs, n_bins, cut_ios):
     binner = i_obs.setup_binner(n_bins=n_bins)
-    cutoffs = map(lambda x: float("nan"), xrange(len(cut_ios)))
+    cutoffs = [float("nan") for x in range(len(cut_ios))]
     d_min_last = i_obs.d_max_min()[0]
     for i_bin in binner.range_used():
         sel = binner.selection(i_bin)
@@ -48,9 +51,9 @@ def eval_resolution(i_obs, n_bins, cut_ios):
 # eval_resolution()
 
 def run(files, params):
-    print "filename",
-    for cut in params.cut_ios: print "cut_ios_%.2f" % cut,
-    print
+    print("filename", end=' ')
+    for cut in params.cut_ios: print("cut_ios_%.2f" % cut, end=' ')
+    print()
 
     for f in files:
         is_xac = xds_ascii.is_xds_ascii(f)
@@ -75,7 +78,7 @@ def run(files, params):
 
         cutoffs = eval_resolution(i_obs, params.n_bins, params.cut_ios)
 
-        print "%s %s" % (f, " ".join(map(lambda x: "%.2f"%x, cutoffs)))
+        print("%s %s" % (f, " ".join(["%.2f"%x for x in cutoffs])))
         
 
 if __name__ == "__main__":
@@ -85,7 +88,7 @@ if __name__ == "__main__":
     params = cmdline.work.extract()
     args = cmdline.remaining_args
 
-    files = filter(lambda x: integrate_hkl_as_flex.is_integrate_hkl(x) or xds_ascii.is_xds_ascii(x), args)
+    files = [x for x in args if integrate_hkl_as_flex.is_integrate_hkl(x) or xds_ascii.is_xds_ascii(x)]
     for arg in args:
         if arg.endswith(".lst"):
             for l in open(arg):

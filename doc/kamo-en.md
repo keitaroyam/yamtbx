@@ -42,7 +42,6 @@ This manual is for 2018-02-22.
             * [Where is the data for structural refinement?](#where-is-the-data-for-structural-refinement)
       * [How can I use KAMO at home?](#how-can-i-use-kamo-at-home)
          * [Installation](#installation)
-               * [Troubleshooting tips](#troubleshooting-tips)
          * [How to update KAMO](#how-to-update-kamo)
          * [Launch](#launch)
       * [For online use at non-SPring-8 site](#for-online-use-at-non-spring-8-site)
@@ -280,22 +279,20 @@ The completeness/multiplicity shown first and those of final results are differe
 
 You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX includes CCTBX and its dependencies (No need to install CCTBX by yourself).
 
-### Installation
+### Installation (for python3 testing)
 
 1. Install CCP4, R (with rjson package), XDS, Adxv (optional)
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
    * If you will process EIGER data (h5 files), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) is needed
    * rjson can be installed as follows; after installation of R, start R program from user who installed R (root or an account for software installation), and then type `install.packages("rjson")`.
-2. Install [DIALS 2.2](https://github.com/dials/dials/releases/tag/v2.2.0)
-   * As KAMO is written in python 2, newer DIALS environment cannot be used now
+2. Install [DIALS 3.6](https://github.com/dials/dials/releases/tag/v3.6.1)
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -mpip install decorator==4.3.0`
-   3. `./bin/libtbx.python -mpip install networkx==2.2`
+   3. `./bin/libtbx.python -mpip install networkx zmq`
 4. Run the following commands
 ```
 cd $DIALS/modules
-git clone https://github.com/keitaroyam/yamtbx.git
+git clone -b python3 https://github.com/keitaroyam/yamtbx.git
 cd $DIALS/build
 ./bin/libtbx.configure yamtbx
 ```
@@ -305,17 +302,6 @@ After installation, run
 kamo.test_installation
 ```
 to check if dependencies are all installed.
-
-##### Troubleshooting tips
-* scipy installation fails (in case building started)
-   * If Mac, install [Command-line tools](https://developer.apple.com/download/more/) and [gfortran](http://gcc.gnu.org/wiki/GFortranBinaries#MacOS) and try again.
-   * If Linux, install blas-devel and lapack-devel using yum or something.
-* (Mac) building of scipy stops with error "as: I don't understand 'm' flag!"
-   * Make sure you installed gfortran following the way mentioned above. If you are using MacPorts, try excluding /opt/local/bin from environment variable PATH. [Reference URL](https://stackoverflow.com/questions/41542990/while-installing-on-osx-sierra-via-gcc-6-keep-having-fatal-opt-local-bin-l). Alternatively review PATH to use /usr/local/gfortran/bin/gfortran.
-* (Mac) building of scipy stops with error `gcc: error: unrecognized command line option ‘-stdlib=libc++’`
-   * Make sure gcc installed with Xcode is used (did you install Xcode and command-line tools? Any other gcc installed with different methods?). Review PATH to use /usr/bin/g++.
-* Installing with DIALS/PHENIX environment, but kamo.test\_installation claims wxPython is NG
-   * Please check if some GUI program of DIALS/PHENIX successfully starts (e.g. dials.image\_viewer)．In case of Ubuntu, you may need to install libjpeg62 package.
 
 ### How to update KAMO
 1. `cd $DIALS/modules/yamtbx`

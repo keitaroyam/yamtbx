@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import numpy
 from yamtbx.dataproc.xds.xparm import XPARM
 from yamtbx.dataproc import cbf
@@ -49,12 +52,12 @@ def run(xds_inp):
     wavelen = xp.wavelength
     s0 = xp.incident_beam/numpy.linalg.norm(xp.incident_beam)/wavelen
 
-    print "qx,qy=", qx, qy
-    print "s0=", s0
-    print "lambda=", wavelen
-    print "ORG=", org
-    print "ED="
-    print ed
+    print("qx,qy=", qx, qy)
+    print("s0=", s0)
+    print("lambda=", wavelen)
+    print("ORG=", org)
+    print("ED=")
+    print(ed)
 
     ofs_pdb = open("detector_pos.pdb", "w")
     ofs_pml = open("for_pymol.pml", "w")
@@ -68,7 +71,7 @@ def run(xds_inp):
         eds /= numpy.linalg.norm(eds, axis=0)
         edsl = numpy.dot(ed, eds)
 
-        ix, iy = numpy.meshgrid(range(seg.x1-1,seg.x2), range(seg.y1-1, seg.y2))
+        ix, iy = numpy.meshgrid(list(range(seg.x1-1,seg.x2)), list(range(seg.y1-1, seg.y2)))
         tmp = numpy.zeros((ix.shape[0], ix.shape[1], 3))
         for i in range(3):
             tmp[:,:,i] = qx*(ix-seg.orgxs)*edsl[i,0]+qy*(iy-seg.orgys)*edsl[i,1]+seg.fs*edsl[i,2]+org[i]

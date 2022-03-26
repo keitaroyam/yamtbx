@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc.command_line import easy_anode
 
@@ -12,7 +14,7 @@ if __name__ == "__main__":
     import sys
 
     if len(sys.argv) != 3:
-        print "Usage: yamtbx.easy_anode hkl_in pdb_in"
+        print("Usage: yamtbx.easy_anode hkl_in pdb_in")
         quit()
 
     hklin = sys.argv[1]

@@ -5,6 +5,8 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import print_function
+from __future__ import unicode_literals
 
 from yamtbx.dataproc.auto.multi_merging.resolve_reindex import ReferenceBased, BrehmDiederichs, KabschSelectiveBreeding
 from yamtbx.util import read_path_list
@@ -75,11 +77,11 @@ def run(params):
         xac_files = read_path_list(params.lstin, only_exists=True, err_out=log_out)
 
         if len(xac_files) == 0:
-            print >>log_out, "No (existing) files in the list: %s" % params.lstin
+            print("No (existing) files in the list: %s" % params.lstin, file=log_out)
             return
 
     elif not params.streamin:
-        print >>log_out, "Give either listin= or streamin=."
+        print("Give either listin= or streamin=.", file=log_out)
         return
         
     
@@ -100,7 +102,7 @@ def run(params):
             if not ref_arrays:
                 raise "No arrays in reference file"
             if params.reference_label is not None:
-                ref_arrays = filter(lambda x: params.reference_label in x.info().labels, ref_arrays)
+                ref_arrays = [x for x in ref_arrays if params.reference_label in x.info().labels]
                 if not ref_arrays: raise "No arrays matched to specified label (%s)" % params.reference_label
                 ref_array = ref_arrays[0].as_intensity_array()
             else:
@@ -108,11 +110,11 @@ def run(params):
                 for array in ref_arrays:
                     if array.is_xray_intensity_array():
                         ref_array = array
-                        print >>log_out, "Using %s as reference data" % array.info().label_string()
+                        print("Using %s as reference data" % array.info().label_string(), file=log_out)
                         break
                     elif array.is_xray_amplitude_array():
                         ref_array = array.f_as_f_sq()
-                        print >>log_out, "Using %s as reference data" % array.info().label_string()
+                        print("Using %s as reference data" % array.info().label_string(), file=log_out)
                         break
         elif ref_file.file_type == "pdb":
             import mmtbx.utils
@@ -135,12 +137,12 @@ def run(params):
         raise "Unknown method: %s" % params.method
 
     if rb.bad_files:
-        print "%s: %d bad files are included:" % ("WARNING" if params.skip_bad_files else "ERROR", len(rb.bad_files))
-        for f in rb.bad_files: print "  %s" % f
+        print("%s: %d bad files are included:" % ("WARNING" if params.skip_bad_files else "ERROR", len(rb.bad_files)))
+        for f in rb.bad_files: print("  %s" % f)
         if not params.skip_bad_files:
-            print
-            print "You may want to change d_min= or min_ios= parameters to include these files."
-            print "Alternatively, specify skip_bad_files=true to ignore these files (they are not included in output files)"
+            print()
+            print("You may want to change d_min= or min_ios= parameters to include these files.")
+            print("Alternatively, specify skip_bad_files=true to ignore these files (they are not included in output files)")
             return
     
     if params.method == "selective_breeding":
@@ -151,7 +153,7 @@ def run(params):
     rb.show_assign_summary()
 
     if params.dry_run:
-        print >>log_out, "This is dry-run. Exiting here."
+        print("This is dry-run. Exiting here.", file=log_out)
     else:
         if xac_files:
             out_prefix = os.path.splitext(os.path.basename(params.lstin))[0]
@@ -161,28 +163,28 @@ def run(params):
             ofs = open(lstout, "w")
             ofs.write("\n".join(new_files)+"\n")
             ofs.close()
-            print >>log_out, "Reindexing done. For merging, use %s instead!" % lstout
+            print("Reindexing done. For merging, use %s instead!" % lstout, file=log_out)
         else:
             rb.modify_stream_files("reindexed.stream")
             
     if params.method == "brehm_diederichs":
-        print >>log_out, """
+        print("""
 CCTBX-implementation (by Richard Gildea) of the "algorithm 2" of the following paper was used.
 For publication, please cite:
  Brehm, W. and Diederichs, K. Breaking the indexing ambiguity in serial crystallography.
  Acta Cryst. (2014). D70, 101-109
- http://dx.doi.org/10.1107/S1399004713025431"""
+ http://dx.doi.org/10.1107/S1399004713025431""", file=log_out)
     elif params.method == "selective_breeding":
-        print >>log_out, """
+        print("""
 "Selective breeding" algorithm was used. For publication, please cite:
  Kabsch, W. Processing of X-ray snapshots from crystals in random orientations.
  Acta Cryst. (2014). D70, 2204-2216
- http://dx.doi.org/10.1107/S1399004714013534"""
+ http://dx.doi.org/10.1107/S1399004714013534""", file=log_out)
 
 # run()
 
 def show_help():
-    print """
+    print("""
 Use this command to resolve indexing ambiguity
 
 Case 1) Reference-based (when you have isomorphous data)
@@ -195,9 +197,9 @@ Case 3) Using Brehm & Diederichs algorithm (when you don't have reference data)
   kamo.resolve_indexing_ambiguity formerge.lst method=brehm_diederichs [d_min=3]
 
 You can also give min_ios= to cutoff data by I/sigma(I).
-"""
+""")
     iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
-    print 
+    print() 
 # show_help()
 
 if __name__ == "__main__":
@@ -220,22 +222,22 @@ if __name__ == "__main__":
 
     if not params.lstin and not params.streamin:
         show_help()
-        print "Error: Give .lst of XDS_ASCII files or stream files"
+        print("Error: Give .lst of XDS_ASCII files or stream files")
         quit()
 
     if params.method is None:
         show_help()
-        print "Error: Give method="
+        print("Error: Give method=")
         quit()
 
     if params.method == "reference" and params.reference_file is None:
         show_help()
-        print "Error: Give reference_file= when you use params.method=reference"
+        print("Error: Give reference_file= when you use params.method=reference")
         quit()
 
     if params.method == "brehm_diederichs" and params.reference_file is not None:
         show_help()
-        print "Error: You can't give reference_file= when you use params.method=brehm_diederichs"
+        print("Error: You can't give reference_file= when you use params.method=brehm_diederichs")
         quit()
         
     run(params)

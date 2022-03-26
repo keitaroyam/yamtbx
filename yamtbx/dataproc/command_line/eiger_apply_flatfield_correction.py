@@ -1,3 +1,6 @@
+from __future__ import print_function
+from __future__ import unicode_literals
+from builtins import range
 import h5py
 import bitshuffle.h5
 from yamtbx.dataproc import cbf
@@ -8,8 +11,8 @@ import os
 def run(infile):
     h5 = h5py.File(infile, "r")
 
-    if h5["/entry/instrument/detector/flatfield_correction_applied"].value:
-        print "Correction was already applied."
+    if h5["/entry/instrument/detector/flatfield_correction_applied"][()]:
+        print("Correction was already applied.")
         return 
 
     ff = h5["/entry/instrument/detector/detectorSpecific/flatfield"][:]
@@ -37,8 +40,8 @@ def run(infile):
         dataset.attrs["image_nr_high"] = ds.attrs["image_nr_high"]
 
         # Don't want to load all data to memory at the same time
-        for i in xrange(ds.shape[0]):
-            print "processing %6d/%d in %s" % (i+1, ds.shape[0], k)
+        for i in range(ds.shape[0]):
+            print("processing %6d/%d in %s" % (i+1, ds.shape[0], k))
             dataset[i,] = ds[i,] * ff + .5
 
 # run()

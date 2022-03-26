@@ -1,3 +1,6 @@
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 import iotbx.phil
 import iotbx.file_reader
 import iotbx.reflection_file_utils
@@ -66,17 +69,17 @@ def run(params, target_files):
     xac_files = util.read_path_list(params.lstin)
     targets = read_target_files(target_files, params.d_min, params.d_max, params.normalization, ofs)
 
-    cellcon = CellConstraints(targets.values()[0].space_group())
+    cellcon = CellConstraints(list(targets.values())[0].space_group())
     
     #for i, t in enumerate(targets): ofs.write("# target%.3d = %s\n" % (i,t))
     ofs.write("# normalization = %s\n" % params.normalization)
     ofs.write("# d_min, d_max = %s, %s\n" % (params.d_min, params.d_max))
     ofs.write("file %s " % cellcon.get_label_for_free_params())
-    ofs.write(" ".join(map(lambda x: "cc.%.3d nref.%.3d"%(x,x), xrange(len(targets)))))
+    ofs.write(" ".join(["cc.%.3d nref.%.3d"%(x,x) for x in range(len(targets))]))
     ofs.write("\n")
     
     for xac_file in xac_files:
-        print "reading", xac_file
+        print("reading", xac_file)
         xac = xds_ascii.XDS_ASCII(xac_file)
         xac.remove_rejected()
         iobs = xac.i_obs(anomalous_flag=False).merge_equivalents(use_internal_variance=False).array()

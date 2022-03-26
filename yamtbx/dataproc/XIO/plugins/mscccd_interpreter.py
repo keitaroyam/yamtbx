@@ -1,3 +1,5 @@
+from __future__ import division
+from __future__ import unicode_literals
 
 __version__ = "0.3.4"
 __author__ = "Pierre Legrand (pierre.legrand@synchrotron-soleil.fr)"
@@ -36,7 +38,7 @@ def endian(code):
     if code == 'big_endian': return '>'
     else: return '<'
 
-class Interpreter:
+class Interpreter(object):
 
     HTD = {
     # The adsc Header Translator Dictionary.

@@ -1,5 +1,7 @@
+from __future__ import print_function
+from __future__ import unicode_literals
 import os
-import cPickle as pickle
+import pickle
 import numpy
 from yamtbx.dataproc import crystfel
 from yamtbx.util import read_path_list
@@ -45,7 +47,7 @@ stats = *reslimit *ioversigma *resnatsnr1 *pr *wilsonb *abdist
 def calc_stats(xac_file, stat_choice, n_residues=None, ref_v6cell=None,
                min_peak=None, min_peak_percentile=None, correct_peak=None):
     # Open XDS_ASCII
-    if xac_file.endswith(".pkl"): xac = pickle.load(open(xac_file))
+    if xac_file.endswith(".pkl"): xac = pickle.load(open(xac_file, "rb"))
     else: xac = xds_ascii.XDS_ASCII(xac_file)
     
     sel_remove = flex.bool(xac.iobs.size(), False)
@@ -54,7 +56,7 @@ def calc_stats(xac_file, stat_choice, n_residues=None, ref_v6cell=None,
         sel_remove |= sel
     elif min_peak_percentile is not None:
         q = numpy.percentile(xac.peak, min_peak_percentile)
-        print "percentile %.2f %s" % (q, xac)
+        print("percentile %.2f %s" % (q, xac))
         sel = xac.peak < q
         sel_remove |= sel
 
@@ -102,7 +104,7 @@ def calc_stats(xac_file, stat_choice, n_residues=None, ref_v6cell=None,
         iso_scale_and_b = ml_iso_absolute_scaling(iobs, n_residues, 0)
         stats["wilsonb"] = iso_scale_and_b.b_wilson
 
-    print stats
+    print(stats)
     return stats
 # calc_stats()
 
@@ -142,7 +144,7 @@ if __name__ == "__main__":
     import sys
 
     if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
-        print "All parameters:\n"
+        print("All parameters:\n")
         iotbx.phil.parse(master_params_str).show(prefix="  ", attributes_level=1)
         quit()
 
@@ -156,7 +158,7 @@ if __name__ == "__main__":
             params.lstin = arg
 
     if params.lstin is None:
-        print "Give .lst file"
+        print("Give .lst file")
         quit()
 
     run(params)

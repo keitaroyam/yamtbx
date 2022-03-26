@@ -5,7 +5,11 @@ Author: Keitaro Yamashita
 
 This software is released under the new BSD License; see LICENSE.
 """
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
 
+from functools import reduce
 master_params_str = """\
 lstin = None
  .type = path
@@ -90,7 +94,7 @@ def get_xac_info(xac, get_nframes=False):
 def make_shells(d_max, d_min, nbins):
     step = ( 1./(d_min**2) - 1./(d_max**2) ) / float(nbins)
     start = 1./(d_max**2)
-    rshells = " ".join(map(lambda i: "%.2f" % (start + i * step)**(-1./2), xrange(1, nbins+1)))
+    rshells = " ".join(["%.2f" % (start + i * step)**(-1./2) for i in range(1, nbins+1)])
     
     return " RESOLUTION_SHELLS= %s\n" % rshells
 # make_shells()
@@ -113,7 +117,7 @@ def prep_xscale_inp(wdir, xscale_inp_head, xac_files, infos, frames_per_batch=No
             nbatch = int(math.ceil(infos[xds_ascii]["nframes"] / frames_per_batch))
             inp_out.write("    NBATCH= %d\n" % nbatch)
         if corrections:
-            inp_out.write("    CORRECTIONS= %s\n" % " ".join(map(lambda s: s.upper(), corrections)))
+            inp_out.write("    CORRECTIONS= %s\n" % " ".join([s.upper() for s in corrections]))
 
         inp_out.write("\n")
 
@@ -122,7 +126,7 @@ def prep_xscale_inp(wdir, xscale_inp_head, xac_files, infos, frames_per_batch=No
 
 def run(params, xac_files):
     if len(xac_files) == 0:
-        print "No XDS_ASCII.HKL files provided."
+        print("No XDS_ASCII.HKL files provided.")
         return
 
     # Parse
@@ -153,23 +157,23 @@ def run(params, xac_files):
         infos[xds_ascii] = info
 
 
-        resrng = map(float, info["resol_range"].split())
+        resrng = list(map(float, info["resol_range"].split()))
         d_max = max(d_max, resrng[0])
         d_min = min(d_min, resrng[1])
-        cells.append(map(float, info["cell"].split()))
+        cells.append(list(map(float, info["cell"].split())))
 
     if params.d_min is not None:
         d_min = max(params.d_min, d_min)
 
     if params.cell == "average":
-        cell_sum = reduce(lambda x,y: map(lambda a: a[0]+a[1], zip(x,y)), cells)
-        cell_mean = map(lambda x: x/float(len(cells)), cell_sum)
+        cell_sum = reduce(lambda x,y: [a[0]+a[1] for a in zip(x,y)], cells)
+        cell_mean = [x/float(len(cells)) for x in cell_sum]
 
         if params.sgnum is not None: sgnum = str(params.sgnum)
         else: sgnum = infos[xac_files[0]]["spgr_num"]
 
         xscale_inp_head += " SPACE_GROUP_NUMBER= %s\n" % sgnum
-        xscale_inp_head += " UNIT_CELL_CONSTANTS= %s\n" % " ".join(map(lambda x: "%.3f"%x, cell_mean))
+        xscale_inp_head += " UNIT_CELL_CONSTANTS= %s\n" % " ".join(["%.3f"%x for x in cell_mean])
   
     xscale_inp_head += make_shells(d_max, d_min, params.nbins) + "\n"
     xscale_inp_head += " OUTPUT_FILE= %s\n" % params.output
@@ -182,7 +186,7 @@ def run(params, xac_files):
                       use_tmpdir_if_available=params.use_tmpdir_if_available)
 
     if params.reference:
-        print "Choosing reference data (reference=%s)" % params.reference
+        print("Choosing reference data (reference=%s)" % params.reference)
         ref_idx = xscale.decide_scaling_reference_based_on_bfactor(os.path.join(params.workdir, "XSCALE.LP"), params.reference, return_as="index")
         if ref_idx != 0:
             for f in "XSCALE.INP", "XSCALE.LP": util.rotate_file(os.path.join(params.workdir, f))
@@ -197,13 +201,13 @@ if __name__ == "__main__":
     cmdline = iotbx.phil.process_command_line(args=sys.argv[1:],
                                               master_string=master_params_str)
     params = cmdline.work.extract()
-    xac_files = filter(check_valid_xac, cmdline.remaining_args)
+    xac_files = list(filter(check_valid_xac, cmdline.remaining_args))
     if params.lstin:
-        xac_files.extend(filter(check_valid_xac, util.read_path_list(params.lstin)))
+        xac_files.extend(list(filter(check_valid_xac, util.read_path_list(params.lstin))))
 
-    print "XDS_ASCII.HKL files given:"
+    print("XDS_ASCII.HKL files given:")
     for f in xac_files:
-        print " %s" % f
-    print
+        print(" %s" % f)
+    print()
 
     run(params, xac_files)
