@@ -419,7 +419,7 @@ class XscaleCycles(object):
         
         if rescale_for is not None and len(xds_ascii_files) > 1:
             ref_num = xscale.decide_scaling_reference_based_on_bfactor(xscale_lp, rescale_for, return_as="index")
-            if reference_idx != ref_num:
+            if reference_idx is None:
                 print("Rescaling with %s" % rescale_for, file=self.out)
                 for f in "XSCALE.INP", "XSCALE.LP": util.rotate_file(os.path.join(self.workdir, f))
                 self.run_cycle(xds_ascii_files, reference_idx=ref_num)
@@ -644,7 +644,7 @@ class XscaleCycles(object):
         elif self.reference_choice is not None and len(keep_idxes) > 1:
             # Just re-scale with B reference
             ref_num = xscale.decide_scaling_reference_based_on_bfactor(xscale_lp, self.reference_choice, return_as="index")
-            if reference_idx != ref_num:
+            if reference_idx is None: # this would not happen? why do we need this?
                 print("Rescaling2 with %s" % self.reference_choice, file=self.out)
                 for f in "XSCALE.INP", "XSCALE.LP": util.rotate_file(os.path.join(self.workdir, f))
                 self.run_cycle([xds_ascii_files[i] for i in keep_idxes], reference_idx=ref_num)
