@@ -279,13 +279,13 @@ The completeness/multiplicity shown first and those of final results are differe
 
 You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX includes CCTBX and its dependencies (No need to install CCTBX by yourself).
 
-### Installation (for python3 testing)
+### Installation
 
 1. Install CCP4, R (with rjson package), XDS, Adxv (optional)
    * For installation of XDS/XDSSTAT, see [XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)
    * If you will process EIGER data (h5 files), [H5ToXds](eiger-en.md#eiger2cbf-h5toxds-compatible) is needed
    * rjson can be installed as follows; after installation of R, start R program from user who installed R (root or an account for software installation), and then type `install.packages("rjson")`.
-2. Install [DIALS 3.6](https://github.com/dials/dials/releases/tag/v3.6.1)
+2. Install [DIALS](https://dials.github.io/installation.html)
 3. Install networkx to dials.python
    1. `cd $DIALS/build`
    3. `./bin/libtbx.python -mpip install networkx zmq`
@@ -426,6 +426,9 @@ Please also cite literatures of internally used programs like XDS, DIALS, POINTL
 ## Version history
 Dates when the code became available on GitHub are shown
 
+* 2022-03-27
+   * added Python 3 and slurm support (dropped python 2 support)
+   * kamo.multi\_merge: fixed an infinite-loop bug
 * 2021-05-18
    * KAMO: Add DIALS >=2 support
 * 2021-04-27

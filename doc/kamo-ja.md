@@ -285,12 +285,10 @@ DIALS/PHENIXにはCCTBXおよびその依存関係が含まれているため，
    * XDS/XDSSTATのインストールは[XDSwiki/Installation](http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Installation)を参照
    * EIGERデータを処理する場合は[H5ToXds](eiger-ja.md#eiger2cbf-h5toxds互換)も必要です
    * rjsonは，Rを導入後，Rをインストールしたユーザ(rootまたはソフトウェア管理用のユーザアカウント)で起動し，`install.packages("rjson")`とタイプすることでインストールできます．サーバを尋ねられた場合は適当に選択します．
-2. [DIALS 2.2](https://github.com/dials/dials/releases/tag/v2.2.0)をインストールする
-   * このバージョン以降はpython 2非対応のため現在使えません
+2. [DIALS](https://dials.github.io/installation.html)をインストールする
 3. networkxをdials.pythonから使えるようにする
    1. `cd $DIALS/build`
-   2. `./bin/libtbx.python -mpip install decorator==4.3.0`
-   3. `./bin/libtbx.python -mpip install networkx==2.2`
+   2. `./bin/libtbx.python -mpip install networkx`
 4. 以下のコマンドを実行する
 ```
 cd $DIALS/modules
@@ -441,6 +439,9 @@ kamo bl=other dataset_paths_txt=dataset_paths.txt logwatch_interval=10
 ## バージョン履歴
 日付はGitHub公開時
 
+* 2022-03-27
+   * Python 3とSlurmに対応
+   * kamo.multi\_merge: 無限ループバグを修正
 * 2021-05-18
    * KAMO: DIALS >=2をサポート
 * 2021-04-27
