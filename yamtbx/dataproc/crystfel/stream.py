@@ -56,6 +56,7 @@ import re
 from libtbx import adopt_init_args
 from cctbx import miller
 from cctbx import crystal
+from cctbx import uctbx
 from cctbx.array_family import flex
 
 import pickle
@@ -206,11 +207,16 @@ class Chunk(object):
         if op.is_identity_op(): return
         if not self.indexed_by: return
         
-        symm = self.indexed_symmetry().change_basis(op)
-        self.cell = symm.unit_cell().parameters()
-        # XXX need to change self.latt_type, self.centering, self.unique_axis
-        
+        self.cell = uctbx.unit_cell(self.cell).change_basis(op).parameters()
+        # XXX need to change self.latt_type, self.centering, self.unique_axis ??
         self.indices = list(op.apply(flex.miller_index(self.indices)))
+        # modify astar/bstar/cstar
+        ub = self.ub_matrix()
+        r = numpy.array(op.c_inv().r().as_double()).reshape(3,3)
+        ubt = numpy.dot(r, ub.T).T
+        self.astar = ubt[:,0].tolist()
+        self.bstar = ubt[:,1].tolist()
+        self.cstar = ubt[:,2].tolist()
     # change_basis()
 
     def miller_set(self, space_group, anomalous_flag):
