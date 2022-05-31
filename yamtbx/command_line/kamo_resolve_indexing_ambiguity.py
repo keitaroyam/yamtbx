@@ -8,7 +8,7 @@ This software is released under the new BSD License; see LICENSE.
 from __future__ import print_function
 from __future__ import unicode_literals
 
-from yamtbx.dataproc.auto.multi_merging.resolve_reindex import ReferenceBased, BrehmDiederichs, KabschSelectiveBreeding
+from yamtbx.dataproc.auto.multi_merging.resolve_reindex import ReindexResolver, ReferenceBased, BrehmDiederichs, KabschSelectiveBreeding
 from yamtbx.util import read_path_list
 from libtbx.utils import multi_out
 import iotbx.phil
@@ -24,10 +24,13 @@ streamin = None
  .type = path
  .help = crystfel stream files
  .multiple = true
+precalc = None
+ .type = path
+ .help = "json file"
 space_group = None
  .type = str
  .help = "Space group for stream files"
-method = brehm_diederichs *selective_breeding reference
+method = brehm_diederichs *selective_breeding reference precalc
  .type = choice(multi=False)
  .help = Method to resolve ambiguity
 logfile = "reindexing.log"
@@ -133,6 +136,15 @@ def run(params):
         rb = ReferenceBased(xac_files, params.streamin, params.space_group, ref_array, max_delta=params.max_delta,
                             d_min=params.d_min, min_ios=params.min_ios,
                             nproc=params.nproc, log_out=log_out)
+    elif params.method == "precalc":
+        if params.precalc is None:
+            raise SystemExit("Give a json file to precalc=")
+        rb = ReindexResolver(xac_files, params.streamin, params.space_group,
+                             log_out=log_out)
+        if xac_files:
+            rb.read_xac_files()
+        else:
+            rb.read_stream_files(space_group=params.space_group)
     else:
         raise "Unknown method: %s" % params.method
 
@@ -144,8 +156,10 @@ def run(params):
             print("You may want to change d_min= or min_ios= parameters to include these files.")
             print("Alternatively, specify skip_bad_files=true to ignore these files (they are not included in output files)")
             return
-    
-    if params.method == "selective_breeding":
+
+    if params.method == "precalc":
+        rb.read_assigned_operators(params.precalc)
+    elif params.method == "selective_breeding":
         rb.assign_operators(max_cycle=params.max_cycles)
     else:
         rb.assign_operators()

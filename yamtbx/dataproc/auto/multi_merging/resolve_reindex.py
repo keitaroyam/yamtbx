@@ -23,6 +23,7 @@ import copy
 import multiprocessing
 import time
 import numpy
+import json
 
 def calc_cc(a1, a2):
     a1, a2 = a1.common_sets(a2, assert_is_similar_symmetry=False)
@@ -178,6 +179,12 @@ class ReindexResolver:
         self._representative_xs = crystal.symmetry(list(numpy.median(cells, axis=0)),
                                                    space_group_info=self.arrays[0].space_group_info())
     # read_stream_files()
+
+    def read_assigned_operators(self, json_in):
+        obj = json.load(open(json_in))
+        reidx_ops = [sgtbx.change_of_basis_op(x) for x in obj["operators"]]
+        self.best_operators = [reidx_ops[x] for x in obj["assignments"]]
+    # read_assigned_operators()
 
     def show_assign_summary(self, log_out=None):
         if not log_out: log_out = self.log_out
