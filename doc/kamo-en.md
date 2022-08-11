@@ -292,7 +292,7 @@ You can easily install KAMO using DIALS/PHENIX environment as DIALS/PHENIX inclu
 4. Run the following commands
 ```
 cd $DIALS/modules
-git clone -b python3 https://github.com/keitaroyam/yamtbx.git
+git clone https://github.com/keitaroyam/yamtbx.git
 cd $DIALS/build
 ./bin/libtbx.configure yamtbx
 ```
