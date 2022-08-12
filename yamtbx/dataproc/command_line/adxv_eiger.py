@@ -55,7 +55,7 @@ def make_range_str(frames):
 # make_range_str()
 
 class MainFrame(wx.Frame):
-    def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204", eiger_api_ver="1.6.1", bl="BL32XU", monitor_interval=5.):
+    def __init__(self, parent=None, id=wx.ID_ANY, h5in=None, eiger_host="192.168.163.204", eiger_api_ver="1.6.1", bl="BL32XU", monitor_interval=5., adxv_bin=None):
         wx.Frame.__init__(self, parent=parent, id=id, title="Adxv launcher for Eiger",
                           size=(540,500))
         self.h5file = None
@@ -70,7 +70,7 @@ class MainFrame(wx.Frame):
         self.onlyhits_keys = []
         self.n_images = -1
         self.n_images_each = -1
-        self.adxv = adxv.Adxv()
+        self.adxv = adxv.Adxv(adxv_bin)
         self.last_monitor_image = None
         self.bl = bl
 
@@ -660,17 +660,19 @@ def run(argv):
     parser.add_option("--dcu-host", action="store", dest="dcu_host", default="192.168.163.204", help="Eiger DCU host (ip addr) for monitor mode")
     parser.add_option("--api-ver", action="store", dest="api_ver", default="1.6.1", help="Eiger API ver.")
     parser.add_option("--monitor-interval", action="store", dest="monitor_interval", default=5, type=float, help="Monitoring interval time in seconds")
+    parser.add_option("--adxv", action="store", dest="adxv", help="adxv binary")
 
     opts, args = parser.parse_args(argv)
 
-    h5in = args[0] if args else None
+    h5in = os.path.abspath(args[0]) if args else None
 
     app = wx.App()
     app.TopWindow = MainFrame(parent=None, id=wx.ID_ANY, 
                               h5in=h5in,
                               eiger_host=opts.dcu_host, eiger_api_ver=opts.api_ver,
-                              bl=opts.bl, monitor_interval=opts.monitor_interval)
+                              bl=opts.bl, monitor_interval=opts.monitor_interval,
+                              adxv_bin=opts.adxv)
     app.MainLoop()
 
 if __name__ == "__main__":
-    run(os.path.abspath(sys.argv[1:]))
+    run(sys.argv[1:])
