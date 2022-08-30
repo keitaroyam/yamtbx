@@ -107,12 +107,12 @@ def run(mtz, mtz_out, mtz_ref, flag_name=None, flag_value=None):
     #mtz_dataset = create_mtz_dataset(miller_arrays)
     #mtz_dataset.add_miller_array(miller_array=r_free_flags, column_root_label=flag_name)
     #mtz_object = mtz_dataset.mtz_object()
-    mtz_object = iotbx.mtz.object(mtz).add_crystal("crystal", "project", r_free_flags.unit_cell()). \
-        add_dataset(name="dataset", wavelength=0). \
+    mtz_object = iotbx.mtz.object(mtz).add_crystal(b"crystal", b"project", r_free_flags.unit_cell()). \
+        add_dataset(name=b"dataset", wavelength=0). \
         add_miller_array(miller_array=r_free_flags, column_root_label=flag_name).mtz_object()
     #mtz_object.add_history("copy and extend test flag from "+mtz_ref)
     #mtz_object.show_summary(out=sys.stdout, prefix="  ")
-    mtz_object.write(file_name=mtz_out)
+    mtz_object.write(file_name=str(mtz_out))
 
     print()
     print("Writing:", mtz_out)
