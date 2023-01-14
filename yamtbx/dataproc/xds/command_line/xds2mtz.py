@@ -362,11 +362,13 @@ def xds2mtz(xds_file, dir_name, hklout=None, run_xtriage=False, run_ctruncate=Fa
             break
 
         headers = re_xds_kwd.findall(l[l.index("!")+1:])
+        is_iset = headers and headers[0][0] == "ISET"
         for k, v in headers:
-            if k == "FRIEDEL'S_LAW":
-                header["FRIEDEL'S_LAW"] = v.strip()
-            if k == "SPACE_GROUP_NUMBER":
-                header["SPACE_GROUP_NUMBER"] = v.strip()
+            if not is_iset:
+                if k == "FRIEDEL'S_LAW":
+                    header["FRIEDEL'S_LAW"] = v.strip()
+                if k == "SPACE_GROUP_NUMBER":
+                    header["SPACE_GROUP_NUMBER"] = v.strip()
             if k == "X-RAY_WAVELENGTH":
                 header["X-RAY_WAVELENGTH"] = v.strip() # XXX could be wrong if XSCALE result
 
