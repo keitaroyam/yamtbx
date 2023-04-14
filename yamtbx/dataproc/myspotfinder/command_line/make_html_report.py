@@ -11,6 +11,7 @@ import sqlite3
 import pickle
 import numpy
 import matplotlib
+import matplotlib.figure
 matplotlib.use('Agg') # Allow to work without X
 from PIL import Image
 import iotbx.phil

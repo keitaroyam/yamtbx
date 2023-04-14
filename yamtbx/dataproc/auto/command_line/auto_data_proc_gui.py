@@ -41,7 +41,7 @@ import wx.html
 import wx.lib.newevent
 import wx.lib.agw.pybusyinfo
 import wx.lib.scrolledpanel
-import matplotlib
+import matplotlib.figure
 import matplotlib.backends.backend_wxagg
 import numpy
 import os
