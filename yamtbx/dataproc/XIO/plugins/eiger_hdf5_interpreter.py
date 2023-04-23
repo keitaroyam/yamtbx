@@ -90,5 +90,6 @@ class Interpreter(object):
             except KeyError:
                 break
 
+        self.raw_head_dict = dict(((k.encode("utf-8"), self.raw_head_dict[k]) for k in self.raw_head_dict))
         return self.raw_head_dict
 
