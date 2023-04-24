@@ -72,7 +72,7 @@ class IdxrefLp(object):
 
     def cluster_integerness(self):
         # hist = [[100,0,0,0,0, 0,0,0,0,0], (for k), (for l)]
-        hist = [numpy.zeros(6, dtype=numpy.int) for x in range(3)]
+        hist = [numpy.zeros(6, dtype=int) for x in range(3)]
         
         for xyz, freq, hkl in self.clusters:
             fracs = [abs(math.modf(x)[0]) for x in hkl] # fractional part

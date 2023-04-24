@@ -27,7 +27,7 @@ def run(cbfin):
     header, data, nslow, nfast = cbf.load_xds_special(cbfin)
     assert "REC. CORRECTION FACTORS AS FUNCTION OF IMAGE NUMBER & RESOLUTION" in header
     #print header
-    data = numpy.array(data, dtype=numpy.float) / 1000
+    data = numpy.array(data, dtype=float) / 1000
     data = data.reshape((nslow, nfast))
 
     xmin, xmax, nxbin = re_x.search(header).groups() # batch number

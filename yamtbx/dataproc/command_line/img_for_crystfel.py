@@ -68,15 +68,15 @@ def run_each(f):
 
     of = h5py.File(h5out, "w")
     grp = of.create_group("LCLS")
-    dset = grp.create_dataset("photon_energy_eV", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("photon_energy_eV", (1,), dtype=float)
     dset[...] = 12398.4 / h["wavelength"]
-    dset = grp.create_dataset("photon_wavelength_A", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("photon_wavelength_A", (1,), dtype=float)
     dset[...] = h["wavelength"]
-    dset = grp.create_dataset("adu_per_eV", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("adu_per_eV", (1,), dtype=float)
     dset[...] = 0.294 * h["wavelength"]/12398.4 ### according to XDS, GAIN = 0.294 @ 1 A
-    dset = grp.create_dataset("detector_distance_m", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("detector_distance_m", (1,), dtype=float)
     dset[...] = h["distance"] / 1000.
-    dset = grp.create_dataset("beam_xy_px", (2,), dtype=numpy.float)
+    dset = grp.create_dataset("beam_xy_px", (2,), dtype=float)
     dset[...] = (h["orgx"], h["orgy"])
     dset = grp.create_dataset("original_file", (1,), "S%d"%len(f))
     dset[...] = f

@@ -18,7 +18,7 @@ def diagonals(cells):
 # diagonals()
 
 def aldists(d):
-    tmp = numpy.zeros(dtype=numpy.float, shape=(d.size,d.size))
+    tmp = numpy.zeros(dtype=float, shape=(d.size,d.size))
     tmp[:,] = d
     adist = numpy.abs(tmp - tmp.transpose()) # redundant!! don't want to do this.. but for-for loops could be slow..
     ldist = adist / numpy.minimum(tmp, tmp.transpose())

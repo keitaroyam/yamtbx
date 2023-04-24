@@ -170,17 +170,17 @@ def convert(cbfin, params):
     of = h5py.File(h5out, "w")
 
     grp = of.create_group("LCLS")
-    dset = grp.create_dataset("photon_energy_eV", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("photon_energy_eV", (1,), dtype=float)
     dset[...] = 12398.4/header["Wavelength"]
-    dset = grp.create_dataset("photon_wavelength_A", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("photon_wavelength_A", (1,), dtype=float)
     dset[...] = header["Wavelength"]
-    dset = grp.create_dataset("adu_per_eV", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("adu_per_eV", (1,), dtype=float)
     dset[...] = header["Wavelength"] / 12398.4
-    dset = grp.create_dataset("detector_distance_m", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("detector_distance_m", (1,), dtype=float)
     dset[...] = header["Distance"]/1000.
-    dset = grp.create_dataset("beam_xy_px", (2,), dtype=numpy.float)
+    dset = grp.create_dataset("beam_xy_px", (2,), dtype=float)
     dset[...] = (header["BeamX"]/header["PixelX"], header["BeamY"]/header["PixelY"])
-    dset = grp.create_dataset("osc_step_deg", (1,), dtype=numpy.float)
+    dset = grp.create_dataset("osc_step_deg", (1,), dtype=float)
     dset[...] = header["PhiWidth"]
 
     cbfin = os.path.abspath(cbfin)
