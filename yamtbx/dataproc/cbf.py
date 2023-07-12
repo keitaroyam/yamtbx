@@ -105,5 +105,5 @@ def get_pilatus_header(cbfin):
     h.require_category(b"array_data")
     h.find_column(b"header_contents")
     header = h.get_value()
-    return header
+    return header.decode()
 # get_pilatus_header()

@@ -107,16 +107,16 @@ class Interpreter(object):
     def getRawHeadDict(self, raw_head):
         "Intepret the ascii structure of the minicbf image header."
 
-        i_1 = 28+raw_head.find("_array_data.header_contents")
-        i_2 = raw_head.find("_array_data.data", i_1)
-        i_3 = raw_head.find("--CIF-BINARY-FORMAT-SECTION--", i_2)+29
+        i_1 = 28+raw_head.find(b"_array_data.header_contents")
+        i_2 = raw_head.find(b"_array_data.data", i_1)
+        i_3 = raw_head.find(b"--CIF-BINARY-FORMAT-SECTION--", i_2)+29
         i_4 = i_3+500
-        lis = [line[2:].strip().split(" ", 1) \
+        lis = [line[2:].decode().strip().split(" ", 1) \
                    for line in raw_head[i_1:i_2].splitlines() \
-                       if line and line[0]=="#"]
-        lis2 = [line[2:].strip().split(": ", 1) \
+                       if line.startswith(b"#")]
+        lis2 = [line[2:].decode().strip().split(": ", 1) \
                    for line in raw_head[i_3:i_4].splitlines() \
-                       if line and line[0:2]=="X-"]
+                       if line and line[0:2]==b"X-"]
         # Filling the raw_header_dict with some default values,
         # in case they are missing in the header.
         self.raw_head_dict = {'Detector_2theta': "0.", 'MESSAGE': ''}
@@ -139,4 +139,5 @@ class Interpreter(object):
         #                           'Angle_increment':"0.2 deg",
         #                           'Start_angle': "0. deg",
         #                           'Detector_2theta': "0. deg"})
+        self.raw_head_dict = dict(((k.encode("utf-8"), self.raw_head_dict[k]) for k in self.raw_head_dict))
         return self.raw_head_dict
