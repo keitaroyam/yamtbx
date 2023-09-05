@@ -130,8 +130,8 @@ def get_available_frame_numbers(h5master):
     ret = []
     for k in sorted(h5["/entry/data"].keys()):
         if not h5["/entry/data"].get(k): continue
-        image_nr_low = h5["/entry/data"][k].attrs["image_nr_low"]
-        image_nr_high = h5["/entry/data"][k].attrs["image_nr_high"]
+        image_nr_low = int(h5["/entry/data"][k].attrs["image_nr_low"])
+        image_nr_high = int(h5["/entry/data"][k].attrs["image_nr_high"])
         ret.extend(range(image_nr_low, image_nr_high+1))
     return ret
 # get_available_frame_numbers()
