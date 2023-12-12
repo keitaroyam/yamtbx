@@ -263,7 +263,7 @@ def auto_merge(workdir, topdirs, cell_method, ref_array, ref_sym, merge_params, 
     xdsdirs = []
     for topdir in topdirs:
         for root, dirnames, filenames in os.walk(topdir, followlinks=True):
-            if "XDS.INP" in filenames: xdsdirs.append(root)
+            if any(y.startswith("XDS_ASCII.HKL") or y == "DIALS.HKL" for y in filenames): xdsdirs.append(root)
 
     log_out.write("NOTE: %6d xds directories detected.\n" % len(xdsdirs))
     log_out.flush()
