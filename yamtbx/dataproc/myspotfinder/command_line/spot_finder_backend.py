@@ -92,6 +92,9 @@ only_check_in_last_hours = 1
  .help = "Only check diffscan.log modified during the last specified hours"
 ramdisk_walk_interval = 2
  .type = float
+thumbnail = true
+ .type = bool
+ .help = "Create thumbnail jpg files of diffraction images"
 """
 
 params = None
@@ -837,7 +840,9 @@ class ResultsManager(object):
                                 cur.execute("create table spots (filename text primary key, spots blob);")
 
                         # save jpg
-                        if "jpgdata" in msg and msg["jpgdata"]:
+                        if not params.thumbnail:
+                            pass # don't make thumbnails
+                        elif "jpgdata" in msg and msg["jpgdata"]:
                             jpgdir = os.path.join(wdir, 
                                                   "thumb_%s_%.3d" % (str(msg["file_prefix"]), msg["idx"]//1000))
                             try: os.mkdir(jpgdir)
