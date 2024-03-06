@@ -245,24 +245,28 @@ PILATUS 2M, S/N 24-0109
 """ % locals()
 
         # XXX Synchrotron can have R-AXIS, and In-house detecotr can have horizontal goniometer!
+        if "DetAxisX" in im.header and "DetAxisY" in im.header:
+            detector_x = im.header["DetAxisX"]
+            detector_y = im.header["DetAxisY"]
+        elif im.header["ImageType"] == "raxis":
+            detector_x = (1, 0, 0)
+            detector_y = (0, -1, 0)
+        elif im.header["ImageType"] == "mscccd":
+            detector_x = (-1, 0, 0)
+            detector_y = (0, 1, 0)
+        else:
+            detector_x = (1, 0, 0)
+            detector_y = (0, 1, 0)
+        inp_str += """\
+ DIRECTION_OF_DETECTOR_X-AXIS= %.4f %.4f %.4f
+ DIRECTION_OF_DETECTOR_Y-AXIS= %.4f %.4f %.4f
+""" % (detector_x + detector_y)
+
         if im.header["ImageType"] == "raxis":
             inp_str += """\
- DIRECTION_OF_DETECTOR_X-AXIS= 1 0 0
- DIRECTION_OF_DETECTOR_Y-AXIS= 0 -1 0
  INCIDENT_BEAM_DIRECTION= 0 0 1
 !FRACTION_OF_POLARIZATION= 0.98   ! uncomment if synchrotron
  POLARIZATION_PLANE_NORMAL= 1 0 0
-"""
-        else:
-            if im.header["ImageType"] == "mscccd":
-                inp_str += """\
- DIRECTION_OF_DETECTOR_X-AXIS= -1 0 0
- DIRECTION_OF_DETECTOR_Y-AXIS=  0 1 0
-"""
-            else:
-                inp_str += """\
- DIRECTION_OF_DETECTOR_X-AXIS= 1 0 0
- DIRECTION_OF_DETECTOR_Y-AXIS= 0 1 0
 """
 
     if integrate_nimages is None:

@@ -82,10 +82,7 @@ def put_reversephi_info(h5):
     if "/entry/sample/depends_on" not in h5:
         h5["/entry/sample/depends_on"] = "/entry/sample/transformations/omega"
 
-    if "/entry/sample/transformations" not in h5:
-        grp = h5.create_group("/entry/sample/transformations")
-    else:
-        grp = h5["/entry/sample/transformations"]
+    grp = h5.require_group("/entry/sample/transformations")
     grp.attrs['NX_class'] = "NXtransformations"
     
     if "omega" not in grp:
@@ -94,11 +91,17 @@ def put_reversephi_info(h5):
     else:
         ds = grp["omega"]
 
-    ds.attrs['units'] = 'degree'
-    ds.attrs['transformation_type'] = 'rotation'
-    ds.attrs['vector'] = (-1., 0., 0.)
-    ds.attrs['offset'] = (0., 0., 0.)
-    ds.attrs['depends_on'] = '.'
+    fw_ver = h5["/entry/instrument/detector/detectorSpecific/eiger_fw_version"][()].decode()
+    r = re.search("release-([0-9\.]+)", fw_ver)
+    if r and [int(x) for x in r.group(1).split(".")] >= [2022,1,2]:
+        print("   Newer firmware. Don't put omega vector")
+    else:
+        print("   Old firmware. Adding omega (-1,0,0)")
+        ds.attrs['units'] = 'degree'
+        ds.attrs['transformation_type'] = 'rotation'
+        ds.attrs['vector'] = (-1., 0., 0.)
+        ds.attrs['offset'] = (0., 0., 0.)
+        ds.attrs['depends_on'] = '.'
 # put_reversephi_info()
 
 def fix_data_link(h5, bssid):

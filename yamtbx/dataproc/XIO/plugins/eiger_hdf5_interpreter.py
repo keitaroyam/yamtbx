@@ -37,6 +37,8 @@ class Interpreter(object):
     'SerialNumber':(['SerialNumber'], str),
     #'HeaderSize':(['HEADER_SIZE'], int),
     'OscAxisVec':(['Oscillation_axis'], raw),
+    'DetAxisX':(['DetectorX'], raw),
+    'DetAxisY':(['DetectorY'], raw),
     'DateStr':(['DateStr'], str),
     'DateSeconds':(['DateStr'], date_seconds),
     }
@@ -77,6 +79,10 @@ class Interpreter(object):
         omega_key = "/entry/sample/transformations/omega"
         if omega_key in h5 and "vector" in h5[omega_key].attrs:
             self.raw_head_dict["Oscillation_axis"] = tuple(h5[omega_key].attrs["vector"])
+        nexus_test = h5.get("/entry/definition")
+        if nexus_test and nexus_test[()].decode() == "NXmx":
+            self.raw_head_dict["DetectorX"] = tuple(h5["/entry/instrument/detector/module/fast_pixel_direction"].attrs["vector"])
+            self.raw_head_dict["DetectorY"] = tuple(h5["/entry/instrument/detector/module/slow_pixel_direction"].attrs["vector"])
 
         self.raw_head_dict["Nimages_each"] = int(detectorsp["nimages"][()])
         self.raw_head_dict["Ntrigger"] = detectorsp["ntrigger"][()]
