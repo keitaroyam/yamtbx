@@ -36,7 +36,6 @@ from cctbx.crystal import reindex
 
 import wx
 #import wx.gizmos
-from wx.lib.mixins.listctrl import CheckListCtrlMixin, ListCtrlAutoWidthMixin
 import wx.html
 import wx.lib.newevent
 import wx.lib.agw.pybusyinfo
@@ -997,15 +996,9 @@ class WatchLogThread(object):
     # run()
 # class WatchLogThread
 
-class MyCheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
-    """
-    http://zetcode.com/wxpython/advanced/
-    """
+class MyCheckListCtrl(wx.ListCtrl):
     def __init__(self, parent):
         wx.ListCtrl.__init__(self, parent, wx.ID_ANY, style=wx.LC_REPORT|wx.LC_SINGLE_SEL|wx.LC_VIRTUAL)
-        CheckListCtrlMixin.__init__(self)
-        ListCtrlAutoWidthMixin.__init__(self)
-        
         self.SetFont(wx.Font(12, wx.SWISS, wx.NORMAL, wx.NORMAL))
         self.InsertColumn(0, "Path", wx.LIST_FORMAT_LEFT, width=400) # with checkbox
         self.InsertColumn(1, "Sample ID", wx.LIST_FORMAT_LEFT, width=90)
@@ -1024,17 +1017,17 @@ class MyCheckListCtrl(wx.ListCtrl, CheckListCtrlMixin, ListCtrlAutoWidthMixin):
         self._sort_acend = True
         self._sort_prevcol = None
 
+        self.Bind(wx.EVT_LIST_ITEM_CHECKED, self.item_checked)
+        self.Bind(wx.EVT_LIST_ITEM_UNCHECKED, self.item_unchecked)
         self.Bind(wx.EVT_LIST_COL_CLICK, self.item_col_click)
+        self.EnableCheckBoxes()
     # __init__()
 
     def key_at(self, line): return self.items[line][0]
     def OnGetItemText(self, line, col): return self.items[line][col+2] # [0] has key, [1] has checked state
-    def OnGetItemImage(self, line): return self.items[line][1]
-
-    def SetItemImage(self, line, im): # checked state
-        self.items[line][1] = im
-        self.Refresh()
-    # SetItemImage()
+    def OnGetItemIsChecked(self, line): return self.items[line][1]
+    def item_checked(self, ev): self.items[ev.GetIndex()][1] = 1
+    def item_unchecked(self, ev): self.items[ev.GetIndex()][1] = 0
 
     def get_item(self, key):
         if key not in self._items_lookup: return None
@@ -1358,17 +1351,22 @@ class ControlPanel(wx.Panel):
     # listctrl_item_selected()
 
     def btnCheckAll_click(self, ev):
-        for i in range(self.listctrl.GetItemCount()):
-            if self.listctrl.GetItem(i).GetImage() == 0: self.listctrl.SetItemImage(i, 1)
+        for i, item in enumerate(self.listctrl.items):
+            if item[1] == 0:
+                item[1] = 1
+                self.listctrl.RefreshItem(i)
     # btnCheckAll_click()
 
     def btnUncheckAll_click(self, ev):
-        for i in range(self.listctrl.GetItemCount()):
-            if self.listctrl.GetItem(i).GetImage() == 1: self.listctrl.SetItemImage(i, 0)
+        for i, item in enumerate(self.listctrl.items):
+            if item[1] == 1:
+                item[1] = 0
+                self.listctrl.RefreshItem(i)
     # btnUncheckAll_click()
 
     def btnMultiMerge_click(self, ev):
-        keys = [self.listctrl.key_at(i) for i in [i for i in range(self.listctrl.GetItemCount()) if self.listctrl.GetItem(i).GetImage() == 1]]
+        # XXX should use self.listctrl.key_at(i) instead of item[0]
+        keys = [item[0] for item in self.listctrl.items if item[1] == 1]
         keys = [k for k in keys if bssjobs.get_process_status(k)[0]=="finished"]
         mylog.info("%d finished jobs selected for merging" % len(keys))
 
