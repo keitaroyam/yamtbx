@@ -1016,9 +1016,10 @@ class MyCheckListCtrl(wx.ListCtrl):
         self._items_lookup = {} # {key: idx in self.items}
         self._sort_acend = True
         self._sort_prevcol = None
+        self._last_checked = (-1, None)
 
-        self.Bind(wx.EVT_LIST_ITEM_CHECKED, self.item_checked)
-        self.Bind(wx.EVT_LIST_ITEM_UNCHECKED, self.item_unchecked)
+        self.Bind(wx.EVT_LIST_ITEM_CHECKED, lambda ev: self.item_checked(ev.GetIndex(), 1))
+        self.Bind(wx.EVT_LIST_ITEM_UNCHECKED, lambda ev: self.item_checked(ev.GetIndex(), 0))
         self.Bind(wx.EVT_LIST_COL_CLICK, self.item_col_click)
         self.EnableCheckBoxes()
     # __init__()
@@ -1026,8 +1027,21 @@ class MyCheckListCtrl(wx.ListCtrl):
     def key_at(self, line): return self.items[line][0]
     def OnGetItemText(self, line, col): return self.items[line][col+2] # [0] has key, [1] has checked state
     def OnGetItemIsChecked(self, line): return self.items[line][1]
-    def item_checked(self, ev): self.items[ev.GetIndex()][1] = 1
-    def item_unchecked(self, ev): self.items[ev.GetIndex()][1] = 0
+    def item_checked(self, index, checked):
+        assert checked in (0, 1)
+        self.items[index][1] = checked
+        last_index, last_flag = self._last_checked
+        if wx.GetKeyState(wx.WXK_SHIFT) and 0 <= last_index < len(self.items) and last_flag == checked:
+            if index < last_index:
+                rr = range(index+1, last_index+1)
+            else:
+                rr = range(last_index, index)
+            for i in rr:
+                self.items[i][1] = checked
+                self.RefreshItem(i) # apparently needed for non-clicked items
+
+        self._last_checked = (index, checked)
+    # item_checked()
 
     def get_item(self, key):
         if key not in self._items_lookup: return None
