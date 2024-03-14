@@ -132,7 +132,7 @@ small_wedges = true
  .help = Optimized for small wedge data processing
 
 batch {
- engine = sge sh *slurm
+ engine = sge pbs *slurm sh auto
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
@@ -238,6 +238,9 @@ split_data_by_deg = None
 log_root = None
  .type = path
  .help = debug log directory
+auto_close = *no nogui gui
+ .type = choice(multi=False)
+ .help = auto close
 """
 
 def read_override_config(imgdir):
@@ -926,6 +929,7 @@ class WatchLogThread(object):
     def run(self):
         mylog.info("WatchLogThread loop STARTED")
         counter = 0
+        lastloop = False
         while self.keep_going:
             counter += 1
             if config.params.date == "today": date = datetime.datetime.today()
@@ -965,7 +969,8 @@ class WatchLogThread(object):
                             mylog.info("Waiting for files: %s" % str(key))
 
             ev = EventLogsUpdated(job_statuses=job_statuses)
-            wx.PostEvent(self.parent, ev)
+            if self.parent:
+                wx.PostEvent(self.parent, ev)
 
             for key in job_statuses:
                 if job_statuses[key][0] == "finished":
@@ -989,7 +994,27 @@ class WatchLogThread(object):
                 for i in range(int(self.interval/.5)):
                     if self.keep_going:
                         time.sleep(.5)
-
+            #auto close
+            if config.params.auto_close != "no":
+                finished = 0
+                for key in bssjobs.keys():
+                    job_statuses[key] = bssjobs.get_process_status(key)
+                    status = job_statuses[key][0]
+                    if status == "finished" or status == "giveup":
+                        finished += 1
+                if len(bssjobs.keys()) == finished:
+                    # close to kamo
+                    if not lastloop:
+                        lastloop = True
+                        continue
+                    self.keep_going = False
+                    html_report.make_kamo_report(bssjobs,
+                        topdir=config.params.topdir,
+                        htmlout=os.path.join(config.params.workdir, "report.html"))
+                    if self.parent:
+                        #wx.PostEvent(self.parent, wx.EVT_CLOSE)
+                        self.parent.Close(True)
+                        wx.PostEvent(self.parent, ev)
         mylog.info("WatchLogThread loop FINISHED")
         self.running = False
         #wx.PostEvent(self.parent, EventDirWatcherStopped()) # Ensure the checkbox unchecked when accidentally exited.
@@ -1902,7 +1927,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
         print("ERROR: bl= is needed.")
         return
 
-    app = wx.App()
+    #app = wx.App()
 
     from yamtbx.command_line import kamo_test_installation
     if config.params.engine == "xds" and not kamo_test_installation.tst_xds():
@@ -1982,6 +2007,9 @@ This is an alpha-version. If you found something wrong, please let staff know! W
                                                                    prefix="")
     mylog.info("GUI parameters were saved as %s" % savephilpath)
 
+    if config.params.batch.engine == "auto":
+        config.params.batch.engine = batchjob.detect_engine()
+
     if config.params.batch.engine == "sge":
         try:
             batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
@@ -2032,9 +2060,38 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     if config.params.xds.override.geometry_reference:
         bssjobs.load_override_geometry(config.params.xds.override.geometry_reference)
 
-    mainFrame = MainFrame(parent=None, id=wx.ID_ANY)
-    app.TopWindow = mainFrame
-    app.MainLoop()
+    if config.params.auto_close == "nogui":
+        print("NoGui mode. ")
+        watchlog = WatchLogThread(None)
+        watchlog.start(10)
+        while watchlog.is_running():
+            time.sleep(10)
+        # watchlog.start(10)
+        # while watchlog.is_running():
+        #     if len(bssjobs.jobs) > 0:
+        #         finished = 0
+        #         for key in bssjobs.keys():
+        #             job_status = bssjobs.get_process_status(key)
+        #             status = job_status[0]
+        #             #job = bssjobs.get_job(key)
+        #             if status == "finished":
+        #                 finished += 1
+        #         if finished == len(bssjobs.keys()):
+        #             print("All jobs are finished")
+        #             watchlog.keep_going = False
+        #             break
+        #         else:
+        #             #print("\r{}/{}".format(finished,len(bssjobs.keys())))
+        #             time.sleep(1)
+        #     else:
+        #         print("job is not found.")
+        #         time.sleep(1)
+    else:
+
+        app = wx.App()
+        mainFrame = MainFrame(parent=None, id=wx.ID_ANY)
+        app.TopWindow = mainFrame
+        app.MainLoop()
 
     mylog.info("Normal exit.")
 

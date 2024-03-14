@@ -400,4 +400,28 @@ class Job(object):
 
 # class Job
 
+def auto_engine():
+    engine = detect_engine()
+    if engine == "pbs" or engine == "sge" or engine == "slurm":
+        return "sge"
+    else:
+        return engine
+
+def detect_engine():
+    try:
+        proc = subprocess.check_output(["squeue", "--help"], stderr=subprocess.PIPE)
+        print("slurm detected. batch.engine=slurm")
+        return "slurm"
+    except:
+        try:
+            proc = subprocess.check_output(["qstat", "-help"], stderr=subprocess.PIPE)
+            if " -pe " in proc:
+                return "sge"
+                print("sge detected. batch.engine=sge ")
+            else:
+                print("pbs detected. batch.engine=pbs ")
+                return "pbs"
+        except Exception as e:
+            print("job scheduler was not found. batch.engine=sh")
+            return "sh"
 

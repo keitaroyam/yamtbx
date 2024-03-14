@@ -262,7 +262,7 @@ def make_html_report(current_stats, wdir, htmlout, zoo_mode, rotate=False, plot_
     con.execute('pragma query_only = ON;')
     print("Reading data from DB for making report html.")
     c = con.execute("select filename,spots from spots")
-    dbspots = dict([(str(x[0]), pickle.loads(str(x[1]))) for x in c.fetchall()])
+    dbspots = dict([(str(x[0]), pickle.loads(x[1])) for x in c.fetchall()])
     spot_data = "var spot_data = {"
     for i, (f, stat) in enumerate(result):
         if stat is None: continue
@@ -484,7 +484,7 @@ def load_results(target_dir):
     for itrial in range(60):
         try:
             c = con.execute("select filename,spots from spots")
-            results = dict([(str(x[0]), pickle.loads(str(x[1]))) for x in c.fetchall()])
+            results = dict([(str(x[0]), pickle.loads(x[1])) for x in c.fetchall()])
             break
         except sqlite3.DatabaseError:
             shikalog.warning("DB failed. retrying (%d)" % itrial)

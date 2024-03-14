@@ -224,7 +224,7 @@ batch {
  par_run = *deltacchalf merging
   .type = choice(multi=True)
   .help = What to run in parallel
- engine = sge slurm *sh
+ engine = *sge pbs slurm sh auto
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
@@ -417,6 +417,9 @@ def run(params):
 
     if not os.path.isdir(params.workdir):
         os.makedirs(params.workdir)
+    print("----------- engine ------" ,params.batch.engine)
+    if params.batch.engine == "auto":
+        params.batch.engine = batchjob.detect_engine()
 
     if params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)

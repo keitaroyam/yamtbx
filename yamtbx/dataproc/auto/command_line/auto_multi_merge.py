@@ -89,7 +89,7 @@ rescut {
 }
 
 batch {
- engine = sge sh *no
+ engine = sge sh slurm auto *no
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
@@ -444,7 +444,12 @@ def run(params):
         if ref_filename in ref_arrays: continue
         ref_arrays[ref_filename] = read_reference_data(ref_filename, log_out)
 
-    if params.batch.engine == "sge":
+    print("----------- engine ------" ,params.batch.engine)
+    if params.batch.engine == "auto":
+        params.batch.engine = batchjob.detect_engine()
+    if params.batch.engine == "slurm":
+        batchjobs = batchjob.Slurm()
+    elif params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)
     elif params.batch.engine == "sh":
         batchjobs = batchjob.ExecLocal(max_parallel=params.batch.sh_max_jobs)
