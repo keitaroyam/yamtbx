@@ -156,12 +156,13 @@ class SGE(JobManager):
         if not( qsub_found and qstat_found ):
             if shutil.which("sbatch") and shutil.which("scancel") and shutil.which("squeue"):
                 print("cannot find sge engine but detected slurm engine. use slurm engine instead of sge.")
-                self.qstat = Slurm.qstat
-                self.submit = Slurm.submit
-                self.update_state = Slurm.update_state
-                self.qstat = Slurm.qstat
-                self.stop_all = Slurm.stop_all
-                self.qdel = Slurm.qdel
+                self.Slurm = Slurm(pe_name=self.pe_name)
+                self.qstat = self.Slurm.qstat
+                self.submit = self.Slurm.submit
+                self.update_state = self.Slurm.update_state
+                self.qstat = self.Slurm.qstat
+                self.stop_all = self.Slurm.stop_all
+                self.qdel = self.Slurm.qdel
             else:
                 raise SgeError("cannot find qsub or qstat command under $PATH")
                 
@@ -415,29 +416,17 @@ class AutoJobManager(JobManager):
     def __init__(self, pe_name="default"):
         engine = detect_engine()
         if engine == "sge":
-            SGE.__init__(self)
-            self.qstat = SGE.qstat
-            self.submit = SGE.submit
-            self.update_state = SGE.update_state
-            self.qstat = SGE.qstat
-            self.stop_all = SGE.stop_all
-            self.qdel = SGE.qdel
+            self.engine = SGE()
         elif engine == "slurm":
-            Slurm.__init__(self)
-            self.qstat = Slurm.qstat
-            self.submit = Slurm.submit
-            self.update_state = Slurm.update_state
-            self.qstat = Slurm.qstat
-            self.stop_all = Slurm.stop_all
-            self.qdel = Slurm.qdel
+            self.engine = Slurm()
         else:
-            ExecLocal.__init__(self)
-            self.qstat = ExecLocal.qstat
-            self.submit = ExecLocal.submit
-            self.update_state = ExecLocal.update_state
-            self.qstat = ExecLocal.qstat
-            self.stop_all = ExecLocal.stop_all
-            self.qdel = ExecLocal.qdel
+            self.engine =ExecLocal()
+        self.qstat = self.engine.qstat
+        self.submit = self.engine.submit
+        self.update_state = self.engine.update_state
+        self.qstat = self.engine.qstat
+        self.stop_all = self.engine.stop_all
+        self.qdel = self.engine.qdel
         
         
 
