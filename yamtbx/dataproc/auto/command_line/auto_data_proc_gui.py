@@ -1633,8 +1633,10 @@ class ResultLeftPanel(wx.Panel):
 
 class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be ScrolledPanel?? (On Mac, Panel is OK, but not works on Linux..)
     def __init__(self, parent=None, id=wx.ID_ANY, nplots=4):
-        wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400,1200))
-
+        if wx.__version__ == "4.1.1":
+            wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400.0,1200.0))
+        else:
+            wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400,1200))
         vbox = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
         self.figure = matplotlib.figure.Figure(tight_layout=True)
@@ -2008,9 +2010,8 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     mylog.info("GUI parameters were saved as %s" % savephilpath)
 
     if config.params.batch.engine == "auto":
-        config.params.batch.engine = batchjob.detect_engine()
-
-    if config.params.batch.engine == "sge":
+        config.params.batch.engine = batchjob.AutoJobManager()
+    elif config.params.batch.engine == "sge":
         try:
             batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
         except batchjob.SgeError as e:
@@ -2019,7 +2020,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
             return
     elif config.params.batch.engine == "slurm":
         try:
-            batchjobs = batchjob.Slurm()
+            batchjobs = batchjob.Slurm(pe_name=config.params.batch.sge_pe_name)
         except batchjob.SlurmError as e:
             mylog.error(str(e))
             mylog.error("SGE not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")

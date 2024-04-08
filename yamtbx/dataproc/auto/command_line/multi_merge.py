@@ -419,12 +419,11 @@ def run(params):
         os.makedirs(params.workdir)
     print("----------- engine ------" ,params.batch.engine)
     if params.batch.engine == "auto":
-        params.batch.engine = batchjob.detect_engine()
-
-    if params.batch.engine == "sge":
+        params.batch.engine = batchjob.AutoJobManager()
+    elif params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)
     elif params.batch.engine == "slurm":
-        batchjobs = batchjob.Slurm()
+        batchjobs = batchjob.Slurm(pe_name=params.batch.sge_pe_name)
     elif params.batch.engine == "sh":
         batchjobs = batchjob.ExecLocal(max_parallel=params.batch.sh_max_jobs)
     else:

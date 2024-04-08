@@ -10,6 +10,7 @@ from __future__ import unicode_literals
 
 import os, subprocess, re, threading, time, stat
 import shlex
+import shutil
 
 # JobState
 #  0: previous job is not finished.
@@ -153,7 +154,16 @@ class SGE(JobManager):
                 qstat_found = True
 
         if not( qsub_found and qstat_found ):
-            raise SgeError("cannot find qsub or qstat command under $PATH")
+            if shutil.which("sbatch") and shutil.which("scancel") and shutil.which("squeue"):
+                print("cannot find sge engine but detected slurm engine. use slurm engine instead of sge.")
+                self.qstat = Slurm.qstat
+                self.submit = Slurm.submit
+                self.update_state = Slurm.update_state
+                self.qstat = Slurm.qstat
+                self.stop_all = Slurm.stop_all
+                self.qdel = Slurm.qdel
+            else:
+                raise SgeError("cannot find qsub or qstat command under $PATH")
                 
         self.job_id = {} # [Job: jobid]
     # __init__()
@@ -237,7 +247,7 @@ class SGE(JobManager):
     def qdel(self, job_id):
         cmd = "qdel %s" % job_id
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                             stdout=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.readlines()
 
@@ -252,9 +262,9 @@ class SGE(JobManager):
 # class SGE
 
 class Slurm(JobManager):
-    def __init__(self):
+    def __init__(self, pe_name="default"):
         JobManager.__init__(self)
-
+        self.pe_name = pe_name
         sbatch_found, squeue_found = False, False
         
         for d in os.environ["PATH"].split(":"):
@@ -276,8 +286,10 @@ class Slurm(JobManager):
 
         script_name = j.script_name
         wdir = j.wdir
-
-        cmd = "sbatch -c %d %s" % (j.nproc, script_name)
+        partition = ""
+        if self.pe_name != "default" and self.pe_name != "par":
+            partition = f"-p {self.pe_name}"
+        cmd = "sbatch %s -c %d %s" % (partition, j.nproc, script_name)
 
         p = subprocess.Popen(cmd, shell=True, cwd=wdir, 
                              stdout=subprocess.PIPE, universal_newlines=True)
@@ -316,7 +328,7 @@ class Slurm(JobManager):
     def qstat(self, job_id):
         cmd = "squeue --job %s" % job_id
         p = subprocess.Popen(cmd, shell=True,
-                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True)
+                             stdout=subprocess.PIPE, universal_newlines=True)
         p.wait()
         stdout = p.stdout.read()
 
@@ -399,29 +411,49 @@ class Job(object):
     # write_script()
 
 # class Job
+class AutoJobManager(JobManager):
+    def __init__(self, pe_name="default"):
+        engine = detect_engine()
+        if engine == "sge":
+            SGE.__init__(self)
+            self.qstat = SGE.qstat
+            self.submit = SGE.submit
+            self.update_state = SGE.update_state
+            self.qstat = SGE.qstat
+            self.stop_all = SGE.stop_all
+            self.qdel = SGE.qdel
+        elif engine == "slurm":
+            Slurm.__init__(self)
+            self.qstat = Slurm.qstat
+            self.submit = Slurm.submit
+            self.update_state = Slurm.update_state
+            self.qstat = Slurm.qstat
+            self.stop_all = Slurm.stop_all
+            self.qdel = Slurm.qdel
+        else:
+            ExecLocal.__init__(self)
+            self.qstat = ExecLocal.qstat
+            self.submit = ExecLocal.submit
+            self.update_state = ExecLocal.update_state
+            self.qstat = ExecLocal.qstat
+            self.stop_all = ExecLocal.stop_all
+            self.qdel = ExecLocal.qdel
+        
+        
 
-def auto_engine():
-    engine = detect_engine()
-    if engine == "pbs" or engine == "sge" or engine == "slurm":
-        return "sge"
-    else:
-        return engine
 
 def detect_engine():
-    try:
-        proc = subprocess.check_output(["squeue", "--help"], stderr=subprocess.PIPE)
+    if shutil.which("squeue") and shutil.which("sbatch"):
         print("slurm detected. batch.engine=slurm")
         return "slurm"
-    except:
-        try:
-            proc = subprocess.check_output(["qstat", "-help"], stderr=subprocess.PIPE)
-            if " -pe " in proc:
-                return "sge"
-                print("sge detected. batch.engine=sge ")
-            else:
-                print("pbs detected. batch.engine=pbs ")
-                return "pbs"
-        except Exception as e:
-            print("job scheduler was not found. batch.engine=sh")
-            return "sh"
-
+    elif shutil.which("qstat"):
+        proc = subprocess.check_output(["qstat", "-help"], stderr=subprocess.PIPE)
+        if " -pe " in proc:
+            print("sge detected. batch.engine=sge ")
+            return "sge"
+        else:
+            print("pbs detected. batch.engine=pbs ")
+            return "pbs"
+    print("job scheduler was not found. batch.engine=sh")
+    return "sh"
+    

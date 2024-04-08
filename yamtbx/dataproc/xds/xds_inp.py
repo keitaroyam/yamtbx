@@ -136,7 +136,6 @@ def generate_xds_inp(img_files, inp_dir, use_dxtbx=False, anomalous=True,
 
     friedel = "FALSE" if anomalous else "TRUE"
     is_pilatus_or_eiger = False
-
     img_files_existed = [x for x in img_files if os.path.isfile(x)]
     if not img_files_existed: raise Exception("No actual images found.")
 
@@ -229,6 +228,7 @@ PILATUS 2M, S/N 24-0109
             detector = "EIGER MINIMUM_VALID_PIXEL_VALUE=0 OVERLOAD= %d" % im.header["Overload"]
             sensor_thickness = im.header["SensorThickness"]
             is_pilatus_or_eiger = True
+            is_eiger = True
 
         inp_str += """\
  ORGX= %(orgx).2f ORGY= %(orgy).2f
@@ -297,6 +297,10 @@ PILATUS 2M, S/N 24-0109
 !REFINE(CORRECT)=CELL BEAM ORIENTATION AXIS DISTANCE POSITION
 """ % dict(sgnum=sgnum, cell=cell_str)
 
+    if is_eiger_hdf5 and os.path.exists("/usr/local/lib64/dectris-neggia.so"):
+        inp_str += """\
+ LIB=/usr/local/lib64/dectris-neggia.so
+"""
     if is_pilatus_or_eiger:
         inp_str += """\
  SEPMIN=4 CLUSTER_RADIUS=2
