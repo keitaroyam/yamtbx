@@ -180,7 +180,7 @@ def run_xds(wdir, comm="xds_par", show_progress=True):
 
     log_raw = open(os.path.join(wdir, "xds_raw_output.log"), "a")
     if show_progress:
-        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env, universal_newlines=True)
+        p = subprocess.Popen(comm, cwd=wdir, stdout=subprocess.PIPE,  env=env, universal_newlines=True)
         read_mosaicity_flag = False
         mosaicity_sofar = []
         for l in iter(p.stdout.readline,''):
