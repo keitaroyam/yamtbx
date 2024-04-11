@@ -271,6 +271,20 @@ def read_override_config(imgdir):
     return ret
 # read_override_config()
 
+# modified wx scroll panel error on wx version 4.1.1
+if wx.__version__ == "4.1.1":
+    OrgScrollChildIntoView = wx.lib.scrolledpanel.ScrolledPanel.ScrollChildIntoView
+    def ModScrollChildIntoView(self, child):
+        orgScroll = self.Scroll
+        def ModScroll(new_x, new_y):
+            orgScroll(int(new_x), int(new_y))
+            self.Scroll = orgScroll
+        self.Scroll = ModScroll
+        OrgScrollChildIntoView(self,child)
+        self.Scroll = orgScroll
+    wx.lib.scrolledpanel.ScrolledPanel.ScrollChildIntoView = ModScrollChildIntoView
+
+
 class BssJobs(object):
     def __init__(self):
         self.jobs = {} # { (path+prefix, number range) as key: }
@@ -1633,10 +1647,7 @@ class ResultLeftPanel(wx.Panel):
 
 class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be ScrolledPanel?? (On Mac, Panel is OK, but not works on Linux..)
     def __init__(self, parent=None, id=wx.ID_ANY, nplots=4):
-        if wx.__version__ == "4.1.1":
-            wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400.0,1200.0))
-        else:
-            wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400,1200))
+        wx.lib.scrolledpanel.ScrolledPanel.__init__(self, parent=parent, id=id, size=(400, 1200))
         vbox = wx.BoxSizer(wx.VERTICAL)
         self.SetSizer(vbox)
         self.figure = matplotlib.figure.Figure(tight_layout=True)
@@ -1646,7 +1657,6 @@ class PlotPanel(wx.lib.scrolledpanel.ScrolledPanel): # Why this needs to be Scro
         
         self.canvas = matplotlib.backends.backend_wxagg.FigureCanvasWxAgg(self, wx.ID_ANY, self.figure)
         vbox.Add(self.canvas, 1, flag=wx.ALL|wx.EXPAND)
-    # __init__
 
     """
     def _SetSize(self):
@@ -1704,7 +1714,6 @@ class ResultRightPanel(wx.Panel):
 
         self.notebook = wx.Notebook(self, id=wx.ID_ANY, style=wx.BK_DEFAULT)
         vbox.Add(self.notebook, 1, wx.ALL|wx.EXPAND, 5)
-
         self.plotsPanel = wx.lib.scrolledpanel.ScrolledPanel(self.notebook)
         self.plotsPanel.SetupScrolling()
         self.logPanel = wx.Panel(self.notebook)
@@ -1860,7 +1869,6 @@ class MainFrame(wx.Frame):
         self.Bind(EVT_LOGS_UPDATED, self.ctrlPanel.on_update)
         if config.params.jobspkl is not None: config.params.logwatch_once = True
         self.watch_log_thread.start(config.params.logwatch_interval)
-
         self.Show()
     # __init__()
 
