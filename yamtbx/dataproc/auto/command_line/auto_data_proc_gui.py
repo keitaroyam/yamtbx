@@ -132,7 +132,7 @@ small_wedges = true
  .help = Optimized for small wedge data processing
 
 batch {
- engine = sge pbs *slurm sh auto
+ engine = sge pbs slurm sh *auto
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
@@ -2017,8 +2017,11 @@ This is an alpha-version. If you found something wrong, please let staff know! W
                                                                    prefix="")
     mylog.info("GUI parameters were saved as %s" % savephilpath)
 
-    if config.params.batch.engine == "auto":
-        config.params.batch.engine = batchjob.AutoJobManager()
+    if config.params.batch.engine == "auto" or str(config.params.batch.engine) == "Auto":
+        try:
+            batchjobs = batchjob.AutoJobManager()
+        except batchjob.SlurmError as e:
+            mylog.error(str(e))
     elif config.params.batch.engine == "sge":
         try:
             batchjobs = batchjob.SGE(pe_name=config.params.batch.sge_pe_name)
@@ -2031,7 +2034,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
             batchjobs = batchjob.Slurm(pe_name=config.params.batch.sge_pe_name)
         except batchjob.SlurmError as e:
             mylog.error(str(e))
-            mylog.error("SGE not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")
+            mylog.error("Slurm not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")
             return
 
     elif config.params.batch.engine == "sh":
