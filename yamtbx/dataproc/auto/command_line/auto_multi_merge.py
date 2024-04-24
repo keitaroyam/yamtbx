@@ -100,6 +100,9 @@ batch {
  sh_max_jobs = 1
   .type = int
   .help = maximum number of concurrent jobs when engine=sh
+ mem_per_cpu = default
+  .type = str
+  .help = mem_per_cpu (slurm --mem option)
 }
 """ % multi_merge.master_params_str
 
@@ -446,9 +449,9 @@ def run(params):
 
     print("----------- engine ------" ,params.batch.engine)
     if params.batch.engine == "auto":
-        params.batch.engine = batchjob.AutoJobManager()
+        params.batch.engine = batchjob.AutoJobManager(pe_name=params.batch.sge_pe_name, mem_per_cpu=params.batch.mem_per_cpu)
     elif params.batch.engine == "slurm":
-        batchjobs = batchjob.Slurm(pe_name=params.batch.sge_pe_name)
+        batchjobs = batchjob.Slurm(pe_name=params.batch.sge_pe_name, mem_per_cpu=params.batch.mem_per_cpu)
     elif params.batch.engine == "sge":
         batchjobs = batchjob.SGE(pe_name=params.batch.sge_pe_name)
     elif params.batch.engine == "sh":

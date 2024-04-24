@@ -143,6 +143,9 @@ batch {
  sh_max_jobs = Auto
   .type = int
   .help = maximum number of concurrent jobs when engine=sh
+ mem_per_cpu = default
+  .type = str
+  .help = mem_per_cpu (slurm --mem option)
 }
 
 use_tmpdir_if_available = true
@@ -2019,7 +2022,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
 
     if config.params.batch.engine == "auto" or str(config.params.batch.engine) == "Auto":
         try:
-            batchjobs = batchjob.AutoJobManager()
+            batchjobs = batchjob.AutoJobManager(pe_name=config.params.batch.sge_pe_name, mem_per_cpu=config.params.batch.mem_per_cpu)
         except batchjob.SlurmError as e:
             mylog.error(str(e))
     elif config.params.batch.engine == "sge":
@@ -2031,7 +2034,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
             return
     elif config.params.batch.engine == "slurm":
         try:
-            batchjobs = batchjob.Slurm(pe_name=config.params.batch.sge_pe_name)
+            batchjobs = batchjob.Slurm(pe_name=config.params.batch.sge_pe_name, mem_per_cpu=config.params.batch.mem_per_cpu)
         except batchjob.SlurmError as e:
             mylog.error(str(e))
             mylog.error("Slurm not configured. If you want to run KAMO on your local computer only (not to use queueing system), please specify batch.engine=sh")
