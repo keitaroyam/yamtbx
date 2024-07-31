@@ -64,7 +64,7 @@ def import_geometry(xds_inp=None, dials_json=None):
 # import_geometry()
 
 def read_geometry_using_dxtbx(img_file):
-    import dxtbx.datablock
+    from dxtbx.model.experiment_list import ExperimentListFactory
     import dxtbx.serialize.xds
 
     geom_kwds = set(["DIRECTION_OF_DETECTOR_X-AXIS", "DIRECTION_OF_DETECTOR_Y-AXIS",
@@ -76,8 +76,8 @@ def read_geometry_using_dxtbx(img_file):
                      "DIRECTION_OF_SEGMENT_Y-AXIS", "SEGMENT_DISTANCE",
                      "SEGMENT_ORGX", "SEGMENT_ORGY"])
 
-    datablocks = dxtbx.datablock.DataBlockFactory.from_filenames([img_file])
-    to_xds = dxtbx.serialize.xds.to_xds(datablocks[0].extract_sweeps()[0])
+    experiments = ExperimentListFactory.from_filenames([img_file])
+    to_xds = dxtbx.serialize.xds.to_xds(experiments[0].imageset)
     inp = get_xdsinp_keyword(inp_str=to_xds.XDS_INP())
     inp = [x for x in inp if x[0] in geom_kwds]
     return to_xds, [" %s= %s"%x for x in inp]
