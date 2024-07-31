@@ -107,7 +107,7 @@ batch {
 """ % multi_merge.master_params_str
 
 def read_sample_info(csvin, datadir=None):
-    reader = csv.reader(open(csvin, "rU"))
+    reader = csv.reader(open(csvin, "r"))
     header = [x.strip().lower() for x in next(reader)]
     hidxes = dict([(x[1],x[0]) for x in enumerate(header)])
     puck_flag = set(["uname","puck","pin","name"]).issubset(header)
