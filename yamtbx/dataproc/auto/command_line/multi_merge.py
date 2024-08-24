@@ -224,7 +224,7 @@ batch {
  par_run = *deltacchalf merging
   .type = choice(multi=True)
   .help = What to run in parallel
- engine = *sge pbs slurm sh auto
+ engine = sge pbs slurm *sh auto
   .type = choice(multi=False)
  sge_pe_name = par
   .type = str
