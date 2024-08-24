@@ -14,6 +14,10 @@ class InitLp(object):
                 flag = "gain"
             elif l.startswith(" FRAME #    SCALE     COUNTS     MBKG    MSCALE      MSPOT"):
                 flag = "bkginit"
+            elif l.startswith("  FRAME#     SCALE     BACKGND       GAIN     #PIXEL"):
+                # From ver Version June 30, 2024
+                # number of items has changed, but we only need first and third items..
+                flag = "bkginit2"
             elif flag == "gain":
                 try:
                     frame, gain, mgain = l.split()
@@ -27,6 +31,12 @@ class InitLp(object):
                     self.bkginit_table.append([frame, scale, counts, mbkg, mscale, mspot])
                 except:
                     continue
+            elif flag == "bkginit2":
+                try:
+                    frame, scale, counts, gain, npix = l.split()
+                    self.bkginit_table.append([int(frame), float(scale), float(counts), float(gain), int(npix)])
+                except:
+                    continue            
             elif "NUMBER OF GAIN VALUES IN TABLE" in l:
                 flag = None
             elif "NUMBER OF PIXELS USED FOR DATA COLLECTION" in l:
