@@ -179,7 +179,7 @@ class CCClustering(object):
         ofs = open("%s.dat"%prefix, "w")
         ofs.write("   i    j      cc  nref\n")
         for (i,j), (cc,nref) in zip(args, results):
-            ofs.write("%4d %4d % .4f %4d\n" % (i,j,cc,nref))
+            ofs.write("%4d %4d %13.11f %4d\n" % (i,j,cc,nref))
             self.all_cc[(i,j)] = cc
             if i not in remove_idxes and j not in remove_idxes:
                 mat[org2now[j], org2now[i]] = cc_to_distance(min(cc, 1.)) #numpy.sqrt(1.-min(cc, 1.)) # safety guard (once I encounterd..
