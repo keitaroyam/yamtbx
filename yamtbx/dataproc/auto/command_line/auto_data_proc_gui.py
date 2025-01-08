@@ -214,6 +214,9 @@ xds {
    .type = floats(size=3)
    .help = "override ROTATION_AXIS= "
  }
+ lib = None
+  .type = path
+  .help = "LIB= for XDS.INP"
 }
 
 dials {
@@ -669,7 +672,8 @@ class BssJobs(object):
                                               fstart=nr[0], fend=nr[1],
                                               extra_kwds=config.params.xds.ex,
                                               overrides=self.xds_inp_overrides,
-                                              fix_geometry_when_overridden=config.params.xds.override.fix_geometry_when_reference_provided)
+                                              fix_geometry_when_overridden=config.params.xds.override.fix_geometry_when_reference_provided,
+                                              lib=config.params.xds.lib)
         open(os.path.join(workdir, "XDS.INP"), "w").write(xdsinp_str)
 
         opts = ["multiproc=false", "topdir=.", "nproc=%d"%config.params.batch.nproc_each, "tryhard=true",

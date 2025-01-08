@@ -90,7 +90,8 @@ def generate_xds_inp(img_files, inp_dir, use_dxtbx=False, anomalous=True,
                      osc_range=None, orgx=None, orgy=None, rotation_axis=None, distance=None,
                      wavelength=None,
                      minpk=None, exclude_resolution_range=None,
-                     fstart=None, fend=None, extra_kwds=None, overrides=None, fix_geometry_when_overridden=False):
+                     fstart=None, fend=None, extra_kwds=None, overrides=None, fix_geometry_when_overridden=False,
+                     lib=None):
     """
     Reference: http://strucbio.biologie.uni-konstanz.de/xdswiki/index.php/Generate_XDS.INP
     """
@@ -357,4 +358,6 @@ PILATUS 2M, S/N 24-0109
             inp_str += " REFINE(IDXREF)= CELL ORIENTATION ! BEAM AXIS DISTANCE POSITION\n"
             inp_str += " REFINE(INTEGRATE)= CELL ORIENTATION ! DISTANCE POSITION BEAM AXIS\n"
 
+    if lib:
+        inp_str += " LIB= %s\n" % lib
     return inp_str
