@@ -53,7 +53,7 @@ import pickle
 import glob
 import threading
 import traceback
-import pipes
+import shlex
 import copy
 
 EventShowProcResult, EVT_SHOW_PROC_RESULT = wx.lib.newevent.NewEvent()
@@ -2019,7 +2019,7 @@ This is an alpha-version. If you found something wrong, please let staff know! W
     savephilpath = os.path.join(config.params.workdir, time.strftime("gui_params_%y%m%d-%H%M%S.txt"))
     with open(savephilpath, "w") as ofs:
         ofs.write("# Command-line args:\n")
-        ofs.write("# kamo %s\n\n" % " ".join([pipes.quote(x) for x in argv]))
+        ofs.write("# kamo %s\n\n" % " ".join([shlex.quote(x) for x in argv]))
         libtbx.phil.parse(gui_phil_str).format(config.params).show(out=ofs,
                                                                    prefix="")
     mylog.info("GUI parameters were saved as %s" % savephilpath)

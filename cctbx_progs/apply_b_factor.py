@@ -47,7 +47,7 @@ def run(mtz, bs):
         labels = ["H", "K", "L"]
         
         for i, ar in enumerate(miller_arrays):
-            fake_label = 2 * string.uppercase[i]
+            fake_label = 2 * string.ascii_uppercase[i]
             for lab in guess_array_output_labels(ar):
                 labels.append(lab)
             array_types = get_original_array_types(mtz_file, ar.info().labels)

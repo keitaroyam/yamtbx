@@ -288,7 +288,7 @@ class Image(object):
 
         # Test to identify miniCIF (PILATUS)
         elif self.rawHead[0:7] == b"###CBF:" and \
-                (self.rawHead.count(b"PILATUS") or self.rawHead.count(b"Eiger")):
+                (self.rawHead.count(b"PILATUS") or self.rawHead.count(b"Eiger") or self.rawHead.count(b"EIGER")):
             self.type = "minicbf"
             return self.type
 
