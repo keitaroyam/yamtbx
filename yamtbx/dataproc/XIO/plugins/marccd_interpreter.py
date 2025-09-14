@@ -49,7 +49,7 @@ def get_serial(comment):
     for line in comment.splitlines():
         if line.lower().count(b"serial"):
             try:
-                return line.split()[-1]
+                return line.split()[-1].decode()
             except:
                 return 'unknown'
 
