@@ -24,7 +24,7 @@ class reader(object):
         assert len(set(["H","K","L"]).intersection(set(read_columns))) == 0
 
         read_data_flag = False
-        re_column_info = re.compile("[A-Z],[A-Z]")
+        re_column_info = re.compile(r"[A-Z],[A-Z]")
         column_names = []
         read_indices = []
 

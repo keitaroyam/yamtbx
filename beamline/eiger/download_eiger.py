@@ -92,7 +92,7 @@ def put_reversephi_info(h5):
         ds = grp["omega"]
 
     fw_ver = h5["/entry/instrument/detector/detectorSpecific/eiger_fw_version"][()].decode()
-    r = re.search("release-([0-9\.]+)", fw_ver)
+    r = re.search(r"release-([0-9\.]+)", fw_ver)
     if r and [int(x) for x in r.group(1).split(".")] >= [2022,1,2]:
         print("   Newer firmware. Don't put omega vector")
     else:
@@ -187,7 +187,7 @@ def check_files(e, prefix, bssid):
         pass
     pre = bssid + prefix if bssid else prefix
 
-    files = [x for x in files if re.search("^"+re.escape(pre)+"_master\.h5$", x) or re.search("^"+re.escape(pre)+"_data_[0-9]+\.h5$", x)]
+    files = [x for x in files if re.search(r"^"+re.escape(pre)+r"_master\.h5$", x) or re.search(r"^"+re.escape(pre)+r"_data_[0-9]+\.h5$", x)]
     return files
 # check_files()
 

@@ -44,13 +44,13 @@ class ScanInfo(object):
 
     def match_file_with_template(self, filename):
         tmpl = os.path.basename(self.filename_template)
-        re_tmpl = re.compile("^" + re.escape(tmpl).replace("\\?","[0-9]") + "$")
+        re_tmpl = re.compile(r"^" + re.escape(tmpl).replace("\\?","[0-9]") + "$")
         return re_tmpl.search(os.path.basename(filename)) is not None
     # match_file_with_template()
 
     def get_file_number_based_on_template(self, filename):
         tmpl = os.path.basename(self.filename_template)
-        re_tmpl = re.compile("^" + re.escape(tmpl).replace("\\?","[0-9]").replace("[0-9]","([0-9])").replace(")(","") + "$")
+        re_tmpl = re.compile(r"^" + re.escape(tmpl).replace("\\?","[0-9]").replace("[0-9]","([0-9])").replace(")(","") + "$")
         return re_tmpl.search(os.path.basename(filename))
     # get_file_number_based_on_template()
 
@@ -70,17 +70,17 @@ class BssDiffscanLog(object):
     # __init__()
 
     def parse(self):
-        re_scanstart = re.compile("Diffraction scan \(([0-9A-Za-z/:\[\] ]+)\)")
-        re_nums = re.compile("([0-9]+) +([\-0-9\.]+|dummy) +([\-0-9\.]+|dummy) +([\-0-9\.]+|dummy)")
-        re_point_step = re.compile("point: *([0-9]+) *step: *([0-9\.]+)")
-        re_osc = re.compile("Oscillation start: ([-0-9\.]+) \[deg\], step: ([-0-9\.]+) \[deg\]")
-        re_att = re.compile("Attenuator: +([^ ]+) +([0-9]+)um")
-        re_att2 = re.compile("Attenuator transmission: +([^ ]+) +\(([^ ]+) attenuator: ([0-9]+)\[um\]\)")
-        re_exp = re.compile("Exp\. time: ([\.0-9]+) ")
-        re_beam = re.compile("hor\. beam size: +([\.0-9]+)\[um\], ver\. beamsize: +([\.0-9]+)\[um\]") # old bss, wrong (need to swap h/v)
-        re_beam2 = re.compile("horizontal size: +([\.0-9]+)\[um\], vertical size: +([\.0-9]+)\[um\]") # new bss (2015-Apr), correct
-        re_fixed_spindle = re.compile("Fixed spindle angle: ([-0-9\.]+) \[deg\]")
-        re_frame_rate = re.compile("Frame rate: ([-0-9\.]+) \[frame/s\]")
+        re_scanstart = re.compile(r"Diffraction scan \(([0-9A-Za-z/:\[\] ]+)\)")
+        re_nums = re.compile(r"([0-9]+) +([\-0-9\.]+|dummy) +([\-0-9\.]+|dummy) +([\-0-9\.]+|dummy)")
+        re_point_step = re.compile(r"point: *([0-9]+) *step: *([0-9\.]+)")
+        re_osc = re.compile(r"Oscillation start: ([-0-9\.]+) \[deg\], step: ([-0-9\.]+) \[deg\]")
+        re_att = re.compile(r"Attenuator: +([^ ]+) +([0-9]+)um")
+        re_att2 = re.compile(r"Attenuator transmission: +([^ ]+) +\(([^ ]+) attenuator: ([0-9]+)\[um\]\)")
+        re_exp = re.compile(r"Exp\. time: ([\.0-9]+) ")
+        re_beam = re.compile(r"hor\. beam size: +([\.0-9]+)\[um\], ver\. beamsize: +([\.0-9]+)\[um\]") # old bss, wrong (need to swap h/v)
+        re_beam2 = re.compile(r"horizontal size: +([\.0-9]+)\[um\], vertical size: +([\.0-9]+)\[um\]") # new bss (2015-Apr), correct
+        re_fixed_spindle = re.compile(r"Fixed spindle angle: ([-0-9\.]+) \[deg\]")
+        re_frame_rate = re.compile(r"Frame rate: ([-0-9\.]+) \[frame/s\]")
 
         self.scans = []
         self.filename_gonio_gc = OrderedDict()
@@ -88,7 +88,7 @@ class BssDiffscanLog(object):
         for l in open(self.scanlog):
             r_scanstart = re_scanstart.search(l)
             if r_scanstart:
-                datestr = re.sub("\[[A-Za-z]+\] ", "", r_scanstart.group(1))
+                datestr = re.sub(r"\[[A-Za-z]+\] ", "", r_scanstart.group(1))
                 if datestr.count(":") == 3: datestr = datestr[:datestr.rindex(":")] # from bss jan29-2015, millisec time is recorded; but we discard it here.
                 date = datetime.datetime.strptime(datestr, "%Y/%m/%d %H:%M:%S")
                 self.scans.append(ScanInfo())
@@ -354,21 +354,21 @@ class ImageStatus(object):
 # class ImageStatus
 
 
-re_sample = re.compile("Tray:(.*), Well:([0-9]+)")
-re_scan = re.compile("scan_from = ([-0-9\.]+) *\[deg\], *scan_to = ([-0-9\.]+) *\[deg\], *scan_step = ([-0-9\.]+) *\[deg\]")
-re_advcen_mode = re.compile("mode = ([^ ]*), type = ([^ ]*)")
-re_advcen_pts = re.compile("adv_npoint = ([0-9]*), adv_step = ([0-9\.]*)\[mm\], adv_interval = ([0-9]*)")
-re_beam_size = re.compile("Beam shape = ([^ ]*), Beam size = ([0-9\.]*)\[um\] x ([0-9\.]*)\[um\] \(h x w\)")
-re_sampling = re.compile("sampling_interval = ([0-9]*), number_of_images = ([0-9]*) x ([0-9]*)")
-re_delay = re.compile("delay_time = ([0-9\.]*)\[msec\], cameralength = ([0-9\.]*)\[mm\], attenuator = (.*)")
-re_wavelen = re.compile("wavelength = ([0-9\.]*), expose_time = ([0-9\.]*)\[sec\]")
-re_gonio_center = re.compile("center #([0-9]*): +([-0-9\.]*) +([-0-9\.]*) +([-0-9\.]*)")
+re_sample = re.compile(r"Tray:(.*), Well:([0-9]+)")
+re_scan = re.compile(r"scan_from = ([-0-9\.]+) *\[deg\], *scan_to = ([-0-9\.]+) *\[deg\], *scan_step = ([-0-9\.]+) *\[deg\]")
+re_advcen_mode = re.compile(r"mode = ([^ ]*), type = ([^ ]*)")
+re_advcen_pts = re.compile(r"adv_npoint = ([0-9]*), adv_step = ([0-9\.]*)\[mm\], adv_interval = ([0-9]*)")
+re_beam_size = re.compile(r"Beam shape = ([^ ]*), Beam size = ([0-9\.]*)\[um\] x ([0-9\.]*)\[um\] \(h x w\)")
+re_sampling = re.compile(r"sampling_interval = ([0-9]*), number_of_images = ([0-9]*) x ([0-9]*)")
+re_delay = re.compile(r"delay_time = ([0-9\.]*)\[msec\], cameralength = ([0-9\.]*)\[mm\], attenuator = (.*)")
+re_wavelen = re.compile(r"wavelength = ([0-9\.]*), expose_time = ([0-9\.]*)\[sec\]")
+re_gonio_center = re.compile(r"center #([0-9]*): +([-0-9\.]*) +([-0-9\.]*) +([-0-9\.]*)")
 
 def interpret_attenuator_label(label):
     if label == "None":
         return ("None", 0)
     elif "T=" in label:
-        r = re.search("([-A-Za-z0-9\. ]+)\[([a-z]+)\] \(T= *([-0-9\.]+)\)", label)
+        r = re.search(r"([-A-Za-z0-9\. ]+)\[([a-z]+)\] \(T= *([-0-9\.]+)\)", label)
         if r:
             unit = r.group(2)
             fac = 1.

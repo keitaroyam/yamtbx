@@ -167,13 +167,13 @@ created on %(cdate)s
                     symm_group_info += l
                     
                 if "group_choice=" in l:
-                    symm, cell = re.search("symmetry= ([^\(]+) \((.+)\)", l).groups()
+                    symm, cell = re.search(r"symmetry= ([^\(]+) \((.+)\)", l).groups()
 
         mrg_dirs = glob.glob(os.path.join(workdir, "*final/"))
         best_result_loc, best_table_snip = "N/A", ""
         if mrg_dirs:
             mrg_dir = mrg_dirs[0]
-            dmin = float(re.search("_([0-9\.]+)A_final/", mrg_dir).group(1))
+            dmin = float(re.search(r"_([0-9\.]+)A_final/", mrg_dir).group(1))
             cls_dat = glob.glob(os.path.join(mrg_dir, "*", "*_cluster_summary.dat"))[0]
             tmp = open(cls_dat).readlines()[3].split()
             cmpl, redun = float(tmp[3]), float(tmp[4])

@@ -9,7 +9,7 @@ from __future__ import unicode_literals
 import re, os, glob, shutil, random, string
 from yamtbx import util
 
-re_xds_kwd = re.compile("([^ =]+)= *((?:(?! [^ =]+=).)*)")
+re_xds_kwd = re.compile(r"([^ =]+)= *((?:(?! [^ =]+=).)*)")
 
 def get_xdsinp_keyword(xdsinp=None, inp_str=None):
     assert (xdsinp, inp_str).count(None) == 1
@@ -17,8 +17,8 @@ def get_xdsinp_keyword(xdsinp=None, inp_str=None):
     # Return the list of tuple (keyword, value) in XDS.INP
     #
 
-    #    re_kwd = re.compile("([^ =]+)=(.*)(?: [^ =]+=)")
-    #    re_kwd = re.compile("([^ =]+)=(.*)[^ =]+=")
+    #    re_kwd = re.compile(r"([^ =]+)=(.*)(?: [^ =]+=)")
+    #    re_kwd = re.compile(r"([^ =]+)=(.*)[^ =]+=")
 
     itr = open(xdsinp) if xdsinp else inp_str.splitlines()
 
@@ -132,7 +132,7 @@ def check_xds_version():
     # Copy licensed until 30-Sep-2020 to
 
 
-    r = re.search("VERSION (.*[0-9]) *BUILT=(.*)\)", out)
+    r = re.search(r"VERSION (.*[0-9]) *BUILT=(.*)\)", out)
     if r:
         ver, built = r.groups()
         return ver, built

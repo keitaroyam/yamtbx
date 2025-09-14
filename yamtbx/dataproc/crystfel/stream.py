@@ -64,7 +64,7 @@ import sys
 import numpy
 #import msgpack
 
-re_abcstar = re.compile("([-\+][0-9\.]+ )([-\+][0-9\.]+ )([-\+][0-9\.]+ )")
+re_abcstar = re.compile(r"([-\+][0-9\.]+ )([-\+][0-9\.]+ )([-\+][0-9\.]+ )")
 
 class Chunk(object):
     def __init__(self, read_reflections=True):        
@@ -309,7 +309,7 @@ class Streamfile(object):
     def read_file(self, strin):
         fin = open(strin)
         line = fin.readline()
-        format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
+        format_ver = re.search(r"CrystFEL stream format ([0-9\.]+)", line).group(1)
         print("# format version:", format_ver)
         assert format_ver == "2.2" # TODO support other version
 
@@ -354,7 +354,7 @@ def stream_iterator(stream, start_at=0, read_reflections=True):
         fin = open(stream)
 
     line = fin.readline()
-    format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
+    format_ver = re.search(r"CrystFEL stream format ([0-9\.]+)", line).group(1)
     print("# format version:", format_ver)
     assert float(format_ver) >= 2.2 # TODO support other version
     chunk = None

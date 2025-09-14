@@ -427,7 +427,7 @@ class ReportHTMLMakerThread(object):
             bf = os.path.basename(f)
             spots = dbspots[bf]["spots"]
             thumb_posmag = dbspots[bf]["thumb_posmag"]
-            r = re.search("^(.*)_([0-9]+)\.[^0-9]+$", bf)
+            r = re.search(r"^(.*)_([0-9]+)\.[^0-9]+$", bf)
             prefix, num = r.group(1), int(r.group(2))
             spot_data += '"%s":[[' % bf
             for y,x,snr,d in spots:
@@ -450,7 +450,7 @@ class ReportHTMLMakerThread(object):
         flag_tiled_jpg = False
         if glob.glob(os.path.join(wdir, "thumb_*")):
             for res in result:
-                r = re.search("^(.*)_([0-9]+)\.[^0-9]+$", os.path.basename(res[0]))
+                r = re.search(r"^(.*)_([0-9]+)\.[^0-9]+$", os.path.basename(res[0]))
                 prefix, num = r.group(1), int(r.group(2))
                 jd = os.path.join("thumb_%s_%.3d" % (prefix, num//1000))
                 if not os.path.exists(jd): flag_tiled_jpg = True  # THIS MAY CAUSE A PROBLEM..
@@ -1243,11 +1243,11 @@ class ControlPanel(wx.Panel):
 
         h5files = []
         for imgfile in list(self.mainFrame.data.keys()):
-            frameno = int(re.search(".*_([0-9]*)\..*$", imgfile).group(1))
+            frameno = int(re.search(r".*_([0-9]*)\..*$", imgfile).group(1))
             if os.path.isfile(imgfile):
                 ventilator_send.send_json(dict(imgfile=imgfile, idx=frameno))
             else:
-                h5master = re.sub("_[0-9]*\.img$", "_master.h5", imgfile) # XXX if binned?
+                h5master = re.sub(r"_[0-9]*\.img$", "_master.h5", imgfile) # XXX if binned?
                 if not os.path.isfile(h5master): continue
                 h5files.append(h5master)
 
@@ -1260,7 +1260,7 @@ class ControlPanel(wx.Panel):
                                          distance=float(h["Distance"]),
                                          wavelength=float(h["Wavelength"]),
                                          pixel_size_x=float(h["PixelX"]),
-                                         file_prefix=re.sub("_master.h5$","", os.path.basename(h5master)))
+                                         file_prefix=re.sub(r"_master.h5$","", os.path.basename(h5master)))
 
             for i in range(h["Nimages"]):
                 headers[h5master]["frame"] = i
@@ -2549,7 +2549,7 @@ class ImageResultPanel(wx.Panel):
                                                           os.path.basename(item.img_file)+ext) for ext in (".jpg",".png")]
             tiled_jpg = None
             prefix, num = None, None
-            r = re.search("^(.*)_([0-9]+)\.[^0-9]+$", os.path.basename(item.img_file))
+            r = re.search(r"^(.*)_([0-9]+)\.[^0-9]+$", os.path.basename(item.img_file))
             if r:
                 prefix, num = r.group(1), int(r.group(2))
                 possible_paths.append(os.path.join(os.path.dirname(item.img_file), "_spotfinder",
@@ -2770,12 +2770,12 @@ class MainFrame(wx.Frame):
         """
 
         # Hdf5 workaround
-        tmp = glob.glob(re.sub("_[0-9]*\.img$", "_master*.h5", imgfile)) # if binned, master_bin*.h5 exists instead.
+        tmp = glob.glob(re.sub(r"_[0-9]*\.img$", "_master*.h5", imgfile)) # if binned, master_bin*.h5 exists instead.
         print(tmp)
         if tmp and not os.path.isfile(imgfile):
             h5master = tmp[0]
             from yamtbx.dataproc import eiger
-            frameno = int(re.search(".*_([0-9]*)\.img$", imgfile).group(1))
+            frameno = int(re.search(r".*_([0-9]*)\.img$", imgfile).group(1))
             imgfile = os.path.join(tempfile.gettempdir(), "adxvtmp-%s-%s.cbf"%(getpass.getuser(), os.getpid()))
             eiger.extract_to_minicbf(h5master, frameno, imgfile)
 
@@ -3086,7 +3086,7 @@ Try restarting KUMA and SHIKA!
                     stat = Stat()
                     # extension should be always .img in shika.db if generated from EIGER stream
                     possible_imgfs = (imgf, os.path.splitext(imgf)[0] + ".img",
-                                      re.sub("(.*)_0([0-9]{6})\..*$", r"\1_\2.img", imgf), # too dirty fix!! for new bss which writes 7-digits filename..
+                                      re.sub(r"(.*)_0([0-9]{6})\..*$", r"\1_\2.img", imgf), # too dirty fix!! for new bss which writes 7-digits filename..
                                       )
                     imgfs_found = [x for x in possible_imgfs if x in results]
                     if not imgfs_found: continue
@@ -3141,8 +3141,8 @@ def run_from_args(argv):
     shikalog.info("Program started in %s." % os.getcwd())
 
     topdir = None
-    re_addr = re.compile("^[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}:[0-9]+$")
-    re_host = re.compile("^[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}$")
+    re_addr = re.compile(r"^[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}:[0-9]+$")
+    re_host = re.compile(r"^[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}\.[0-9]{,3}$")
 
     if gui_params.kuma_addr is not None:
         if not re_addr.search(gui_params.kuma_addr):

@@ -20,8 +20,8 @@ header example (Hlg):
  YMIN= 0.00042 YMAX= 0.15998 NYBIN=   20
 """
 
-re_x = re.compile("XMIN= *([0-9\.]+) *XMAX= *([0-9\.]+) *NXBIN= *([0-9]+)")
-re_y = re.compile("YMIN= *([0-9\.]+) *YMAX= *([0-9\.]+) *NYBIN= *([0-9]+)")
+re_x = re.compile(r"XMIN= *([0-9\.]+) *XMAX= *([0-9\.]+) *NXBIN= *([0-9]+)")
+re_y = re.compile(r"YMIN= *([0-9\.]+) *YMAX= *([0-9\.]+) *NYBIN= *([0-9]+)")
 
 def run(cbfin):
     header, data, nslow, nfast = cbf.load_xds_special(cbfin)

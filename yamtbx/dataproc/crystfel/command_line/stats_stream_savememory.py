@@ -109,7 +109,7 @@ def read_stream(stream, start_at=0):
     else:
         fin = open(stream)
     line = fin.readline()
-    format_ver = re.search("CrystFEL stream format ([0-9\.]+)", line).group(1)
+    format_ver = re.search(r"CrystFEL stream format ([0-9\.]+)", line).group(1)
     print("# format version:", format_ver)
     assert float(format_ver) >= 2.2 # TODO support other version
     chunk = None

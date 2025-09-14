@@ -330,9 +330,9 @@ class BssJobs(object):
                             os.path.relpath(key[0]+"_%d-%d"%key[1], config.params.topdir))
 
     def check_bss_log(self, date, daystart):
-        re_job_start = re.compile("Job ID ([0-9]+) start")
-        re_job_finish = re.compile("Job ID ([0-9]+) (Stopped|Success|Killed)")
-        re_prefix = re.compile("^(.*)_[x\?]+") # XXX Is this safe?
+        re_job_start = re.compile(r"Job ID ([0-9]+) start")
+        re_job_finish = re.compile(r"Job ID ([0-9]+) (Stopped|Success|Killed)")
+        re_prefix = re.compile(r"^(.*)_[x\?]+") # XXX Is this safe?
 
         self._prev_job_finished = False
 

@@ -14,7 +14,7 @@ from yamtbx.dataproc.xds.xparm import XPARM
 from yamtbx.dataproc.xds import get_xdsinp_keyword
 from cctbx import uctbx
 
-re_outof = re.compile("^ *([0-9]+) OUT OF *([0-9]+) SPOTS INDEXED.")
+re_outof = re.compile(r"^ *([0-9]+) OUT OF *([0-9]+) SPOTS INDEXED.")
 
 class IdxrefLp(object):
 

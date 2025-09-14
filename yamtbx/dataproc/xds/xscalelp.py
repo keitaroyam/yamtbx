@@ -14,7 +14,7 @@ from yamtbx.dataproc.xds import correctlp
 from yamtbx.dataproc import xds
 from yamtbx.dataproc import cbf
 
-re_data_info = re.compile("([0-9]+) *([-\.0-9E\+]+) * ([0-9]+) *([0-9]+) * ([^ ]*)")
+re_data_info = re.compile(r"([0-9]+) *([-\.0-9E\+]+) * ([0-9]+) *([0-9]+) * ([^ ]*)")
 
 def get_pairwise_correlations(lpin):
     read_flag = False
@@ -24,7 +24,7 @@ def get_pairwise_correlations(lpin):
             read_flag = True
         elif read_flag and l.strip() != "":
             sp = l.split()
-            if len(sp) != 6 or re.search("[A-Za-z]", l):
+            if len(sp) != 6 or re.search(r"[A-Za-z]", l):
                 break
 
             i, j, common_refs, corr, ratio, bfac = sp

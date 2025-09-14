@@ -19,7 +19,7 @@ import re
 import shlex
 
 # Cell parameters 4.89018 7.91817 8.63370 nm, 90.00000 90.00002 90.00002 deg
-re_cell = re.compile("([0-9\.]+) ([0-9\.]+) ([0-9\.]+) nm, ([0-9\.]+) ([0-9\.]+) ([0-9\.]+) deg")
+re_cell = re.compile(r"([0-9\.]+) ([0-9\.]+) ([0-9\.]+) nm, ([0-9\.]+) ([0-9\.]+) ([0-9\.]+) deg")
 
 def parse_table(tablein):
     lines = open(tablein).readlines()

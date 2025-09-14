@@ -41,7 +41,7 @@ log_out = None
 """
 
 def parse_logfile(logfile):
-    re_reso_cut = re.compile("CC1/2=([^ ]+) resolution for ([^ ]+): ([^ ]+) Angstrom")
+    re_reso_cut = re.compile(r"CC1/2=([^ ]+) resolution for ([^ ]+): ([^ ]+) Angstrom")
     ret = {}
     if not os.path.isfile(logfile): return ret
 

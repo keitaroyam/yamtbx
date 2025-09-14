@@ -24,8 +24,8 @@ import sys
 import re
 import glob
 
-re_data_h5 = re.compile("^(.+)_data_([0-9]+).h5$")
-re_eiger_h5 = re.compile("^(.+)_(master|data_([0-9]+)).h5$")
+re_data_h5 = re.compile(r"^(.+)_data_([0-9]+).h5$")
+re_eiger_h5 = re.compile(r"^(.+)_(master|data_([0-9]+)).h5$")
 logfile_name = None #"bl32xu_datasync.log"
 
 EventSyncError, EVT_SYNC_ERROR = wx.lib.newevent.NewEvent()

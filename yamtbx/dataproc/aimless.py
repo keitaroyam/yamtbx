@@ -61,9 +61,9 @@ def snip_summary(login):
 def read_summary(login):
     # Total, InnerShell, OuterShell
     read_3 = lambda l: (l[38:38+10], l[38+10:38+20], l[38+20:38+30])
-    re_read3_1 = re.compile("([-0-9]+\.[0-9]) *([-0-9]+\.[0-9]) *([-0-9]+\.[0-9])")
-    re_read3_2 = re.compile("([-0-9]+\.[0-9]{2}) *([-0-9]+\.[0-9]{2}) *([-0-9]+\.[0-9]{2})")
-    re_read3_3 = re.compile("([-0-9]+\.[0-9]{3}) *([-0-9]+\.[0-9]{3}) *([-0-9]+\.[0-9]{3})")
+    re_read3_1 = re.compile(r"([-0-9]+\.[0-9]) *([-0-9]+\.[0-9]) *([-0-9]+\.[0-9])")
+    re_read3_2 = re.compile(r"([-0-9]+\.[0-9]{2}) *([-0-9]+\.[0-9]{2}) *([-0-9]+\.[0-9]{2})")
+    re_read3_3 = re.compile(r"([-0-9]+\.[0-9]{3}) *([-0-9]+\.[0-9]{3}) *([-0-9]+\.[0-9]{3})")
     read_3_1 = lambda l: re_read3_1.search(l[38:]).groups()
     read_3_2 = lambda l: re_read3_2.search(l[38:]).groups()
     read_3_3 = lambda l: re_read3_3.search(l[38:]).groups()

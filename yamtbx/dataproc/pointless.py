@@ -13,7 +13,7 @@ from cctbx import crystal
 from yamtbx.dataproc.xds import xds_ascii
 
 pointless_comm = "pointless"
-re_cell = re.compile("([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) +([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9])")
+re_cell = re.compile(r"([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) +([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9]) *([0-9]+\.[0-9][0-9])")
 
 """
 Pointless's cell format
@@ -79,7 +79,7 @@ def parse_pointless_output_for_runs(output):
     lines = output.splitlines()
 
     # Possibly line is broken..?
-    re_run = re.compile("Run number: *([0-9]+) *consists of batches *([0-9]+) *to *([0-9]+)")
+    re_run = re.compile(r"Run number: *([0-9]+) *consists of batches *([0-9]+) *to *([0-9]+)")
     ret = []
 
     for i, l in enumerate(lines):

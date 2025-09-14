@@ -24,7 +24,7 @@ import iotbx.phil
 from yamtbx.dataproc import cbf
 
 def read_correct_lp(lpin):
-    re_x = re.compile("XMIN= *([0-9\.]+) XMAX= *([0-9\.]+) NXBIN= *([0-9]+)")
+    re_x = re.compile(r"XMIN= *([0-9\.]+) XMAX= *([0-9\.]+) NXBIN= *([0-9]+)")
     ret = [None, None, None, []] # [xmin, xmax, nxbin, [positions,..]]
     read_flag = False
 

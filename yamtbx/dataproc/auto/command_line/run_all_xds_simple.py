@@ -110,8 +110,8 @@ cell_prior {
 }
 """
 
-re_running_job = re.compile("\*\*\*\*\* ([^ ]*) \*\*\*\*\*")
-re_running_integrate = re.compile("PROCESSING OF IMAGES *([0-9]*) *\.\.\. *([0-9]*)")
+re_running_job = re.compile(r"\*\*\*\*\* ([^ ]*) \*\*\*\*\*")
+re_running_integrate = re.compile(r"PROCESSING OF IMAGES *([0-9]*) *\.\.\. *([0-9]*)")
 
 def find_mosaicity_for_image(line):
     if line[6:10] == "   0":

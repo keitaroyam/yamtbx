@@ -13,8 +13,8 @@ import traceback
 IMG_EXTENSIONS = ".img", ".osc", ".cbf", ".mccd", ".mar1600", "_master.h5"
 COMPRESS_EXTENSIONS = ".bz2", ".gz"
 
-re_pref_num_ext = re.compile("(.*[^0-9])([0-9]+)\.(.*)")
-re_pref_num = re.compile("(.*\.)([0-9]+)(\.)?((?(3).+))$") # .0001 style
+re_pref_num_ext = re.compile(r"(.*[^0-9])([0-9]+)\.(.*)")
+re_pref_num = re.compile(r"(.*\.)([0-9]+)(\.)?((?(3).+))$") # .0001 style
 
 def find_img_files(parentdir, recursive=True, skip_symlinks=False):
     """
@@ -22,8 +22,8 @@ def find_img_files(parentdir, recursive=True, skip_symlinks=False):
     @return image file names
     """
     matches = []
-    re_including_digits = re.compile("[0-9]")
-    re_noext = re.compile(".*\.[0-9]+(?:\.gz|\.bz2)?$")
+    re_including_digits = re.compile(r"[0-9]")
+    re_noext = re.compile(r".*\.[0-9]+(?:\.gz|\.bz2)?$")
     possible_extensions = tuple([ i+c for i in IMG_EXTENSIONS for c in COMPRESS_EXTENSIONS+("",) ])
 
     for root, dirnames, filenames in os.walk(parentdir, followlinks=not skip_symlinks):
@@ -93,7 +93,7 @@ def template_to_filenames(img_template, min_frame, max_frame):
 
     if "_??????.h5" in img_template: return [img_template.replace("_??????.h5", "_master.h5")]
 
-    re_var = re.compile("\?+")
+    re_var = re.compile(r"\?+")
 
     # like: "????"
     var = re_var.search(img_template).group()
@@ -345,7 +345,7 @@ def find_data_sets_from_dataset_paths_txt(input_file, include_dir=[], shorten_fr
         return nr1, nr2
     # shorten_frame_range_if_missing()
 
-    re_ds_num = re.compile("^(.*) *, *([0-9]+) *, *([0-9]+) *$")
+    re_ds_num = re.compile(r"^(.*) *, *([0-9]+) *, *([0-9]+) *$")
     ret = []
     
     for l in open(input_file):

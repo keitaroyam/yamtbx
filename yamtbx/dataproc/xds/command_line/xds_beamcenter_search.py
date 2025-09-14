@@ -38,7 +38,7 @@ import shutil
 import os
 
 def analyze_result(idxreflp):
-    re_outof = re.compile("^ *([0-9]+) OUT OF *([0-9]+) SPOTS INDEXED.")
+    re_outof = re.compile(r"^ *([0-9]+) OUT OF *([0-9]+) SPOTS INDEXED.")
     outof = [0,1]
 
     for l in open(idxreflp):

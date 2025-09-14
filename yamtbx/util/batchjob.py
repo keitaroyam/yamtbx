@@ -413,7 +413,7 @@ class Job(object):
 
     def write_script(self, script_text):
         env = ""
-        re_allowed_env = re.compile("^[a-zA-Z_][a-zA-Z0-9_]*$")
+        re_allowed_env = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
         if self.copy_environ:
             for k in os.environ:

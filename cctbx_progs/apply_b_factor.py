@@ -68,7 +68,7 @@ def run(mtz, bs):
 
         # Decide labels and write mtz file
         mtz_object = mtz_dataset.mtz_object()
-        invalid_chars = re.compile("[^A-Za-z0-9_\-+\(\)]")
+        invalid_chars = re.compile(r"[^A-Za-z0-9_\-+\(\)]")
 
         used = dict([ (label, 0) for label in labels ])
 

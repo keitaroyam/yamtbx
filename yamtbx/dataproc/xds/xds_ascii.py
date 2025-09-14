@@ -41,7 +41,7 @@ class XDS_ASCII(object):
             self.read_data()
 
     def read_header(self):
-        re_item = re.compile("!ITEM_([^=]+)=([0-9]+)")
+        re_item = re.compile(r"!ITEM_([^=]+)=([0-9]+)")
 
         colindex = {} # {"H":1, "K":2, "L":3, ...}
         nitemfound = 0

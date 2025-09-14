@@ -13,8 +13,8 @@ import sys
 float_or_1 = lambda x: (1,-1)[len(x)] if x == "" or x == "-" else float(x)
 
 class Sensor(object):
-    re_x = re.compile("([-0-9\.]*) *x")
-    re_y = re.compile("([-+0-9\.]*) *y")
+    re_x = re.compile(r"([-0-9\.]*) *x")
+    re_y = re.compile(r"([-+0-9\.]*) *y")
 
     def __init__(self, clen=None, res=None):
         for k in ("min_fs", "min_ss", "max_fs", "max_ss", "fs", "ss", "corner_x", "corner_y", "coffset"):

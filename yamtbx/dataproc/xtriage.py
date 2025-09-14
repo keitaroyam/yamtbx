@@ -30,7 +30,7 @@ class XtriageLogfile(object):
             elif l.strip() == "":
                 reading = ""
             elif reading == "B_cart":
-                r = re.search("^  \| ([123]) *\| *([-0-9\.]*) *\| ",l)
+                r = re.search(r"^  \| ([123]) *\| *([-0-9\.]*) *\| ",l)
                 if r:
                     Bs.append(float(r.group(2)))
                     if int(r.group(1)) == 3:

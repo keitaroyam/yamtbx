@@ -238,7 +238,7 @@ class MainFrame(wx.Frame):
 
     def set_h5file(self, f):
         if not f.endswith(("_master.h5", "_onlyhits.h5")):
-            r = re.search("(.*)_data_[0-9]+\.h5$", f)
+            r = re.search(r"(.*)_data_[0-9]+\.h5$", f)
             if not r:
                 wx.MessageDialog(None, "Choose master h5 file (*_master.h5) or Hit-only h5 file (*_onlyhits.h5)",
                                  "Error", style=wx.OK).ShowModal()
@@ -459,7 +459,7 @@ class MainFrame(wx.Frame):
             return
 
         latestfile = open(latestlog).read().strip()
-        latestfile = os.path.join(os.path.dirname(latestfile), re.sub("_[0-9]+\..*$", "_master.h5", os.path.basename(latestfile)))
+        latestfile = os.path.join(os.path.dirname(latestfile), re.sub(r"_[0-9]+\..*$", "_master.h5", os.path.basename(latestfile)))
 
         if not os.path.isfile(latestfile):
             wx.MessageDialog(None, "Latest file (%s) not found." % latestfile,

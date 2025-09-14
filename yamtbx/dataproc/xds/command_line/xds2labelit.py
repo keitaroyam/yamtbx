@@ -124,7 +124,7 @@ class XPARM_to_labelit(XPARM):
 # class XPARM_to_labelit
 
 def template_to_filename(img_template, iframe):
-    re_var = re.compile("\?+")
+    re_var = re.compile(r"\?+")
 
     # like: "????"
     var = re_var.search(img_template).group()

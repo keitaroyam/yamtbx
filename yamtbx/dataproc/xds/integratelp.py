@@ -56,16 +56,16 @@ class IntegrateLp(object):
     # __init__()
 
     def parse(self, int_lp):
-        re_im = re.compile("^ (.....)   0 +([0-9\.]+) +([0-9]+) +([0-9]+) +([0-9]+) +([0-9]+) +([0-9]+) +([0-9\.]+) +([0-9\.]+)")
-        re_cell = re.compile("^ UNIT CELL PARAMETERS *([0-9\.]+) *([0-9\.]+) *([0-9\.]+) *([0-9\.]+) *([0-9\.]+) *([0-9\.]+)")
-        re_rotation = re.compile("^ CRYSTAL ROTATION OFF FROM INITIAL ORIENTATION *([-0-9\.]+) *([-0-9\.]+) *([-0-9\.]+)") #
-        re_mosaicity = re.compile("^ CRYSTAL MOSAICITY \(DEGREES\) *([0-9\.]+)") #
-        re_axis = re.compile("^ LAB COORDINATES OF ROTATION AXIS *([-0-9\.]+) *([-0-9\.]+) *([-0-9\.]+)") #
-        re_beam = re.compile("^ DIRECT BEAM COORDINATES \(REC\. ANGSTROEM\) *([-0-9\.]+) *([-0-9\.]+) *([-0-9\.]+)") #
-        re_dist = re.compile("^ CRYSTAL TO DETECTOR DISTANCE \(mm\) *([-0-9\.]+)")
-        re_dev_spot = re.compile("^ STANDARD DEVIATION OF SPOT    POSITION \(PIXELS\) *([0-9\.]+)")
-        re_dev_spindle = re.compile("^ STANDARD DEVIATION OF SPINDLE POSITION \(DEGREES\) *([0-9\.]+)")
-        re_orig = re.compile("^ DETECTOR ORIGIN \(PIXELS\) AT *([0-9\.]+) *([0-9\.]+)")
+        re_im = re.compile(r"^ (.....)   0 +([0-9\.]+) +([0-9]+) +([0-9]+) +([0-9]+) +([0-9]+) +([0-9]+) +([0-9\.]+) +([0-9\.]+)")
+        re_cell = re.compile(r"^ UNIT CELL PARAMETERS *([0-9\.]+) *([0-9\.]+) *([0-9\.]+) *([0-9\.]+) *([0-9\.]+) *([0-9\.]+)")
+        re_rotation = re.compile(r"^ CRYSTAL ROTATION OFF FROM INITIAL ORIENTATION *([-0-9\.]+) *([-0-9\.]+) *([-0-9\.]+)") #
+        re_mosaicity = re.compile(r"^ CRYSTAL MOSAICITY \(DEGREES\) *([0-9\.]+)") #
+        re_axis = re.compile(r"^ LAB COORDINATES OF ROTATION AXIS *([-0-9\.]+) *([-0-9\.]+) *([-0-9\.]+)") #
+        re_beam = re.compile(r"^ DIRECT BEAM COORDINATES \(REC\. ANGSTROEM\) *([-0-9\.]+) *([-0-9\.]+) *([-0-9\.]+)") #
+        re_dist = re.compile(r"^ CRYSTAL TO DETECTOR DISTANCE \(mm\) *([-0-9\.]+)")
+        re_dev_spot = re.compile(r"^ STANDARD DEVIATION OF SPOT    POSITION \(PIXELS\) *([0-9\.]+)")
+        re_dev_spindle = re.compile(r"^ STANDARD DEVIATION OF SPINDLE POSITION \(DEGREES\) *([0-9\.]+)")
+        re_orig = re.compile(r"^ DETECTOR ORIGIN \(PIXELS\) AT *([0-9\.]+) *([0-9\.]+)")
 
         images = [] # as key of params
         self.cell_changes = []

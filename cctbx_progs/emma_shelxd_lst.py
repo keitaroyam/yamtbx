@@ -14,7 +14,7 @@ import sys, os, re
 def get_emma_models_from_lst(file_name, crystal_symmetry):
   read_flag = False
   positions = []
-  re_lst_header = re.compile("Try  *([0-9]+), CPU  *([0-9]+), CC All/Weak  *([-0-9\.]+)  */  *([-0-9\.]+)")
+  re_lst_header = re.compile(r"Try  *([0-9]+), CPU  *([0-9]+), CC All/Weak  *([-0-9\.]+)  */  *([-0-9\.]+)")
   
   for l in open(file_name):
     if l.startswith("    x       y       z"):
